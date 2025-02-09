@@ -1,7 +1,22 @@
-export * from '@guiiai/logg';
+import { setGlobalLogLevel, LogLevel, setGlobalFormat, Format, useLogg } from '@guiiai/logg';
 import { initTRPC, TRPCError } from '@trpc/server';
 import { ZodError, z } from 'zod';
 import { observable } from '@trpc/server/observable';
+
+function initLogger() {
+  setGlobalLogLevel(LogLevel.Debug);
+  setGlobalFormat(Format.Pretty);
+  const logger = useLogg("logger").useGlobalConfig();
+  logger.log("Logger initialized");
+}
+function useLogger() {
+  const stack = new Error("logger").stack;
+  const caller = stack?.split("\n")[2];
+  const match = caller?.match(/\/([^/]+)\/([^/]+?)\.[jt]s/);
+  const dirName = match?.[1] || "unknown";
+  const fileName = match?.[2] || "unknown";
+  return useLogg(`${dirName}/${fileName}`).useGlobalConfig();
+}
 
 const t = initTRPC.context().create({
   errorFormatter({ shape, error }) {
@@ -156,4 +171,4 @@ const appRouter = router({
   })
 });
 
-export { ChatSchema, ChatTypeEnum, FolderSchema, MessageSchema, MessageTypeEnum, SearchOptionsSchema, appRouter };
+export { ChatSchema, ChatTypeEnum, FolderSchema, MessageSchema, MessageTypeEnum, SearchOptionsSchema, appRouter, initLogger, useLogger };

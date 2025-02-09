@@ -1,7 +1,16 @@
-export * from '@guiiai/logg';
+import * as _guiiai_logg from '@guiiai/logg';
+import { useLogg } from '@guiiai/logg';
 import * as _trpc_server from '@trpc/server';
 import * as _trpc_server_dist_unstable_core_do_not_import from '@trpc/server/dist/unstable-core-do-not-import';
 import { z } from 'zod';
+
+type Logger = ReturnType<typeof useLogg>;
+declare function initLogger(): void;
+/**
+ * Get logger instance with directory name and filename
+ * @returns logger instance configured with "directoryName/filename"
+ */
+declare function useLogger(): _guiiai_logg.Logg;
 
 declare const appRouter: _trpc_server_dist_unstable_core_do_not_import.BuiltRouter<{
     ctx: any;
@@ -277,4 +286,4 @@ type Chat = z.infer<typeof ChatSchema>;
 type Folder = z.infer<typeof FolderSchema>;
 type SearchOptions = z.infer<typeof SearchOptionsSchema>;
 
-export { type AppRouter, type Chat, ChatSchema, type ChatType, ChatTypeEnum, type Folder, FolderSchema, type Message, MessageSchema, type MessageType, MessageTypeEnum, type SearchOptions, SearchOptionsSchema, appRouter };
+export { type AppRouter, type Chat, ChatSchema, type ChatType, ChatTypeEnum, type Folder, FolderSchema, type Logger, type Message, MessageSchema, type MessageType, MessageTypeEnum, type SearchOptions, SearchOptionsSchema, appRouter, initLogger, useLogger };
