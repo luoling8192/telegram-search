@@ -10,6 +10,8 @@ interface Config {
   phoneNumber: string
   openaiApiKey: string
   openaiApiBase?: string
+  sessionFile: string
+  mediaDir: string
 }
 
 let config: Config | null = null
@@ -25,6 +27,8 @@ export function initConfig() {
     phoneNumber: process.env.PHONE_NUMBER!,
     openaiApiKey: process.env.OPENAI_API_KEY!,
     openaiApiBase: process.env.OPENAI_API_BASE,
+    sessionFile: process.env.SESSION_FILE || `${process.env.HOME}/.telegram-search/session`,
+    mediaDir: process.env.MEDIA_DIR || `${process.env.HOME}/.telegram-search/media`,
   }
 
   useLogger().withFields({ config }).log('Config initialized')

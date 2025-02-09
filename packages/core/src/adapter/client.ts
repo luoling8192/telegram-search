@@ -1,14 +1,14 @@
 import type { NewMessageEvent } from 'telegram/events'
-import type { TelegramAdapter, TelegramMessage, TelegramMessageType, MessageOptions } from './types'
+import type { MessageOptions, TelegramAdapter, TelegramMessage, TelegramMessageType } from './types'
 
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
 import * as fs from 'node:fs/promises'
-import * as path from 'node:path'
 import { Api, TelegramClient } from 'telegram'
 import { NewMessage } from 'telegram/events'
 import { StringSession } from 'telegram/sessions'
 
+import { getConfig } from '../composable/config'
 import type { NewChat, NewFolder } from '../db'
 import { MediaService } from '../services/media'
 
@@ -43,15 +43,16 @@ export interface Folder {
 export class ClientAdapter implements TelegramAdapter {
   private client: TelegramClient
   private messageCallback?: (message: TelegramMessage) => Promise<void>
-  private config: ClientAdapterConfig
+  private clientConfig: ClientAdapterConfig
   private sessionFile: string
   private session: StringSession
   private mediaService: MediaService
   private logger = useLogger()
+  private config = getConfig()
 
   constructor(config: ClientAdapterConfig) {
-    this.config = config
-    this.sessionFile = path.join(process.cwd(), '.session')
+    this.clientConfig = config
+    this.sessionFile = this.config.sessionFile
 
     // Create client with session
     this.session = new StringSession('')
@@ -256,8 +257,8 @@ export class ClientAdapter implements TelegramAdapter {
         this.session = new StringSession(savedSession)
         this.client = new TelegramClient(
           this.session,
-          this.config.apiId,
-          this.config.apiHash,
+          this.clientConfig.apiId,
+          this.clientConfig.apiHash,
           {
             connectionRetries: 5,
             retryDelay: 1000,
@@ -270,7 +271,7 @@ export class ClientAdapter implements TelegramAdapter {
       }
 
       await this.client.start({
-        phoneNumber: async () => this.config.phoneNumber,
+        phoneNumber: async () => this.clientConfig.phoneNumber,
         password: async () => {
           this.logger.log('需要输入两步验证密码')
           const password = await input.password({ message: '请输入两步验证密码：' })
