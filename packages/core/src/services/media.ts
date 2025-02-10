@@ -1,20 +1,21 @@
 import type { TelegramClient } from 'telegram'
 import type { MediaInfo } from '../db/schema/message'
 
+import { useLogger } from '@tg-search/common'
 import * as fs from 'node:fs/promises'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import process from 'node:process'
-import { useLogger } from '@tg-search/common'
+import { getConfig } from '../composable/config'
 
 export class MediaService {
   private client: TelegramClient
   private mediaDir: string
   private logger = useLogger()
+  private config = getConfig()
 
   constructor(client: TelegramClient) {
     this.client = client
-    this.mediaDir = path.join(os.homedir(), '.telegram-search', 'media')
+    this.mediaDir = this.config.mediaDir
   }
 
   /**
@@ -22,8 +23,7 @@ export class MediaService {
    */
   async init() {
     try {
-      await fs.mkdir(path.join(os.homedir(), '.telegram-search'), { recursive: true })
-      await fs.mkdir(this.mediaDir, { recursive: true })
+      await fs.mkdir(this.config.mediaDir, { recursive: true })
     }
     catch (error) {
       this.logger.log('Failed to create media directory:', String(error))

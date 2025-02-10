@@ -21,7 +21,10 @@
   },
   "dependencies": {
     "@guiiai/logg": "^1.0.7",
+    "@trpc/server": "11.0.0-rc.748",
+    "@types/ws": "^8.5.14",
     "unbuild": "^3.3.1",
+    "ws": "^8.18.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
