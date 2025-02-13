@@ -1,5 +1,6 @@
 import { useLogger } from '@tg-search/common'
-import OpenAI from 'openai'
+import { embed, embedMany } from '@xsai/embed'
+import { createOpenAI } from '@xsai/providers'
 import { encoding_for_model } from 'tiktoken'
 
 import { getConfig } from '../composable/config'
@@ -18,7 +19,7 @@ const LIMITS = {
  * Service for generating embeddings from text using OpenAI
  */
 export class EmbeddingService {
-  private client: OpenAI
+  private openai
   private logger = useLogger()
   private config = getConfig()
   private encoder = encoding_for_model('text-embedding-3-small')
@@ -26,7 +27,7 @@ export class EmbeddingService {
   private totalCost = 0
 
   constructor() {
-    this.client = new OpenAI({
+    this.openai = createOpenAI({
       apiKey: this.config.openaiApiKey,
       baseURL: this.config.openaiApiBase || 'https://api.openai.com/v1',
     })
@@ -56,7 +57,7 @@ export class EmbeddingService {
   /**
    * Get total usage statistics
    */
-  getUsage(): { tokens: number; cost: number } {
+  getUsage(): { tokens: number, cost: number } {
     return {
       tokens: this.totalTokens,
       cost: this.totalCost,
@@ -74,17 +75,16 @@ export class EmbeddingService {
         this.logger.warn(`文本 token 数量(${tokenCount})超过建议值(${LIMITS.MAX_TOKENS_PER_TEXT})，可能会被截断`)
       }
 
-      const response = await this.client.embeddings.create({
-        model: 'text-embedding-3-small',
+      const { embedding } = await embed({
+        ...this.openai.embed('text-embedding-3-small'),
         input: text,
-        encoding_format: 'float',
       })
 
       // 更新使用统计
       this.totalTokens += tokenCount
       this.totalCost += this.calculateCost(tokenCount)
 
-      return response.data[0].embedding
+      return embedding
     }
     catch (error) {
       this.logger.withError(error).error('生成向量嵌入失败')
@@ -108,17 +108,16 @@ export class EmbeddingService {
         this.logger.warn(`${longTexts.length} 条文本的 token 数量超过建议值(${LIMITS.MAX_TOKENS_PER_TEXT})，可能会被截断`)
       }
 
-      const response = await this.client.embeddings.create({
-        model: 'text-embedding-3-small',
+      const { embeddings } = await embedMany({
+        ...this.openai.embed('text-embedding-3-small'),
         input: texts,
-        encoding_format: 'float',
       })
 
       // 更新使用统计
       this.totalTokens += totalTokens
       this.totalCost += this.calculateCost(totalTokens)
 
-      return response.data.map(d => d.embedding)
+      return embeddings
     }
     catch (error) {
       this.logger.withError(error).error('批量生成向量嵌入失败')

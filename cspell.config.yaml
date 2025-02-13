@@ -5,6 +5,8 @@ dictionaries: []
 words:
   - guiiai
   - Logg
+  - tiktoken
   - unocss
+  - xsai
 ignoreWords: []
 import: []
