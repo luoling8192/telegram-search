@@ -12,8 +12,8 @@ export type MessageContentInsert = InferInsertModel<ReturnType<typeof createMess
 /**
  * Get messages without embeddings
  */
-export async function getMessagesWithoutEmbedding(chatId: number, limit: number) {
-  const contentTable = createMessageContentTable(chatId)
+export async function getMessagesWithoutEmbedding(chatId: number | undefined, limit: number) {
+  const contentTable = createMessageContentTable(chatId || 0)
   return useDB()
     .select({
       id: contentTable.id,

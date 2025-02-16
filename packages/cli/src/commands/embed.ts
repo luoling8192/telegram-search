@@ -1,9 +1,12 @@
-import type { Message } from '@tg-search/db'
-
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
 import { EmbeddingService } from '@tg-search/core'
-import { getMessageCount, getMessagesWithoutEmbedding, updateMessageEmbedding } from '@tg-search/db'
+import {
+  getMessageCount,
+  getMessagesWithoutEmbedding,
+  getPartitionTables,
+  updateMessageEmbedding,
+} from '@tg-search/db'
 
 import { TelegramCommand } from '../command'
 
@@ -39,7 +42,7 @@ export class EmbedCommand extends TelegramCommand {
     })
 
     // Get concurrency
-    const concurrency = options.concurrency || await input.input({
+    const _concurrency = options.concurrency || await input.input({
       message: '请输入并发数：',
       default: '4',
     })
@@ -55,7 +58,7 @@ export class EmbedCommand extends TelegramCommand {
       let failedEmbeddings = 0
 
       for (const table of tables) {
-        const count = await getMessageCount(table.tableName)
+        const count = await getMessageCount(Number(table.tableName))
         totalMessages += count
       }
 
@@ -63,10 +66,10 @@ export class EmbedCommand extends TelegramCommand {
 
       // Process messages in batches
       while (true) {
-        const messages = await getMessagesWithoutEmbedding({
-          chatId: chatId ? Number(chatId) : undefined,
-          limit: Number(batchSize),
-        })
+        const messages = await getMessagesWithoutEmbedding(
+          chatId ? Number(chatId) : undefined,
+          Number(batchSize),
+        )
 
         if (messages.length === 0) {
           break
@@ -75,10 +78,8 @@ export class EmbedCommand extends TelegramCommand {
         logger.debug(`获取到 ${messages.length} 条消息`)
 
         // Generate embeddings in parallel
-        const contents = messages.map((m: Message) => m.content || '')
-        const embeddings = await embedding.generateEmbeddings(contents, Number(concurrency), (current: number, total: number) => {
-          logger.debug(`正在生成向量嵌入: ${current}/${total}`)
-        })
+        const contents = messages.map(m => m.content || '')
+        const embeddings = await embedding.generateEmbeddings(contents)
 
         // Update embeddings
         for (let i = 0; i < messages.length; i++) {

@@ -1,6 +1,6 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
-import type { MessageType, messageTypeEnum } from '../schema/types'
+import type { MessageType } from '../schema/types'
 
 import { useDB, useLogger } from '@tg-search/common'
 import { and, count, eq, gt, lt, sql } from 'drizzle-orm'
@@ -175,7 +175,7 @@ export async function getLastMessageId(chatId: number) {
  * Get partition tables for a chat
  */
 export async function getPartitionTables(chatId?: number) {
-  return useDB()
+  const result = await useDB()
     .select({
       tableName: messages.partitionTable,
       chatId: messages.chatId,
@@ -183,6 +183,11 @@ export async function getPartitionTables(chatId?: number) {
     .from(messages)
     .where(chatId ? eq(messages.chatId, chatId) : undefined)
     .groupBy(messages.partitionTable, messages.chatId)
+
+  return result.map((row: { tableName: string; chatId: number }) => ({
+    tableName: Number(row.tableName.replace('messages_', '')),
+    chatId: Number(row.chatId),
+  }))
 }
 
 /**
@@ -216,7 +221,7 @@ export async function findSimilarMessages(embedding: number[], options: SearchOp
 
   // Search in each partition table
   const results = await Promise.all(
-    partitionTables.map(async ({ tableName }) => {
+    partitionTables.map(async ({ tableName }: { tableName: string }) => {
       const contentTable = createMessageContentTable(Number(tableName.replace('messages_', '')))
       const embeddingStr = `'[${embedding.join(',')}]'`
 
@@ -235,7 +240,7 @@ export async function findSimilarMessages(embedding: number[], options: SearchOp
   // Merge and sort results
   return results
     .flat()
-    .sort((a, b) => b.similarity - a.similarity)
+    .sort((a: { similarity: number }, b: { similarity: number }) => b.similarity - a.similarity)
     .slice(0, limit)
 }
 
@@ -251,7 +256,8 @@ export async function findMessagesByChatId(chatId: number) {
  * Find message by ID
  */
 export async function findMessageById(id: number) {
-  return useDB().select().from(messages).where(eq(messages.id, id)).limit(1).then(res => res[0])
+  const [result] = await useDB().select().from(messages).where(eq(messages.id, id)).limit(1)
+  return result
 }
 
 /**
@@ -260,7 +266,7 @@ export async function findMessageById(id: number) {
 export async function getChatStats(chatId: number) {
   const [totalResult, typeResult] = await Promise.all([
     // Get total message count
-    useDB().select({ count: count() }).from(messages).where(eq(messages.chatId, chatId)).then(res => res[0].count),
+    useDB().select({ count: count() }).from(messages).where(eq(messages.chatId, chatId)).then((res: { count: any }[]) => res[0].count),
 
     // Get message count by type
     useDB().select({ type: messages.type, count: count() }).from(messages).where(eq(messages.chatId, chatId)).groupBy(messages.type),
@@ -269,7 +275,7 @@ export async function getChatStats(chatId: number) {
   return {
     total: Number(totalResult),
     byType: Object.fromEntries(
-      typeResult.map(({ type, count }) => [type, Number(count)]),
+      typeResult.map(({ type, count }: { type: string; count: number }) => [type, Number(count)]),
     ),
   }
 }
