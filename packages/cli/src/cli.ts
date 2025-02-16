@@ -1,3 +1,5 @@
+import type { TelegramAdapter } from '@tg-search/core'
+
 import process from 'node:process'
 import { getConfig, useLogger } from '@tg-search/common'
 import { createAdapter } from '@tg-search/core'
@@ -64,14 +66,25 @@ function setupCli() {
             phoneNumber: config.phoneNumber,
           })
 
-          // Connect to Telegram
-          logger.log('正在连接到 Telegram...')
-          await client.connect()
-          logger.log('连接成功')
-
           // Set client for command
           if ('setClient' in command) {
-            (command as { setClient: (client: any) => void }).setClient(client)
+            (command as { setClient: (client: TelegramAdapter) => void }).setClient(client)
+          }
+
+          // Connect to Telegram
+          logger.log('正在连接到 Telegram...')
+          try {
+            await client.connect()
+          }
+          catch (error) {
+            // If connection failed, try to use connect command
+            if (error instanceof Error && (error.message === 'Code is required' || error.message === '2FA password is required')) {
+              connectCommand.setClient(client)
+              await connectCommand.execute([], {})
+            }
+            else {
+              throw error
+            }
           }
         }
 

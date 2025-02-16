@@ -1,13 +1,10 @@
 import type { NewChat, NewFolder } from '@tg-search/db'
-import type { NewMessageEvent } from 'telegram/events'
-import type { Dialog, MessageOptions, TelegramAdapter, TelegramMessage, TelegramMessageType } from './types'
+import type { ConnectOptions, Dialog, MessageOptions, TelegramAdapter, TelegramMessage, TelegramMessageType } from './types'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import * as input from '@inquirer/prompts'
 import { getConfig, useLogger } from '@tg-search/common'
 import { Api, TelegramClient } from 'telegram'
-import { NewMessage } from 'telegram/events'
 import { StringSession } from 'telegram/sessions'
 
 import { MediaService } from '../services/media'
@@ -39,6 +36,11 @@ export interface Folder {
   // Custom folder ID from Telegram
   customId?: number
 }
+
+// export interface ConnectOptions {
+//   code?: string
+//   password?: string
+// }
 
 export class ClientAdapter implements TelegramAdapter {
   private client: TelegramClient
@@ -247,66 +249,68 @@ export class ClientAdapter implements TelegramAdapter {
     }
   }
 
-  async connect() {
+  async connect(options?: ConnectOptions) {
     // Initialize media service
     await this.mediaService.init()
 
     try {
-      // Load session
-      const savedSession = await this.loadSession()
-      if (savedSession) {
-        this.logger.log('使用已保存的会话...')
-        this.session = new StringSession(savedSession)
-        this.client = new TelegramClient(
-          this.session,
-          this.config.apiId,
-          this.config.apiHash,
-          {
-            connectionRetries: 5,
-            retryDelay: 1000,
-            autoReconnect: true,
-            useWSS: true,
-            maxConcurrentDownloads: 10,
-          },
-        )
-        this.mediaService = new MediaService(this.client)
+      // Load session from file
+      const session = await this.loadSession()
+      if (session) {
+        this.session = new StringSession(session)
+        this.client.session = this.session
       }
 
-      await this.client.start({
-        phoneNumber: async () => this.config.phoneNumber,
-        password: async () => {
-          this.logger.log('需要输入两步验证密码')
-          const password = await input.password({ message: '请输入两步验证密码：' })
-          if (!password)
-            throw new Error('需要两步验证密码')
-          return password
-        },
-        phoneCode: async () => {
-          this.logger.log('需要输入验证码')
-          const code = await input.input({ message: '请输入你收到的验证码：' })
-          if (!code)
-            throw new Error('需要验证码')
-          return code
-        },
-        onError: (err) => {
-          this.logger.withError(err).error('连接错误')
-          throw err
-        },
-      })
+      // Connect to Telegram
+      await this.client.connect()
+
+      // Check if we need to sign in
+      if (!await this.client.isUserAuthorized()) {
+        // Send code request
+        await this.client.invoke(new Api.auth.SendCode({
+          phoneNumber: this.config.phoneNumber,
+          apiId: this.config.apiId,
+          apiHash: this.config.apiHash,
+          settings: new Api.CodeSettings({
+            allowFlashcall: false,
+            currentNumber: true,
+            allowAppHash: true,
+          }),
+        }))
+
+        // Wait for code
+        if (!options?.code) {
+          throw new Error('Code is required')
+        }
+
+        try {
+          // Sign in with code
+          await this.client.start({
+            phoneNumber: async () => this.config.phoneNumber,
+            password: async () => {
+              if (!options?.password && !this.config.password) {
+                throw new Error('2FA password is required')
+              }
+              return options?.password || this.config.password || ''
+            },
+            phoneCode: async () => options.code || '',
+            onError: (err) => {
+              this.logger.withError(err).error('登录失败')
+              throw err
+            },
+          })
+        }
+        catch (error) {
+          this.logger.withError(error).error('登录失败')
+          throw error
+        }
+      }
 
       // Save session
-      const sessionString = this.session.save()
+      const sessionString = this.client.session.save() as unknown as string
       await this.saveSession(sessionString)
 
-      // Setup message handler
-      this.client.addEventHandler(async (event: NewMessageEvent) => {
-        if (this.messageCallback && event.message) {
-          const message = await this.convertMessage(event.message)
-          await this.messageCallback(message)
-        }
-      }, new NewMessage({}))
-
-      this.logger.log('已连接到 Telegram')
+      this.logger.log('登录成功')
     }
     catch (error) {
       this.logger.withError(error).error('连接失败')

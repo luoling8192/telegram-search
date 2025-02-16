@@ -1,4 +1,4 @@
-import type { ClientAdapter } from '@tg-search/core'
+import type { TelegramAdapter } from '@tg-search/core'
 
 /**
  * Command metadata interface
@@ -24,13 +24,15 @@ export interface Command {
   meta: CommandMeta
   // Command execution function
   execute: (args: string[], options: Record<string, any>) => Promise<void>
+  // Optional client setter
+  setClient?: (client: TelegramAdapter) => void
 }
 
 /**
  * Base command class with Telegram client
  */
 export abstract class TelegramCommand implements Command {
-  protected client?: ClientAdapter
+  protected client?: TelegramAdapter
 
   abstract meta: CommandMeta
   abstract execute(args: string[], options: Record<string, any>): Promise<void>
@@ -38,14 +40,14 @@ export abstract class TelegramCommand implements Command {
   /**
    * Set Telegram client
    */
-  setClient(client: ClientAdapter) {
+  setClient(client: TelegramAdapter) {
     this.client = client
   }
 
   /**
    * Get Telegram client
    */
-  protected getClient(): ClientAdapter {
+  protected getClient(): TelegramAdapter {
     if (!this.client) {
       throw new Error('Telegram client not initialized')
     }

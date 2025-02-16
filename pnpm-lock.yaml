@@ -107,9 +107,6 @@ importers:
       '@guiiai/logg':
         specifier: ^1.0.7
         version: 1.0.7
-      '@inquirer/prompts':
-        specifier: ^7.3.2
-        version: 7.3.2(@types/node@22.13.4)
       '@tg-search/common':
         specifier: workspace:*
         version: link:../common

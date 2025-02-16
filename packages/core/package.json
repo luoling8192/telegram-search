@@ -24,7 +24,6 @@
   },
   "dependencies": {
     "@guiiai/logg": "^1.0.7",
-    "@inquirer/prompts": "^7.3.2",
     "@tg-search/common": "workspace:*",
     "@tg-search/db": "workspace:*",
     "@xsai/embed": "0.1.0-beta.5",

@@ -38,6 +38,14 @@ export interface MessageOptions {
 }
 
 /**
+ * Connect options for Telegram
+ */
+export interface ConnectOptions {
+  code?: string
+  password?: string
+}
+
+/**
  * Telegram adapter interface
  */
 export interface TelegramAdapter {
@@ -49,7 +57,7 @@ export interface TelegramAdapter {
   /**
    * Connect to Telegram
    */
-  connect: () => Promise<void>
+  connect: (options?: ConnectOptions) => Promise<void>
 
   /**
    * Disconnect from Telegram
