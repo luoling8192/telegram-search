@@ -9,6 +9,7 @@
     "dev:core": "pnpm -F @tg-search/core dev",
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",
+    "typecheck": "pnpm -r typecheck",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",
