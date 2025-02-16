@@ -1,8 +1,12 @@
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
+
+import { useLogger } from './logger'
+
+const logger = useLogger()
 
 /**
  * Find .env file path from command line arguments or project root
@@ -43,8 +47,6 @@ function findEnvPath(): string | undefined {
 
 /**
  * Load environment variables from .env file
- * @param options Configuration options
- * @returns The path to the loaded .env file, if any
  */
 export function loadEnv(options: {
   /** Required environment variables */
@@ -65,9 +67,9 @@ export function loadEnv(options: {
 
   // Load .env file if found
   if (envPath && existsSync(envPath)) {
-    console.log(`Loading .env from ${envPath}`)
+    logger.withFields({ envPath }).log('Loading .env')
     dotenv.config({ path: envPath })
-    
+
     // Check required variables
     const missing = required.filter(key => !process.env[key])
     if (missing.length > 0) {
@@ -75,14 +77,14 @@ export function loadEnv(options: {
       if (throwIfMissing)
         throw new Error(error)
       else
-        console.warn(error)
+        logger.warn(error)
     }
 
     return envPath
   }
   else {
     // Fallback to process.env
-    console.warn('No .env file found, falling back to process.env')
+    logger.warn('No .env file found, falling back to process.env')
     dotenv.config()
 
     // Check required variables
@@ -92,7 +94,7 @@ export function loadEnv(options: {
       if (throwIfMissing)
         throw new Error(error)
       else
-        console.warn(error)
+        logger.warn(error)
     }
 
     if (throwIfNotFound)
@@ -100,4 +102,4 @@ export function loadEnv(options: {
 
     return undefined
   }
-} 
+}

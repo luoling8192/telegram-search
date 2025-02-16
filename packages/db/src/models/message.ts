@@ -184,7 +184,7 @@ export async function getPartitionTables(chatId?: number) {
     .where(chatId ? eq(messages.chatId, chatId) : undefined)
     .groupBy(messages.partitionTable, messages.chatId)
 
-  return result.map((row: { tableName: string; chatId: number }) => ({
+  return result.map((row: { tableName: string, chatId: number }) => ({
     tableName: Number(row.tableName.replace('messages_', '')),
     chatId: Number(row.chatId),
   }))
@@ -275,7 +275,7 @@ export async function getChatStats(chatId: number) {
   return {
     total: Number(totalResult),
     byType: Object.fromEntries(
-      typeResult.map(({ type, count }: { type: string; count: number }) => [type, Number(count)]),
+      typeResult.map(({ type, count }: { type: string, count: number }) => [type, Number(count)]),
     ),
   }
 }

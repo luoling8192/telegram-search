@@ -1,3 +1,5 @@
+import type { MessageType } from '../schema/types'
+
 import { useDB } from '@tg-search/common'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -63,7 +65,7 @@ describe('message Model', () => {
       const message = {
         id: 1,
         chatId: 1,
-        type: 'text',
+        type: 'text' as MessageType,
         content: 'test',
         createdAt: new Date(),
       }
@@ -77,14 +79,14 @@ describe('message Model', () => {
         {
           id: 1,
           chatId: 1,
-          type: 'text',
+          type: 'text' as MessageType,
           content: 'test1',
           createdAt: new Date(),
         },
         {
           id: 2,
           chatId: 1,
-          type: 'text',
+          type: 'text' as MessageType,
           content: 'test2',
           createdAt: new Date(),
         },
@@ -150,7 +152,7 @@ describe('message Model', () => {
       const embedding = [0.1, 0.2, 0.3]
       const options = {
         chatId: 1,
-        type: 'text',
+        type: 'text' as MessageType,
         limit: 10,
       }
       const result = await findSimilarMessages(embedding, options)

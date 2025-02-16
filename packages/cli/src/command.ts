@@ -1,4 +1,4 @@
-import type { BotAdapter, ClientAdapter, TelegramAdapter } from '@tg-search/core'
+import type { ClientAdapter, TelegramAdapter } from '@tg-search/core'
 
 /**
  * Command metadata interface
