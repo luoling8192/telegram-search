@@ -1,0 +1,29 @@
+{
+  "name": "@tg-search/cli",
+  "type": "module",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.3.2",
+    "@tg-search/common": "workspace:*",
+    "@tg-search/core": "workspace:*",
+    "@tg-search/db": "workspace:*",
+    "commander": "^13.1.0",
+    "date-fns": "^4.1.0",
+    "glob": "^11.0.1",
+    "input": "^1.0.1",
+    "jsdom": "^26.0.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "@types/node": "^22.13.4",
+    "dotenv": "^16.4.7",
+    "tsx": "^4.19.2"
+  }
+}

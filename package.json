@@ -6,7 +6,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r dev",
-    "dev:core": "pnpm -F @tg-search/core dev",
+    "dev:cli": "pnpm -F @tg-search/cli dev",
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",
     "typecheck": "pnpm -r typecheck",
@@ -14,14 +14,15 @@
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",
     "db:clean": "docker compose down -v",
-    "db:generate": "pnpm -F @tg-search/core db:generate",
-    "db:migrate": "pnpm -F @tg-search/core db:migrate",
+    "db:generate": "pnpm -F @tg-search/db db:generate",
+    "db:migrate": "pnpm -F @tg-search/db db:migrate",
+    "db:push": "pnpm -F @tg-search/db db:push",
     "test": "pnpm -r test",
     "test:coverage": "pnpm -r test:coverage"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^4.1.1",
-    "eslint": "^9.19.0",
+    "@antfu/eslint-config": "^4.2.1",
+    "eslint": "^9.20.1",
     "eslint-plugin-format": "^1.0.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"

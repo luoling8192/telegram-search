@@ -1,5 +1,5 @@
 {
-  "name": "@tg-search/common",
+  "name": "@tg-search/db",
   "type": "module",
   "version": "1.0.0",
   "exports": {
@@ -21,24 +21,25 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "typecheck": "tsc --noEmit",
-    "test": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:migrate": "tsx src/migrate.ts"
   },
   "dependencies": {
-    "@guiiai/logg": "^1.0.7",
-    "@trpc/client": "10.45.2",
-    "@trpc/server": "10.45.2",
-    "dotenv": "^16.4.7",
+    "@tg-search/common": "workspace:*",
+    "@tg-search/pg-vector": "workspace:*",
+    "drizzle-kit": "^0.30.4",
     "drizzle-orm": "^0.39.3",
+    "pg": "^8.13.3",
     "postgres": "^3.4.5",
-    "superjson": "^2.2.2",
     "unbuild": "^3.3.1",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
-    "@vitest/coverage-v8": "^3.0.5",
+    "@types/pg": "^8.11.11",
+    "dotenv": "^16.4.7",
+    "tsx": "^4.19.2",
     "vitest": "^3.0.5"
   }
 }

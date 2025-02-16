@@ -6,62 +6,68 @@
 
 ## ✨ 功能特点
 
-- 🤖 **实时消息采集**
-  - 支持 Telegram Bot 实时收集消息
-  - 自动处理多媒体内容
-  - 保留完整的消息元数据
+- 🤖 **多模式支持**
 
-- 📥 **数据导入导出**
+  - Bot 模式：使用 Telegram Bot API 实时收集消息
+  - Client 模式：使用 Telegram Client API 访问完整历史记录
+  - 自动处理多媒体内容和消息元数据
+
+- 📥 **数据管理**
+
   - 支持导入 Telegram 导出的 HTML 聊天记录
-  - 批量导入和处理能力
-  - 支持选择性导入
+  - 支持导出消息为 JSON 或 HTML 格式
+  - 支持文件夹管理和消息分类
+  - 支持增量同步和实时更新
 
 - 🔍 **智能搜索**
+
   - 基于 OpenAI 的语义向量搜索
   - 支持自然语言查询
   - 精准的相关性匹配
+  - 支持多种消息类型的检索
 
 - 📊 **全面的消息支持**
   - 文本、图片、视频、文件、贴纸等多种类型
   - 完整的消息元数据（回复、转发、查看次数等）
   - 支持媒体文件本地存储
-
-## 🖼️ 功能预览
-
-![image](https://github.com/user-attachments/assets/2ff088c1-41f2-455f-9cb1-ec31ce691c80)
+  - 支持消息统计和分析
 
 ## 🚀 快速开始
 
 ### 环境要求
 
 - Node.js >= 20
-- PostgreSQL >= 15
+- PostgreSQL >= 15（需要 pgvector 扩展）
 - OpenAI API Key
-- Telegram Bot Token
-- Telegram API 凭据
+- Telegram Bot Token（Bot 模式）
+- Telegram API 凭据（Client 模式）
 
 ### 安装步骤
 
 1. 克隆仓库：
+
 ```bash
 git clone https://github.com/luoling8192/telegram-search.git
 cd telegram-search
 ```
 
 2. 安装依赖：
+
 ```bash
 pnpm install
 ```
 
 3. 配置环境：
+
 ```bash
 cp .env.example .env
 # 编辑 .env 文件，填入必要的配置
 ```
 
 4. 初始化数据库：
+
 ```bash
-pnpm -F @tg-search/core db:migrate
+pnpm -F @tg-search/cli db:migrate
 ```
 
 ## ⚙️ 配置说明
@@ -86,11 +92,13 @@ OPENAI_API_KEY="your_openai_api_key"
 支持两种配置方式：
 
 1. 使用完整的数据库 URL：
+
 ```env
 DATABASE_URL="postgres://user:password@host:5432/dbname"
 ```
 
-2. 使用分离的配置项（当 DATABASE_URL 未设置时使用）：
+2. 使用分离的配置项：
+
 ```env
 DB_HOST="localhost"
 DB_PORT="5432"
@@ -102,6 +110,7 @@ DB_NAME="tg_search"
 ### 数据存储路径
 
 自定义数据存储位置（支持 ~ 表示用户主目录）：
+
 ```env
 SESSION_PATH="~/.telegram-search/session"  # Telegram 会话文件
 MEDIA_PATH="~/.telegram-search/media"      # 媒体文件目录
@@ -116,97 +125,118 @@ OPENAI_API_BASE="https://your-api-proxy/v1"
 
 ## 📖 使用指南
 
-### 导入历史记录
+### 消息采集
 
-从 Telegram Desktop 导出的 HTML 文件导入：
-
-```bash
-# 完整导入（包含向量嵌入）
-pnpm run dev:core import -c <chat_id> -p <path_to_html_files>
-
-# 快速导入（跳过向量嵌入）
-pnpm run dev:core import -c <chat_id> -p <path_to_html_files> --no-embedding
-```
-
-### 生成向量嵌入
-
-为已导入的消息生成向量表示：
-```bash
-# 处理所有聊天
-pnpm run dev:core embed -b 100
-
-# 处理指定聊天
-pnpm run dev:core embed -b 100 -c <chat_id>
-```
-
-### 启动服务
+1. 使用 Bot 模式：
 
 ```bash
 # 启动 Bot 服务
-pnpm run dev:core bot
-
-# 启动搜索服务
-pnpm run dev:core search
+pnpm run dev:cli bot
 
 # 启动消息监听
-pnpm run dev:core watch
+pnpm run dev:cli watch
+```
+
+2. 使用 Client 模式：
+
+```bash
+# 连接到 Telegram
+pnpm run dev:cli connect
+
+# 同步指定会话
+pnpm run dev:cli sync -c <chat_id>
+```
+
+### 数据导入导出
+
+1. 导入历史记录：
+
+```bash
+# 完整导入（包含向量嵌入）
+pnpm run dev:cli import -c <chat_id> -p <path_to_html_files>
+
+# 快速导入（跳过向量嵌入）
+pnpm run dev:cli import -c <chat_id> -p <path_to_html_files> --no-embedding
+```
+
+2. 导出消息：
+
+```bash
+# 导出为 JSON 格式
+pnpm run dev:cli export -c <chat_id> --format json
+
+# 导出为 HTML 格式
+pnpm run dev:cli export -c <chat_id> --format html
+```
+
+### 向量处理
+
+```bash
+# 处理所有聊天的向量嵌入
+pnpm run dev:cli embed -b 100
+
+# 处理指定聊天的向量嵌入
+pnpm run dev:cli embed -b 100 -c <chat_id>
+```
+
+### 搜索服务
+
+```bash
+# 启动搜索服务
+pnpm run dev:cli search
 ```
 
 ## 🔧 开发指南
-
-### 数据库操作
-
-```bash
-# 生成迁移文件
-pnpm -F @tg-search/core db:generate
-
-# 应用迁移
-pnpm -F @tg-search/core db:migrate
-
-# 启动开发服务器
-pnpm -F @tg-search/core dev
-```
 
 ### 项目结构
 
 ```
 packages/
-  ├── core/           # 核心功能模块
+  ├── cli/           # 命令行工具
   │   ├── src/
-  │   │   ├── commands/   # CLI 命令
-  │   │   ├── db/        # 数据库相关
-  │   │   ├── services/  # 服务层
-  │   │   └── adapter/   # 适配器
+  │   │   ├── commands/   # CLI 命令实现
+  │   │   └── command.ts  # 命令基类
   │   └── package.json
-  └── common/         # 共享工具和类型
+  ├── core/          # 核心功能模块
+  │   ├── src/
+  │   │   ├── adapter/    # Telegram 适配器
+  │   │   └── services/   # 核心服务
+  │   └── package.json
+  ├── db/            # 数据库模块
+  │   ├── src/
+  │   │   ├── models/     # 数据模型
+  │   │   └── schema/     # 数据库模式
+  │   └── package.json
+  └── common/        # 共享工具和类型
+      └── src/
+          ├── helper/     # 工具函数
+          └── types/      # 类型定义
 ```
 
 ### 数据库设计
 
 - `messages` 表：消息主表
+
   - 支持向量搜索（pgvector）
   - 自动分区（按聊天 ID）
-  - 完整的消息元数据（ID、内容、类型、时间等）
-  - 高效的索引设计（向量索引、时间索引、类型索引）
+  - 完整的消息元数据
+  - 高效的索引设计
 
 - `chats` 表：聊天记录
-  - 聊天基本信息（ID、名称、类型）
+
+  - 聊天基本信息
   - 最后消息和同步时间
   - 消息计数统计
 
 - `folders` 表：文件夹管理
-  - 文件夹信息（ID、标题、图标）
+
+  - 文件夹信息
   - 同步状态跟踪
 
 - `sync_state` 表：同步状态
-  - 记录每个聊天的同步进度
+  - 记录同步进度
   - 支持增量同步
-
-## ⭐ Star History
-
-![Star History Chart](https://api.star-history.com/svg?repos=luoling8192/telegram-search&type=Date)
 
 ## 📝 License
 
 MIT License © 2025
-

@@ -1,47 +1,22 @@
-import type { NewMessageEvent } from 'telegram/events'
-import type { NewChat, NewFolder } from '../db'
-import type { MessageOptions, TelegramAdapter, TelegramMessage, TelegramMessageType } from './types'
+import type { NewChat, NewFolder } from '@tg-search/db'
+import type { ConnectOptions, DialogsResult, Folder, ITelegramClientAdapter, MessageOptions, TelegramMessage, TelegramMessageType } from './types'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import * as input from '@inquirer/prompts'
-import { useLogger } from '@tg-search/common'
+import { getConfig, useLogger } from '@tg-search/common'
 import { Api, TelegramClient } from 'telegram'
-import { NewMessage } from 'telegram/events'
 import { StringSession } from 'telegram/sessions'
 
-import { getConfig } from '../composable/config'
 import { MediaService } from '../services/media'
 
-export interface ClientAdapterConfig {
+interface ClientAdapterConfig {
   apiId: number
   apiHash: string
   phoneNumber: string
   password?: string
 }
 
-export interface Dialog {
-  id: number
-  name: string
-  type: 'user' | 'group' | 'channel' | 'saved'
-  unreadCount: number
-  lastMessage?: string
-  lastMessageDate?: Date
-}
-
-export interface DialogsResult {
-  dialogs: Dialog[]
-  total: number
-}
-
-export interface Folder {
-  id: number
-  title: string
-  // Custom folder ID from Telegram
-  customId?: number
-}
-
-export class ClientAdapter implements TelegramAdapter {
+export class ClientAdapter implements ITelegramClientAdapter {
   private client: TelegramClient
   private messageCallback?: (message: TelegramMessage) => Promise<void>
   private config: ClientAdapterConfig
@@ -127,7 +102,7 @@ export class ClientAdapter implements TelegramAdapter {
   /**
    * Get all dialogs (chats) with pagination
    */
-  async getDialogs(offset = 0, limit = 10): Promise<DialogsResult> {
+  async getDialogs(_offset = 0, limit = 10): Promise<DialogsResult> {
     // Get all dialogs first
     const dialogs = await this.client.getDialogs({
       limit: limit + 1, // Get one extra to check if there are more
@@ -248,66 +223,68 @@ export class ClientAdapter implements TelegramAdapter {
     }
   }
 
-  async connect() {
+  async connect(options?: ConnectOptions) {
     // Initialize media service
     await this.mediaService.init()
 
     try {
-      // Load session
-      const savedSession = await this.loadSession()
-      if (savedSession) {
-        this.logger.log('使用已保存的会话...')
-        this.session = new StringSession(savedSession)
-        this.client = new TelegramClient(
-          this.session,
-          this.config.apiId,
-          this.config.apiHash,
-          {
-            connectionRetries: 5,
-            retryDelay: 1000,
-            autoReconnect: true,
-            useWSS: true,
-            maxConcurrentDownloads: 10,
-          },
-        )
-        this.mediaService = new MediaService(this.client)
+      // Load session from file
+      const session = await this.loadSession()
+      if (session) {
+        this.session = new StringSession(session)
+        this.client.session = this.session
       }
 
-      await this.client.start({
-        phoneNumber: async () => this.config.phoneNumber,
-        password: async () => {
-          this.logger.log('需要输入两步验证密码')
-          const password = await input.password({ message: '请输入两步验证密码：' })
-          if (!password)
-            throw new Error('需要两步验证密码')
-          return password
-        },
-        phoneCode: async () => {
-          this.logger.log('需要输入验证码')
-          const code = await input.input({ message: '请输入你收到的验证码：' })
-          if (!code)
-            throw new Error('需要验证码')
-          return code
-        },
-        onError: (err) => {
-          this.logger.withError(err).error('连接错误')
-          throw err
-        },
-      })
+      // Connect to Telegram
+      await this.client.connect()
+
+      // Check if we need to sign in
+      if (!await this.client.isUserAuthorized()) {
+        // Send code request
+        await this.client.invoke(new Api.auth.SendCode({
+          phoneNumber: this.config.phoneNumber,
+          apiId: this.config.apiId,
+          apiHash: this.config.apiHash,
+          settings: new Api.CodeSettings({
+            allowFlashcall: false,
+            currentNumber: true,
+            allowAppHash: true,
+          }),
+        }))
+
+        // Wait for code
+        if (!options?.code) {
+          throw new Error('Code is required')
+        }
+
+        try {
+          // Sign in with code
+          await this.client.start({
+            phoneNumber: async () => this.config.phoneNumber,
+            password: async () => {
+              if (!options?.password && !this.config.password) {
+                throw new Error('2FA password is required')
+              }
+              return options?.password || this.config.password || ''
+            },
+            phoneCode: async () => options.code || '',
+            onError: (err) => {
+              this.logger.withError(err).error('登录失败')
+              throw err
+            },
+          })
+        }
+        catch (error) {
+          this.logger.withError(error).error('登录失败')
+          throw error
+        }
+      }
 
       // Save session
-      const sessionString = this.session.save()
+      const sessionString = this.client.session.save() as unknown as string
       await this.saveSession(sessionString)
 
-      // Setup message handler
-      this.client.addEventHandler(async (event: NewMessageEvent) => {
-        if (this.messageCallback && event.message) {
-          const message = await this.convertMessage(event.message)
-          await this.messageCallback(message)
-        }
-      }, new NewMessage({}))
-
-      this.logger.log('已连接到 Telegram')
+      this.logger.log('登录成功')
     }
     catch (error) {
       this.logger.withError(error).error('连接失败')
@@ -319,7 +296,7 @@ export class ClientAdapter implements TelegramAdapter {
     await this.client.disconnect()
   }
 
-  async *getMessages(chatId: number, limit = 100, options?: MessageOptions): AsyncGenerator<TelegramMessage> {
+  async *getMessages(chatId: number, _limit = 100, options?: MessageOptions): AsyncGenerator<TelegramMessage> {
     let offsetId = 0
     let hasMore = true
     let processedCount = 0
@@ -406,8 +383,8 @@ export class ClientAdapter implements TelegramAdapter {
       })
 
       // Add saved messages folder
-      const me = await this.client.getMe()
-      if (dialog.id.eq(me.id)) {
+      const currentUser = await this.client.getMe()
+      if (dialog.id.eq(currentUser.id)) {
         folders.push({
           id: -1,
           title: '常用消息',
@@ -453,7 +430,7 @@ export class ClientAdapter implements TelegramAdapter {
       }
 
       // Add saved messages folder
-      const me = await this.client.getMe()
+      // const me = await this.client.getMe()
       folders.push({
         id: -1,
         title: '常用消息',
@@ -497,7 +474,7 @@ export class ClientAdapter implements TelegramAdapter {
         const { type, name } = this.getEntityInfo(entity)
         chats.push({
           id: entity.id.toJSNumber(),
-          name,
+          title: name,
           type,
           lastMessage: dialog.message?.message || null,
           lastMessageDate: dialog.message?.date ? new Date(dialog.message.date * 1000) : null,
@@ -508,11 +485,11 @@ export class ClientAdapter implements TelegramAdapter {
       }
 
       // Add Saved Messages
-      const me = await this.client.getMe()
-      if (!chats.some(chat => chat.id === me.id.toJSNumber())) {
+      const currentUser = await this.client.getMe()
+      if (!chats.some(chat => chat.id === currentUser.id.toJSNumber())) {
         chats.unshift({
-          id: me.id.toJSNumber(),
-          name: '常用',
+          id: currentUser.id.toJSNumber(),
+          title: '常用',
           type: 'saved',
           lastMessage: null,
           lastMessageDate: null,

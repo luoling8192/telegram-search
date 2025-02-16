@@ -1,12 +1,10 @@
+import type { MediaInfo } from '@tg-search/db'
 import type { TelegramClient } from 'telegram'
-import type { MediaInfo } from '../db'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import process from 'node:process'
-import { useLogger } from '@tg-search/common'
-
-import { getConfig } from '../composable/config'
+import { getConfig, useLogger } from '@tg-search/common'
 
 export class MediaService {
   private client: TelegramClient

@@ -1,11 +1,10 @@
-import type { TelegramAdapter, TelegramMessage, TelegramMessageType } from './types'
+import type { ITelegramBotAdapter, TelegramMessage, TelegramMessageType } from './types'
 
 import { useLogger } from '@tg-search/common'
+import { getChatStats } from '@tg-search/db'
 import { Bot, GrammyError, HttpError } from 'grammy'
 
-import { getChatStats } from '../db'
-
-export class BotAdapter implements TelegramAdapter {
+export class BotAdapter implements ITelegramBotAdapter {
   private bot: Bot
   private messageCallback?: (message: TelegramMessage) => Promise<void>
   private logger = useLogger()
@@ -141,7 +140,7 @@ export class BotAdapter implements TelegramAdapter {
     await this.bot.stop()
   }
 
-  async *getMessages(chatId: number, limit = 100): AsyncGenerator<TelegramMessage> {
+  async *getMessages(_chatId: number, _limit = 100): AsyncGenerator<TelegramMessage> {
     // Note: Bot API doesn't support getting message history
     // We can only get messages that are sent to the bot
     throw new Error('Bot API does not support getting message history')

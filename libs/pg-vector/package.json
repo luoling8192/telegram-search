@@ -22,10 +22,10 @@
     "drizzle-orm": "^0.29.3"
   },
   "dependencies": {
-    "drizzle-orm": "^0.29.3"
+    "drizzle-orm": "^0.39.3"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
+    "typescript": "^5.7.3",
     "unbuild": "^3.3.1"
   }
 }
