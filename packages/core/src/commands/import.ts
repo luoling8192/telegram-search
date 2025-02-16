@@ -1,5 +1,3 @@
-import type { MessageType } from '../db/schema/message'
-
 import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
@@ -9,7 +7,7 @@ import { parse as parseDate } from 'date-fns'
 import { glob } from 'glob'
 import { JSDOM } from 'jsdom'
 
-import { createMessage } from '../models/message'
+import { createMessage, MessageType } from '../models/message'
 import { EmbeddingService } from '../services/embedding'
 
 interface ImportOptions {
@@ -341,7 +339,7 @@ export default async function importMessages(chatId?: string, path?: string, opt
           )
         }
         catch (error) {
-          logger.withError(error).error(`导入消息失败: ${msg.id}`)
+          logger.withError(error).error(`导入消息失败: ${batch[0].id}`)
         }
 
         logger.debug(`已处理 ${i + batch.length}/${parsedMessages.length} 条消息`)

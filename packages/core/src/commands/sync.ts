@@ -2,8 +2,8 @@ import type { ClientAdapter } from '../adapter/client'
 
 import { useLogger } from '@tg-search/common'
 
-import { deleteAllChats, deleteAllFolders, updateChat } from '../models/chat'
-import { updateFolder } from '../models/folder'
+import { deleteAllFolders, updateFolder } from '../models/folder'
+import { deleteAllChats, updateChat } from '../models/chat'
 
 const logger = useLogger()
 

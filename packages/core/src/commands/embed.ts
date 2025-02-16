@@ -1,9 +1,7 @@
 import { useLogger } from '@tg-search/common'
-import { eq } from 'drizzle-orm'
 
-import { useDB } from '../composable/db'
-import { createMessageContentTable } from '../db/schema/message'
-import { getMessageCount, getMessagesWithoutEmbedding, getPartitionTables } from '../models/message'
+import { getMessageCount, getPartitionTables } from '../models/message'
+import { getMessagesWithoutEmbedding, updateMessageEmbedding } from '../models/message-content'
 import { EmbeddingService } from '../services/embedding'
 
 interface EmbedOptions {
@@ -12,11 +10,17 @@ interface EmbedOptions {
   concurrency?: number
 }
 
+interface Message {
+  id: number
+  content: string | null
+  chatId: number
+}
+
 /**
  * Process a batch of messages
  */
 async function processBatch(
-  messages: { id: number, content: string | null, chatId: number }[],
+  messages: Message[],
   embedding: EmbeddingService,
   logger: ReturnType<typeof useLogger>,
 ) {
@@ -40,8 +44,7 @@ async function processBatch(
 
       try {
         // Update message with embedding
-        await useDB().update(createMessageContentTable(message.chatId)).set({ embedding }).where(eq(messages.id, message.id))
-
+        await updateMessageEmbedding(message.chatId, message.id, embedding)
         result.processed++
       }
       catch (error) {
@@ -96,13 +99,13 @@ export default async function embed(options: Partial<EmbedOptions> = {}) {
         )
 
         // 过滤掉空批次
-        const validBatches = batches.filter(batch => batch.length > 0)
+        const validBatches = batches.filter((batch: Message[]) => batch.length > 0)
         if (validBatches.length === 0)
           break
 
         // 并行处理多个批次
         const results = await Promise.all(
-          validBatches.map(batch => processBatch(batch, embedding, logger)),
+          validBatches.map((batch: Message[]) => processBatch(batch, embedding, logger)),
         )
 
         // 统计处理结果
