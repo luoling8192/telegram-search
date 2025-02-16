@@ -6,6 +6,8 @@ words:
   - guiiai
   - Logg
   - tiktoken
+  - tsquery
+  - tsvector
   - unocss
   - xsai
 ignoreWords: []
