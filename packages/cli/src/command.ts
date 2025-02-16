@@ -1,4 +1,4 @@
-import type { TelegramAdapter } from '@tg-search/core'
+import type { BotAdapter, ClientAdapter, TelegramAdapter } from '@tg-search/core'
 
 /**
  * Command metadata interface
@@ -14,6 +14,8 @@ interface CommandMeta {
   requiresConnection?: boolean
   // Whether the command can be run in background
   isBackground?: boolean
+  // Whether the command requires client adapter
+  requiresClient?: boolean
 }
 
 /**
@@ -31,8 +33,8 @@ export interface Command {
 /**
  * Base command class with Telegram client
  */
-export abstract class TelegramCommand implements Command {
-  protected client?: TelegramAdapter
+export abstract class TelegramCommand<T extends TelegramAdapter = ClientAdapter> implements Command {
+  protected client?: T
 
   abstract meta: CommandMeta
   abstract execute(args: string[], options: Record<string, any>): Promise<void>
@@ -41,13 +43,17 @@ export abstract class TelegramCommand implements Command {
    * Set Telegram client
    */
   setClient(client: TelegramAdapter) {
-    this.client = client
+    // Check if command requires client adapter
+    if (this.meta.requiresClient && client.type === 'bot') {
+      throw new Error('This command requires client adapter')
+    }
+    this.client = client as T
   }
 
   /**
    * Get Telegram client
    */
-  protected getClient(): TelegramAdapter {
+  protected getClient(): T {
     if (!this.client) {
       throw new Error('Telegram client not initialized')
     }

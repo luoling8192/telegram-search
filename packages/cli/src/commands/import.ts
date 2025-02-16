@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { useLogger } from '@tg-search/common'
 import { EmbeddingService } from '@tg-search/core'
-import { createMessage } from '@tg-search/db'
+import { createMessage, insertMessageContent } from '@tg-search/db'
 import { glob } from 'glob'
 import { JSDOM } from 'jsdom'
 
@@ -315,10 +315,38 @@ export class ImportCommand extends TelegramCommand {
             // Save messages with embeddings
             for (let i = 0; i < messages.length; i++) {
               try {
+                const { mediaInfo, links, fromName, ...messageData } = messages[i]
+                // Create message metadata
                 await createMessage({
-                  ...messages[i],
-                  embedding: embeddings[i],
+                  id: messageData.id,
+                  chatId: messageData.chatId,
+                  type: messageData.type,
+                  createdAt: messageData.createdAt,
+                  fromId: messageData.fromId,
+                  replyToId: messageData.replyToId,
+                  forwardFromChatId: messageData.forwardFromChatId,
+                  forwardFromMessageId: messageData.forwardFromMessageId,
+                  views: messageData.views,
+                  forwards: messageData.forwards,
                 })
+
+                // Insert message content with embedding
+                await insertMessageContent(messageData.chatId, {
+                  id: messageData.id,
+                  chatId: messageData.chatId,
+                  type: messageData.type,
+                  content: messageData.content,
+                  embedding: embeddings[i],
+                  mediaInfo: mediaInfo || null,
+                  createdAt: messageData.createdAt,
+                  fromId: messageData.fromId,
+                  replyToId: messageData.replyToId,
+                  forwardFromChatId: messageData.forwardFromChatId,
+                  forwardFromMessageId: messageData.forwardFromMessageId,
+                  views: messageData.views,
+                  forwards: messageData.forwards,
+                })
+
                 totalMessages++
               }
               catch (error) {
@@ -331,7 +359,38 @@ export class ImportCommand extends TelegramCommand {
             // Save messages without embeddings
             for (const message of messages) {
               try {
-                await createMessage(message)
+                const { mediaInfo, links, fromName, ...messageData } = message
+                // Create message metadata
+                await createMessage({
+                  id: messageData.id,
+                  chatId: messageData.chatId,
+                  type: messageData.type,
+                  createdAt: messageData.createdAt,
+                  fromId: messageData.fromId,
+                  replyToId: messageData.replyToId,
+                  forwardFromChatId: messageData.forwardFromChatId,
+                  forwardFromMessageId: messageData.forwardFromMessageId,
+                  views: messageData.views,
+                  forwards: messageData.forwards,
+                })
+
+                // Insert message content without embedding
+                await insertMessageContent(messageData.chatId, {
+                  id: messageData.id,
+                  chatId: messageData.chatId,
+                  type: messageData.type,
+                  content: messageData.content,
+                  embedding: null,
+                  mediaInfo: mediaInfo || null,
+                  createdAt: messageData.createdAt,
+                  fromId: messageData.fromId,
+                  replyToId: messageData.replyToId,
+                  forwardFromChatId: messageData.forwardFromChatId,
+                  forwardFromMessageId: messageData.forwardFromMessageId,
+                  views: messageData.views,
+                  forwards: messageData.forwards,
+                })
+
                 totalMessages++
               }
               catch (error) {

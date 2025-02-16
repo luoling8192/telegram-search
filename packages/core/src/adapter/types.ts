@@ -1,4 +1,4 @@
-import type { MediaInfo } from '@tg-search/db'
+import type { MediaInfo, NewChat, NewFolder } from '@tg-search/db'
 
 /**
  * Telegram adapter type
@@ -46,9 +46,9 @@ export interface ConnectOptions {
 }
 
 /**
- * Telegram adapter interface
+ * Base Telegram adapter interface with common functionality
  */
-export interface TelegramAdapter {
+export interface BaseTelegramAdapter {
   /**
    * Get adapter type
    */
@@ -65,15 +65,54 @@ export interface TelegramAdapter {
   disconnect: () => Promise<void>
 
   /**
+   * Listen for new messages
+   */
+  onMessage: (callback: (message: TelegramMessage) => Promise<void>) => void
+}
+
+/**
+ * Bot adapter interface with bot-specific functionality
+ */
+export interface ITelegramBotAdapter extends BaseTelegramAdapter {
+  type: 'bot'
+}
+
+/**
+ * Client adapter interface with client-specific functionality
+ */
+export interface ITelegramClientAdapter extends BaseTelegramAdapter {
+  type: 'client'
+
+  /**
    * Get messages from chat
    */
   getMessages: (chatId: number, limit?: number, options?: MessageOptions) => AsyncGenerator<TelegramMessage>
 
   /**
-   * Listen for new messages
+   * Get all dialogs (chats) with pagination
    */
-  onMessage: (callback: (message: TelegramMessage) => Promise<void>) => void
+  getDialogs: (offset?: number, limit?: number) => Promise<DialogsResult>
+
+  /**
+   * Get all folders from Telegram
+   */
+  getFolders: () => Promise<NewFolder[]>
+
+  /**
+   * Get all chats from Telegram
+   */
+  getChats: () => Promise<NewChat[]>
+
+  /**
+   * Get folders for a specific chat
+   */
+  getFoldersForChat: (chatId: number) => Promise<Folder[]>
 }
+
+/**
+ * Combined Telegram adapter type
+ */
+export type TelegramAdapter = ITelegramBotAdapter | ITelegramClientAdapter
 
 export interface Dialog {
   id: number
@@ -82,4 +121,16 @@ export interface Dialog {
   unreadCount: number
   lastMessage?: string
   lastMessageDate?: Date
+}
+
+export interface DialogsResult {
+  dialogs: Dialog[]
+  total: number
+}
+
+export interface Folder {
+  id: number
+  title: string
+  // Custom folder ID from Telegram
+  customId?: number
 }

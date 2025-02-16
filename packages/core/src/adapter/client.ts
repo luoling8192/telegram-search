@@ -1,5 +1,5 @@
 import type { NewChat, NewFolder } from '@tg-search/db'
-import type { ConnectOptions, Dialog, MessageOptions, TelegramAdapter, TelegramMessage, TelegramMessageType } from './types'
+import type { ConnectOptions, DialogsResult, Folder, ITelegramClientAdapter, MessageOptions, TelegramMessage, TelegramMessageType } from './types'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -9,40 +9,14 @@ import { StringSession } from 'telegram/sessions'
 
 import { MediaService } from '../services/media'
 
-export interface ClientAdapterConfig {
+interface ClientAdapterConfig {
   apiId: number
   apiHash: string
   phoneNumber: string
   password?: string
 }
 
-// export interface Dialog {
-//   id: number
-//   name: string
-//   type: 'user' | 'group' | 'channel' | 'saved'
-//   unreadCount: number
-//   lastMessage?: string
-//   lastMessageDate?: Date
-// }
-
-export interface DialogsResult {
-  dialogs: Dialog[]
-  total: number
-}
-
-export interface Folder {
-  id: number
-  title: string
-  // Custom folder ID from Telegram
-  customId?: number
-}
-
-// export interface ConnectOptions {
-//   code?: string
-//   password?: string
-// }
-
-export class ClientAdapter implements TelegramAdapter {
+export class ClientAdapter implements ITelegramClientAdapter {
   private client: TelegramClient
   private messageCallback?: (message: TelegramMessage) => Promise<void>
   private config: ClientAdapterConfig

@@ -1,4 +1,4 @@
-import type { TelegramMessageType } from '../../../core/src/adapter/types'
+import type { Dialog, TelegramMessageType } from '@tg-search/core'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -35,7 +35,7 @@ export class ExportCommand extends TelegramCommand {
     // Get all chats in folder
     const dialogs = await this.getClient().getDialogs()
     logger.debug(`获取到 ${dialogs.dialogs.length} 个会话`)
-    const chatChoices = dialogs.dialogs.map(dialog => ({
+    const chatChoices = dialogs.dialogs.map((dialog: Dialog) => ({
       name: `[${dialog.type}] ${dialog.name} (${dialog.unreadCount} 条未读)`,
       value: dialog.id,
     }))
@@ -45,7 +45,7 @@ export class ExportCommand extends TelegramCommand {
       message: '请选择要导出的会话：',
       choices: chatChoices,
     })
-    const selectedChat = dialogs.dialogs.find(d => d.id === chatId)
+    const selectedChat = dialogs.dialogs.find((d: Dialog) => d.id === chatId)
     if (!selectedChat) {
       throw new Error(`找不到会话: ${chatId}`)
     }
