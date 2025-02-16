@@ -1,0 +1,31 @@
+{
+  "name": "@tg-search/pg-vector",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "PostgreSQL vector operations for drizzle-orm",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "unbuild",
+    "dev": "unbuild --watch"
+  },
+  "peerDependencies": {
+    "drizzle-orm": "^0.29.3"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.29.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "unbuild": "^3.3.1"
+  }
+}
