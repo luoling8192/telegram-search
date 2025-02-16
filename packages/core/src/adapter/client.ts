@@ -126,7 +126,7 @@ export class ClientAdapter implements TelegramAdapter {
   /**
    * Get all dialogs (chats) with pagination
    */
-  async getDialogs(offset = 0, limit = 10): Promise<DialogsResult> {
+  async getDialogs(_offset = 0, limit = 10): Promise<DialogsResult> {
     // Get all dialogs first
     const dialogs = await this.client.getDialogs({
       limit: limit + 1, // Get one extra to check if there are more
@@ -318,7 +318,7 @@ export class ClientAdapter implements TelegramAdapter {
     await this.client.disconnect()
   }
 
-  async *getMessages(chatId: number, limit = 100, options?: MessageOptions): AsyncGenerator<TelegramMessage> {
+  async *getMessages(chatId: number, _limit = 100, options?: MessageOptions): AsyncGenerator<TelegramMessage> {
     let offsetId = 0
     let hasMore = true
     let processedCount = 0
@@ -405,8 +405,8 @@ export class ClientAdapter implements TelegramAdapter {
       })
 
       // Add saved messages folder
-      const me = await this.client.getMe()
-      if (dialog.id.eq(me.id)) {
+      const currentUser = await this.client.getMe()
+      if (dialog.id.eq(currentUser.id)) {
         folders.push({
           id: -1,
           title: '常用消息',
@@ -452,7 +452,7 @@ export class ClientAdapter implements TelegramAdapter {
       }
 
       // Add saved messages folder
-      const me = await this.client.getMe()
+      // const me = await this.client.getMe()
       folders.push({
         id: -1,
         title: '常用消息',
@@ -496,7 +496,7 @@ export class ClientAdapter implements TelegramAdapter {
         const { type, name } = this.getEntityInfo(entity)
         chats.push({
           id: entity.id.toJSNumber(),
-          name,
+          title: name,
           type,
           lastMessage: dialog.message?.message || null,
           lastMessageDate: dialog.message?.date ? new Date(dialog.message.date * 1000) : null,
@@ -507,11 +507,11 @@ export class ClientAdapter implements TelegramAdapter {
       }
 
       // Add Saved Messages
-      const me = await this.client.getMe()
-      if (!chats.some(chat => chat.id === me.id.toJSNumber())) {
+      const currentUser = await this.client.getMe()
+      if (!chats.some(chat => chat.id === currentUser.id.toJSNumber())) {
         chats.unshift({
-          id: me.id.toJSNumber(),
-          name: '常用',
+          id: currentUser.id.toJSNumber(),
+          title: '常用',
           type: 'saved',
           lastMessage: null,
           lastMessageDate: null,

@@ -6,8 +6,8 @@
     "skipLibCheck": true
   },
   "include": [
-    "src/**/*"
-, "../core/src/services", "../core/src/adapter"  ],
+    "src/**/*",
+  ],
   "exclude": [
     "node_modules",
     "dist"

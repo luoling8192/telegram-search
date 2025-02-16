@@ -1,8 +1,8 @@
 import process from 'node:process'
 import { getConfig, useLogger } from '@tg-search/common'
+import { createAdapter } from '@tg-search/core'
 import { Command as Commander } from 'commander'
 
-import { createAdapter } from '../../core/src/adapter/factory'
 import { registry } from './command'
 import botCommand from './commands/bot'
 import connectCommand from './commands/connect'

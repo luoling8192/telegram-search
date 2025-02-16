@@ -2,10 +2,10 @@ import type { Message } from '@tg-search/db'
 
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
+import { EmbeddingService } from '@tg-search/core'
 import { getMessageCount, getMessagesWithoutEmbedding, updateMessageEmbedding } from '@tg-search/db'
 
 import { TelegramCommand } from '../command'
-import { EmbeddingService } from '../../../core/src/services/embedding'
 
 const logger = useLogger()
 

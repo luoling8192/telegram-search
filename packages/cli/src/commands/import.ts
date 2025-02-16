@@ -3,12 +3,12 @@ import type { MessageType } from '@tg-search/db'
 import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { useLogger } from '@tg-search/common'
+import { EmbeddingService } from '@tg-search/core'
 import { createMessage } from '@tg-search/db'
 import { glob } from 'glob'
 import { JSDOM } from 'jsdom'
 
 import { TelegramCommand } from '../command'
-import { EmbeddingService } from '../../../core/src/services/embedding'
 
 const logger = useLogger()
 

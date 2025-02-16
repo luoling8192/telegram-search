@@ -52,13 +52,13 @@ export class SyncCommand extends TelegramCommand {
       for (const chat of newChats) {
         try {
           const result = await updateChat(chat)
-          logger.debug(`已同步会话: [${chat.type}] ${chat.name} (ID: ${chat.id})`)
+          logger.debug(`已同步会话: [${chat.type}] ${chat.title} (ID: ${chat.id})`)
           if (!result || result.length === 0) {
-            logger.warn(`会话 ${chat.name} 同步失败`)
+            logger.warn(`会话 ${chat.title} 同步失败`)
           }
         }
         catch (error) {
-          logger.withError(error).warn(`同步会话失败: ${chat.name}`)
+          logger.withError(error).warn(`同步会话失败: ${chat.title}`)
         }
       }
       logger.log(`共同步了 ${newChats.length} 个会话`)

@@ -1,4 +1,4 @@
-import type { ClientAdapter } from '../../core/src/adapter/client'
+import type { ClientAdapter } from '@tg-search/core'
 
 /**
  * Command metadata interface
