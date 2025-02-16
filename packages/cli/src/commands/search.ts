@@ -1,13 +1,10 @@
-import type { MessageType } from '../db/schema/types'
-import type { SearchOptions } from '../models/message'
+import type { MessageType, SearchOptions } from '@tg-search/db'
 
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
+import { findSimilarMessages, getAllFolders, getChatsInFolder } from '@tg-search/db'
 
 import { TelegramCommand } from '.'
-import { getChatsInFolder } from '../models/chat'
-import { getAllFolders } from '../models/folder'
-import { findSimilarMessages } from '../models/message'
 import { EmbeddingService } from '../services/embedding'
 
 const logger = useLogger()

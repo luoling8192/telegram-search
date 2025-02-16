@@ -6,7 +6,6 @@ import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
 
 import { TelegramCommand } from '.'
-import { updateChat } from '../models/chat'
 
 const logger = useLogger()
 
@@ -124,7 +123,7 @@ export class ExportCommand extends TelegramCommand {
     logger.log('正在导出消息...')
     let count = 0
     let failedCount = 0
-    let skippedCount = 0
+    const skippedCount = 0
     const messages = []
 
     // Export messages

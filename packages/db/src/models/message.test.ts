@@ -1,16 +1,16 @@
+import { useDB } from '@tg-search/common'
 import { describe, expect, it, vi } from 'vitest'
 
-import { useDB } from '../composable/db'
 import {
   createMessage,
   findSimilarMessages,
   getLastMessageId,
   getMessageById,
   getMessageCount,
-  getMessagesWithoutEmbedding,
   getPartitionTables,
   searchMessages,
 } from './message'
+import { getMessagesWithoutEmbedding } from './message-content'
 
 // Mock the database
 vi.mock('../../db', () => ({

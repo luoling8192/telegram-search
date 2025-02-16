@@ -1,9 +1,9 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm'
 
+import { useDB } from '@tg-search/common'
 import { eq, isNull, sql } from 'drizzle-orm'
 
-import { useDB } from '../composable/db'
-import { createMessageContentTable } from '../db/schema/message'
+import { createMessageContentTable } from '../schema/message'
 
 // Export types
 export type MessageContent = InferSelectModel<ReturnType<typeof createMessageContentTable>>
@@ -14,7 +14,7 @@ export type MessageContentInsert = InferInsertModel<ReturnType<typeof createMess
  */
 export async function getMessagesWithoutEmbedding(chatId: number, limit: number) {
   const contentTable = createMessageContentTable(chatId)
-  return db
+  return useDB()
     .select({
       id: contentTable.id,
       content: contentTable.content,
@@ -30,7 +30,7 @@ export async function getMessagesWithoutEmbedding(chatId: number, limit: number)
  */
 export async function updateMessageEmbedding(chatId: number, messageId: number, embedding: number[]) {
   const contentTable = createMessageContentTable(chatId)
-  return db
+  return useDB()
     .update(contentTable)
     .set({ embedding })
     .where(eq(contentTable.id, messageId))
@@ -59,8 +59,8 @@ export async function findSimilarMessagesByEmbedding(chatId: number, embedding: 
  */
 export async function insertMessageContent(chatId: number, content: MessageContentInsert | MessageContentInsert[]) {
   const contentTable = createMessageContentTable(chatId)
-  return db
+  return useDB()
     .insert(contentTable)
-    .values(content)
+    .values(Array.isArray(content) ? content : [content])
     .onConflictDoNothing()
 }

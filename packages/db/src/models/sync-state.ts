@@ -1,8 +1,9 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm'
 
+import { useDB } from '@tg-search/common'
 import { eq } from 'drizzle-orm'
 
-import { db, syncState } from '../db'
+import { syncState } from '../schema/sync-state'
 
 // Export types
 export type SyncState = InferSelectModel<typeof syncState>
@@ -12,7 +13,7 @@ export type SyncStateInsert = InferInsertModel<typeof syncState>
  * Get sync state for a chat
  */
 export async function getSyncState(chatId: number) {
-  const [result] = await db
+  const [result] = await useDB()
     .select()
     .from(syncState)
     .where(eq(syncState.chatId, chatId))
@@ -24,7 +25,7 @@ export async function getSyncState(chatId: number) {
  * Update sync state for a chat
  */
 export async function updateSyncState(state: SyncStateInsert) {
-  return db
+  return useDB()
     .insert(syncState)
     .values(state)
     .onConflictDoUpdate({
@@ -40,7 +41,7 @@ export async function updateSyncState(state: SyncStateInsert) {
  * Delete sync state for a chat
  */
 export async function deleteSyncState(chatId: number) {
-  return db
+  return useDB()
     .delete(syncState)
     .where(eq(syncState.chatId, chatId))
 }

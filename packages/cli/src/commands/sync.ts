@@ -1,8 +1,7 @@
 import { useLogger } from '@tg-search/common'
+import { deleteAllChats, deleteAllFolders, updateChat, updateFolder } from '@tg-search/db'
 
 import { TelegramCommand } from '.'
-import { deleteAllFolders, updateFolder } from '../models/folder'
-import { deleteAllChats, updateChat } from '../models/chat'
 
 const logger = useLogger()
 

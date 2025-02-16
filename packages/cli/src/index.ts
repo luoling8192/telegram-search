@@ -1,8 +1,6 @@
 import process from 'node:process'
-import { initLogger, useLogger } from '@tg-search/common'
+import { initConfig, initDB, initLogger, useLogger } from '@tg-search/common'
 
-import { initConfig } from './composable/config'
-import { initDB } from './composable/db'
 import { main } from './cli'
 
 // Initialize logger and config

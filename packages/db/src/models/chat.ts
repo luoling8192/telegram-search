@@ -1,9 +1,9 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm'
 
+import { useDB } from '@tg-search/common'
 import { eq, sql } from 'drizzle-orm'
 
-import { useDB } from '../composable/db'
-import { chats } from '../db/schema/chat'
+import { chats } from '../schema/chat'
 
 // Export types
 export type Chat = InferSelectModel<typeof chats>

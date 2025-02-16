@@ -1,6 +1,6 @@
+import { useDB } from '@tg-search/common'
 import { describe, expect, it, vi } from 'vitest'
 
-import { useDB } from '../composable/db'
 import {
   deleteAllFolders,
   getAllFolders,

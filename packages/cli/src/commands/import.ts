@@ -1,14 +1,13 @@
-import type { MessageType } from '../db/schema/types'
+import type { MessageType } from '@tg-search/db'
 
 import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
+import { createMessage } from '@tg-search/db'
 import { glob } from 'glob'
 import { JSDOM } from 'jsdom'
 
 import { TelegramCommand } from '.'
-import { createMessage } from '../models/message'
 import { EmbeddingService } from '../services/embedding'
 
 const logger = useLogger()

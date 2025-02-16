@@ -1,9 +1,9 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm'
 
+import { useDB } from '@tg-search/common'
 import { sql } from 'drizzle-orm'
 
-import { useDB } from '../composable/db'
-import { folders } from '../db/schema/folder'
+import { folders } from '../schema/folder'
 
 // Export types
 export type Folder = InferSelectModel<typeof folders>

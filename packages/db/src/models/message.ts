@@ -1,19 +1,18 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
-import type { messageTypeEnum } from '../db/schema/types'
+import type { MessageType, messageTypeEnum } from '../schema/types'
 
-import { useLogger } from '@tg-search/common'
+import { useDB, useLogger } from '@tg-search/common'
 import { and, count, eq, gt, lt, sql } from 'drizzle-orm'
 
-import { useDB } from '../composable/db'
-import { createChatPartition, createMessageContentTable, messages } from '../db/schema/message'
+import { createChatPartition, createMessageContentTable, messages } from '../schema/message'
 
 const logger = useLogger()
 
 // Export types
 export type Message = InferSelectModel<typeof messages>
 export type NewMessage = InferInsertModel<typeof messages>
-export type MessageType = (typeof messageTypeEnum.enumValues)[number]
+// export type MessageType = (typeof messageTypeEnum.enumValues)[number]
 
 export interface MessageCreateInput {
   id: number
