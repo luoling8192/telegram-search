@@ -61,7 +61,7 @@ cp .env.example .env
 
 4. 初始化数据库：
 ```bash
-pnpm -F @tg-search/core db:migrate
+pnpm -F @tg-search/cli db:migrate
 ```
 
 ## ⚙️ 配置说明
@@ -122,10 +122,10 @@ OPENAI_API_BASE="https://your-api-proxy/v1"
 
 ```bash
 # 完整导入（包含向量嵌入）
-pnpm run dev:core import -c <chat_id> -p <path_to_html_files>
+pnpm run dev:cli import -c <chat_id> -p <path_to_html_files>
 
 # 快速导入（跳过向量嵌入）
-pnpm run dev:core import -c <chat_id> -p <path_to_html_files> --no-embedding
+pnpm run dev:cli import -c <chat_id> -p <path_to_html_files> --no-embedding
 ```
 
 ### 生成向量嵌入
@@ -133,23 +133,23 @@ pnpm run dev:core import -c <chat_id> -p <path_to_html_files> --no-embedding
 为已导入的消息生成向量表示：
 ```bash
 # 处理所有聊天
-pnpm run dev:core embed -b 100
+pnpm run dev:cli embed -b 100
 
 # 处理指定聊天
-pnpm run dev:core embed -b 100 -c <chat_id>
+pnpm run dev:cli embed -b 100 -c <chat_id>
 ```
 
 ### 启动服务
 
 ```bash
 # 启动 Bot 服务
-pnpm run dev:core bot
+pnpm run dev:cli bot
 
 # 启动搜索服务
-pnpm run dev:core search
+pnpm run dev:cli search
 
 # 启动消息监听
-pnpm run dev:core watch
+pnpm run dev:cli watch
 ```
 
 ## 🔧 开发指南
@@ -158,20 +158,20 @@ pnpm run dev:core watch
 
 ```bash
 # 生成迁移文件
-pnpm -F @tg-search/core db:generate
+pnpm -F @tg-search/cli db:generate
 
 # 应用迁移
-pnpm -F @tg-search/core db:migrate
+pnpm -F @tg-search/cli db:migrate
 
 # 启动开发服务器
-pnpm -F @tg-search/core dev
+pnpm -F @tg-search/cli dev
 ```
 
 ### 项目结构
 
 ```
 packages/
-  ├── core/           # 核心功能模块
+  ├── cli/           # 核心功能模块
   │   ├── src/
   │   │   ├── commands/   # CLI 命令
   │   │   ├── db/        # 数据库相关

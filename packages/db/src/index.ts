@@ -1,4 +1,3 @@
-// Export schema
 export * from './schema/chat'
 export * from './schema/folder'
 export * from './schema/message'

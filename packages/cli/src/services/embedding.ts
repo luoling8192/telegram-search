@@ -1,9 +1,7 @@
-import { useLogger } from '@tg-search/common'
+import { getConfig, useLogger } from '@tg-search/common'
 import { embed, embedMany } from '@xsai/embed'
 import { createOpenAI } from '@xsai/providers'
 import { encoding_for_model } from 'tiktoken'
-
-import { getConfig } from '../composable/config'
 
 // OpenAI API 限制和定价
 const LIMITS = {

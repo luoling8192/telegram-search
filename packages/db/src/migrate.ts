@@ -1,11 +1,8 @@
 import { dirname } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { initLogger, useLogger } from '@tg-search/common'
+import { initConfig, initDB, initLogger, useDB, useLogger } from '@tg-search/common'
 import { sql } from 'drizzle-orm'
-
-import { initConfig } from '../composable/config'
-import { initDB, useDB } from '../composable/db'
 
 // Run migrations
 async function main() {

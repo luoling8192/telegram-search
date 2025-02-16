@@ -1,18 +1,21 @@
+import type { MessageType } from '../db/schema/types'
+
 import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import process from 'node:process'
+import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
-import { Command } from 'commander'
-import { parse as parseDate } from 'date-fns'
 import { glob } from 'glob'
 import { JSDOM } from 'jsdom'
 
-import { createMessage, MessageType } from '../models/message'
+import { TelegramCommand } from '.'
+import { createMessage } from '../models/message'
 import { EmbeddingService } from '../services/embedding'
 
+const logger = useLogger()
+
 interface ImportOptions {
-  chatId: string
-  path: string
+  chatId?: string
+  path?: string
   noEmbedding?: boolean
 }
 
@@ -137,7 +140,7 @@ function getMessageType(element: Element): MessageType {
  */
 function parseTelegramDate(dateStr: string): Date {
   // 先解析基本日期时间
-  const basicDate = parseDate(dateStr.split(' UTC')[0], 'dd.MM.yyyy HH:mm:ss', new Date())
+  const basicDate = new Date(dateStr.split(' UTC')[0].split('.').reverse().join('-'))
 
   // 解析时区
   const tzMatch = dateStr.match(/UTC([+-]\d{2}):(\d{2})/)
@@ -155,7 +158,7 @@ function parseTelegramDate(dateStr: string): Date {
 /**
  * Parse HTML message file and extract messages
  */
-async function parseHtmlFile(filePath: string, logger: ReturnType<typeof useLogger>): Promise<MessageData[]> {
+async function parseHtmlFile(filePath: string): Promise<MessageData[]> {
   const content = await readFile(filePath, 'utf-8')
   const dom = new JSDOM(content)
   const document = dom.window.document
@@ -247,118 +250,113 @@ async function parseHtmlFile(filePath: string, logger: ReturnType<typeof useLogg
     }, [])
 }
 
-export default async function importMessages(chatId?: string, path?: string, options: Partial<ImportOptions> = {}) {
-  const logger = useLogger()
-
-  // 如果没有直接传入参数，则从命令行获取
-  if (!chatId || !path) {
-    const program = new Command()
-    program
-      .argument('<chatId>', 'Chat ID to import messages to')
-      .argument('<path>', 'Path to HTML files')
-      .option('--no-embedding', 'Skip generating embeddings')
-      .parse()
-
-    const args = program.args
-    chatId = args[0]
-    path = args[1]
-    options = program.opts()
+/**
+ * Import command to import messages from HTML files
+ */
+export class ImportCommand extends TelegramCommand {
+  meta = {
+    name: 'import',
+    description: 'Import messages from HTML files',
+    usage: '<chatId> <path> [options]',
   }
 
-  // Initialize embedding service
-  const embedding = new EmbeddingService()
+  async execute(args: string[], options: ImportOptions): Promise<void> {
+    // Get chat ID and path
+    const chatId = options.chatId || args[0]
+    const path = options.path || args[1]
 
-  try {
-    const basePath = resolve(path)
-    logger.debug(`正在搜索文件: ${basePath}`)
-
-    // Find all HTML files
-    const files = await glob('**/*.html', {
-      cwd: basePath,
-      absolute: false,
-    })
-
-    if (files.length === 0) {
-      logger.warn('未找到任何 HTML 文件')
-      return
+    if (!chatId || !path) {
+      throw new Error('Chat ID and path are required')
     }
 
-    logger.debug(`找到 ${files.length} 个文件`)
-    let totalMessages = 0
-    let failedEmbeddings = 0
+    // Initialize embedding service
+    const embedding = new EmbeddingService()
 
-    for (const file of files) {
-      const fullPath = join(basePath, file)
-      logger.debug(`正在处理文件: ${file}`)
-      const parsedMessages = await parseHtmlFile(fullPath, logger)
+    try {
+      const basePath = resolve(path)
+      logger.debug(`正在搜索文件: ${basePath}`)
 
-      if (parsedMessages.length === 0) {
-        logger.warn(`文件 ${file} 中未找到任何消息`)
-        continue
+      // Find all HTML files
+      const files = await glob('**/*.html', {
+        cwd: basePath,
+        absolute: false,
+      })
+
+      if (files.length === 0) {
+        logger.warn('未找到任何 HTML 文件')
+        return
       }
 
-      // Set chat ID for all messages
-      const chatIdNum = Number(chatId)
-      parsedMessages.forEach(msg => msg.chatId = chatIdNum)
+      logger.debug(`找到 ${files.length} 个文件`)
+      let totalMessages = 0
+      let failedEmbeddings = 0
 
-      // Generate embeddings in batches
-      const batchSize = 100
-      for (let i = 0; i < parsedMessages.length; i += batchSize) {
-        const batch = parsedMessages.slice(i, i + batchSize)
-        let embeddings: number[][] = []
+      // Process each file
+      for (const file of files) {
+        const filePath = join(basePath, file)
+        logger.debug(`正在处理文件: ${filePath}`)
 
-        if (!options.noEmbedding) {
-          try {
-            const texts = batch.map(msg => msg.content)
-            embeddings = await embedding.generateEmbeddings(texts)
-          }
-          catch (error) {
-            logger.withError(error).warn('生成向量嵌入失败，将跳过向量嵌入')
-            failedEmbeddings += batch.length
-          }
-        }
-
-        // Insert messages
         try {
-          await createMessage(
-            batch.map((msg, idx) => ({
-              id: msg.id,
-              chatId: msg.chatId,
-              type: msg.type,
-              content: msg.content,
-              embedding: options.noEmbedding ? undefined : embeddings[idx],
-              mediaInfo: msg.mediaInfo,
-              createdAt: msg.createdAt,
-              fromId: msg.fromId,
-              replyToId: msg.replyToId,
-              forwardFromChatId: msg.forwardFromChatId,
-              forwardFromMessageId: msg.forwardFromMessageId,
-              views: msg.views,
-              forwards: msg.forwards,
-            })),
-          )
+          // Parse messages from file
+          const messages = await parseHtmlFile(filePath)
+          logger.debug(`从文件中解析出 ${messages.length} 条消息`)
+
+          // Set chat ID for all messages
+          for (const message of messages) {
+            message.chatId = Number(chatId)
+          }
+
+          // Generate embeddings if needed
+          if (!options.noEmbedding) {
+            logger.debug('正在生成向量嵌入...')
+            const contents = messages.map(m => m.content)
+            const embeddings = await embedding.generateEmbeddings(contents)
+            logger.debug('向量嵌入生成完成')
+
+            // Save messages with embeddings
+            for (let i = 0; i < messages.length; i++) {
+              try {
+                await createMessage({
+                  ...messages[i],
+                  embedding: embeddings[i],
+                })
+                totalMessages++
+              }
+              catch (error) {
+                logger.withError(error).warn(`保存消息 ${messages[i].id} 失败`)
+                failedEmbeddings++
+              }
+            }
+          }
+          else {
+            // Save messages without embeddings
+            for (const message of messages) {
+              try {
+                await createMessage(message)
+                totalMessages++
+              }
+              catch (error) {
+                logger.withError(error).warn(`保存消息 ${message.id} 失败`)
+                failedEmbeddings++
+              }
+            }
+          }
+
+          logger.debug(`文件处理完成: ${file}`)
         }
         catch (error) {
-          logger.withError(error).error(`导入消息失败: ${batch[0].id}`)
+          logger.withError(error).error(`处理文件失败: ${file}`)
         }
-
-        logger.debug(`已处理 ${i + batch.length}/${parsedMessages.length} 条消息`)
       }
 
-      totalMessages += parsedMessages.length
-      logger.debug(`文件 ${file} 已导入 ${parsedMessages.length} 条消息`)
+      logger.log(`导入完成，共导入 ${totalMessages} 条消息，${failedEmbeddings} 条消息生成向量嵌入失败`)
     }
-
-    const summary = options.noEmbedding
-      ? `导入完成，共导入 ${totalMessages} 条消息（未生成向量嵌入）`
-      : `导入完成，共导入 ${totalMessages} 条消息，${failedEmbeddings} 条消息未生成向量嵌入`
-    logger.debug(summary)
-  }
-  catch (error) {
-    logger.withError(error).error('导入失败')
-    process.exit(1)
-  }
-  finally {
-    embedding.destroy()
+    catch (error) {
+      logger.withError(error).error('导入失败')
+      throw error
+    }
   }
 }
+
+// Register command
+export default new ImportCommand()

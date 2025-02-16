@@ -1,12 +1,10 @@
-import type { ClientAdapter } from '../adapter/client'
 import type { MessageType } from '../db/schema/types'
 import type { SearchOptions } from '../models/message'
 
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
 
-import { createAdapter } from '../adapter/factory'
-import { getConfig } from '../composable/config'
+import { TelegramCommand } from '.'
 import { getChatsInFolder } from '../models/chat'
 import { getAllFolders } from '../models/folder'
 import { findSimilarMessages } from '../models/message'
@@ -25,32 +23,17 @@ function formatMessage(message: any) {
 }
 
 /**
- * Search messages
+ * Search command to search messages
  */
-export default async function search() {
-  const config = getConfig()
-  const apiId = Number(config.apiId)
-  const apiHash = config.apiHash
-  const phoneNumber = config.phoneNumber
-
-  if (!apiId || !apiHash || !phoneNumber) {
-    logger.log('API_ID, API_HASH and PHONE_NUMBER are required')
-    throw new Error('Missing required configuration')
+export class SearchCommand extends TelegramCommand {
+  meta = {
+    name: 'search',
+    description: 'Search messages in Telegram',
+    usage: '[options]',
+    requiresConnection: true,
   }
 
-  // Create client adapter
-  const adapter = createAdapter({
-    type: 'client',
-    apiId,
-    apiHash,
-    phoneNumber,
-  }) as ClientAdapter
-
-  try {
-    logger.log('连接到 Telegram...')
-    await adapter.connect()
-    logger.log('已连接！')
-
+  async execute(_args: string[], _options: Record<string, any>): Promise<void> {
     // Get all folders
     const folders = await getAllFolders()
     logger.debug(`获取到 ${folders.length} 个文件夹`)
@@ -151,11 +134,8 @@ export default async function search() {
       logger.log(formatMessage(message))
       logger.log('---')
     }
-
-    await adapter.disconnect()
-  }
-  catch (error) {
-    await adapter.disconnect()
-    throw error
   }
 }
+
+// Register command
+export default new SearchCommand()
