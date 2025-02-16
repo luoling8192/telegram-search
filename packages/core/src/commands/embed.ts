@@ -1,10 +1,9 @@
-import process from 'node:process'
 import { useLogger } from '@tg-search/common'
-import { Command } from 'commander'
-import { eq, isNull, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
-import { db } from '../db'
-import { createMessageContentTable, messages } from '../db/schema/message'
+import { useDB } from '../composable/db'
+import { createMessageContentTable } from '../db/schema/message'
+import { getMessageCount, getMessagesWithoutEmbedding, getPartitionTables } from '../models/message'
 import { EmbeddingService } from '../services/embedding'
 
 interface EmbedOptions {
@@ -14,43 +13,49 @@ interface EmbedOptions {
 }
 
 /**
- * Process messages in parallel batches
+ * Process a batch of messages
  */
 async function processBatch(
-  batch: { id: number, content: string | null, chatId: number }[],
+  messages: { id: number, content: string | null, chatId: number }[],
   embedding: EmbeddingService,
   logger: ReturnType<typeof useLogger>,
 ) {
-  // 过滤并准备文本
-  const validBatch = batch.filter(msg => msg.content && msg.content.trim().length > 0)
-  if (validBatch.length === 0) {
-    logger.warn('批次中没有有效的消息内容，跳过')
-    return { processed: batch.length, failed: batch.length }
+  const result = {
+    processed: 0,
+    failed: 0,
   }
+
+  if (messages.length === 0)
+    return result
 
   try {
-    // 生成向量嵌入
-    const texts = validBatch.map(msg => msg.content!.trim())
+    // Generate embeddings
+    const texts = messages.map(msg => msg.content || '')
     const embeddings = await embedding.generateEmbeddings(texts)
 
-    // 批量更新
-    await Promise.all(
-      validBatch.map((msg, idx) => {
-        const contentTable = createMessageContentTable(msg.chatId)
-        return db
-          .update(contentTable)
-          .set({ embedding: embeddings[idx] })
-          .where(eq(contentTable.id, msg.id))
-      }),
-    )
+    // Update messages with embeddings
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i]
+      const embedding = embeddings[i]
 
-    const skipped = batch.length - validBatch.length
-    return { processed: batch.length, failed: skipped }
+      try {
+        // Update message with embedding
+        await useDB().update(createMessageContentTable(message.chatId)).set({ embedding }).where(eq(messages.id, message.id))
+
+        result.processed++
+      }
+      catch (error) {
+        logger.withError(error).warn(`更新消息 ${message.id} 的向量嵌入失败`)
+        result.failed++
+      }
+    }
   }
   catch (error) {
-    logger.withError(error).warn(`处理消息批次时失败，跳过 ${batch.length} 条消息`)
-    return { processed: batch.length, failed: batch.length }
+    logger.withError(error).warn('生成向量嵌入失败')
+    result.failed += messages.length
   }
+
+  return result
 }
 
 /**
@@ -58,32 +63,17 @@ async function processBatch(
  */
 export default async function embed(options: Partial<EmbedOptions> = {}) {
   const logger = useLogger()
+
+  // Initialize embedding service
   const embedding = new EmbeddingService()
 
-  // 如果没有直接传入参数，则从命令行获取
-  if (!options.batchSize) {
-    const program = new Command()
-    program
-      .option('-b, --batch-size <size>', 'Batch size for processing', '100')
-      .option('-c, --chat-id <id>', 'Only process messages from this chat')
-      .option('-n, --concurrency <number>', 'Number of concurrent batches', '5')
-      .parse()
-
-    const opts = program.opts()
-    options.batchSize = Number(opts.batchSize)
-    options.chatId = opts.chatId ? Number(opts.chatId) : undefined
-    options.concurrency = Number(opts.concurrency)
-  }
-
+  // Get options
   const batchSize = options.batchSize || 100
-  const concurrency = options.concurrency || 5
+  const concurrency = options.concurrency || 1
 
   try {
     // 获取需要处理的消息总数
-    const [{ count }] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(messages)
-      .where(options.chatId ? eq(messages.chatId, options.chatId) : undefined)
+    const count = await getMessageCount(options.chatId)
 
     if (count === 0) {
       logger.log('没有需要处理的消息')
@@ -95,31 +85,14 @@ export default async function embed(options: Partial<EmbedOptions> = {}) {
     let failed = 0
 
     // 获取所有分区表
-    const partitionTables = await db
-      .select({
-        tableName: messages.partitionTable,
-        chatId: messages.chatId,
-      })
-      .from(messages)
-      .where(options.chatId ? eq(messages.chatId, options.chatId) : undefined)
-      .groupBy(messages.partitionTable, messages.chatId)
+    const partitionTables = await getPartitionTables(options.chatId)
 
     for (const { tableName, chatId } of partitionTables) {
-      const contentTable = createMessageContentTable(chatId)
-
       while (true) {
         // 获取多个批次的消息
         const batches = await Promise.all(
           Array.from({ length: concurrency }, () =>
-            db
-              .select({
-                id: contentTable.id,
-                content: contentTable.content,
-                chatId: contentTable.chatId,
-              })
-              .from(contentTable)
-              .where(isNull(contentTable.embedding))
-              .limit(batchSize)),
+            getMessagesWithoutEmbedding(chatId, batchSize)),
         )
 
         // 过滤掉空批次
@@ -142,7 +115,7 @@ export default async function embed(options: Partial<EmbedOptions> = {}) {
       }
     }
 
-    logger.log(`处理完成，共处理 ${processed} 条消息，${failed} 条消息失败或被跳过`)
+    logger.log(`处理完成，共处理 ${processed} 条消息，${failed} 条消息失败`)
 
     // 显示使用统计
     const usage = embedding.getUsage()
@@ -150,11 +123,10 @@ export default async function embed(options: Partial<EmbedOptions> = {}) {
     logger.log(`预估成本：$${usage.cost.toFixed(4)} USD`)
   }
   catch (error) {
-    logger.withError(error).error('生成向量嵌入失败')
-    process.exit(1)
+    logger.withError(error).error('处理失败')
+    throw error
   }
   finally {
-    // 清理资源
     embedding.destroy()
   }
 }

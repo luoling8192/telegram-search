@@ -1,78 +1,9 @@
+import type { MediaInfo } from './types'
+
 import { sql } from 'drizzle-orm'
-import { bigint, integer, jsonb, pgEnum, pgTable, text, timestamp, uuid, vector } from 'drizzle-orm/pg-core'
+import { bigint, customType, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 
-// Message type enum
-export const messageTypeEnum = pgEnum('message_type', [
-  'text',
-  'photo',
-  'video',
-  'document',
-  'sticker',
-  'other',
-])
-export type MessageType = (typeof messageTypeEnum.enumValues)[number]
-
-// Chat type enum
-export const chatTypeEnum = pgEnum('chat_type', [
-  'user',
-  'group',
-  'channel',
-  'saved',
-])
-
-// Media file info type
-export interface MediaInfo {
-  fileId: string
-  type: string
-  mimeType?: string
-  fileName?: string
-  fileSize?: number
-  width?: number
-  height?: number
-  duration?: number
-  thumbnail?: {
-    fileId: string
-    width: number
-    height: number
-  }
-  localPath?: string
-}
-
-// Chats table
-export const chats = pgTable('chats', {
-  // UUID for external reference
-  uuid: uuid('uuid').defaultRandom().primaryKey(),
-  // Chat ID from Telegram
-  id: bigint('id', { mode: 'number' }).unique(),
-  // Chat name
-  name: text('name').notNull(),
-  // Chat type
-  type: chatTypeEnum('type').notNull(),
-  // Last message
-  lastMessage: text('last_message'),
-  // Last message date
-  lastMessageDate: timestamp('last_message_date'),
-  // Last sync time
-  lastSyncTime: timestamp('last_sync_time').notNull().defaultNow(),
-  // Message count
-  messageCount: integer('message_count').notNull().default(0),
-  // Folder ID
-  folderId: integer('folder_id'),
-})
-
-// Folders table
-export const folders = pgTable('folders', {
-  // UUID for external reference
-  uuid: uuid('uuid').defaultRandom().primaryKey(),
-  // Folder ID from Telegram
-  id: integer('id').unique(),
-  // Folder title
-  title: text('title').notNull(),
-  // Folder emoji
-  emoji: text('emoji'),
-  // Last sync time
-  lastSyncTime: timestamp('last_sync_time').notNull().defaultNow(),
-})
+import { messageTypeEnum } from './types'
 
 // Base messages table (metadata only)
 export const messages = pgTable('messages', {
@@ -88,16 +19,23 @@ export const messages = pgTable('messages', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   // Partition table name
   partitionTable: text('partition_table').notNull(),
-}, table => ({
+}, table => [
   // Unique constraint for chat_id and id
-  chatMessageUnique: sql`UNIQUE (chat_id, id)`,
+  sql`UNIQUE (chat_id, id)`,
   // Index for created_at
-  createdAtIdx: sql`CREATE INDEX IF NOT EXISTS messages_created_at_idx ON ${table} (created_at DESC)`,
+  sql`CREATE INDEX IF NOT EXISTS messages_created_at_idx ON ${table} (created_at DESC)`,
   // Index for type
-  typeIdx: sql`CREATE INDEX IF NOT EXISTS messages_type_idx ON ${table} (type)`,
+  sql`CREATE INDEX IF NOT EXISTS messages_type_idx ON ${table} (type)`,
   // Index for chat_id and created_at
-  chatCreatedAtIdx: sql`CREATE INDEX IF NOT EXISTS messages_chat_id_created_at_idx ON ${table} (chat_id, created_at DESC)`,
-}))
+  sql`CREATE INDEX IF NOT EXISTS messages_chat_id_created_at_idx ON ${table} (chat_id, created_at DESC)`,
+])
+
+// Vector type
+const vector = customType<{ data: number[] }>({
+  dataType() {
+    return 'vector(1536)'
+  },
+})
 
 // Message content table template
 export function createMessageContentTable(chatId: number | bigint) {
@@ -116,7 +54,7 @@ export function createMessageContentTable(chatId: number | bigint) {
     // Message content
     content: text('content'),
     // Message vector embedding (1536 dimensions)
-    embedding: vector('embedding', { dimensions: 1536 }),
+    embedding: vector('embedding'),
     // Media file info
     mediaInfo: jsonb('media_info').$type<MediaInfo>(),
     // Creation time
@@ -133,16 +71,19 @@ export function createMessageContentTable(chatId: number | bigint) {
     views: integer('views'),
     // Forwards count
     forwards: integer('forwards'),
-  }, table => ({
+  }, table => [
     // Unique constraint for chat_id and id
-    chatMessageUnique: sql`UNIQUE (chat_id, id)`,
+    sql`UNIQUE (chat_id, id)`,
     // Index for vector similarity search
-    embeddingIdx: sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_embedding_idx ON ${table} USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)`,
+    sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_embedding_idx
+      ON ${table}
+      USING ivfflat (embedding vector_cosine_ops)
+      WITH (lists = 100)`,
     // Index for created_at
-    createdAtIdx: sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_created_at_idx ON ${table} (created_at DESC)`,
+    sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_created_at_idx ON ${table} (created_at DESC)`,
     // Index for type
-    typeIdx: sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_type_idx ON ${table} (type)`,
-  }))
+    sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_type_idx ON ${table} (type)`,
+  ])
 }
 
 // Function to create partition table for a chat
@@ -180,15 +121,3 @@ export function createChatPartition(chatId: number | bigint) {
     ON ${sql.raw(tableName)} (type);
   `
 }
-
-// Sync state table
-export const syncState = pgTable('sync_state', {
-  // UUID for external reference
-  uuid: uuid('uuid').defaultRandom().primaryKey(),
-  // Chat ID from Telegram
-  chatId: bigint('chat_id', { mode: 'number' }).unique(),
-  // Last synced message ID
-  lastMessageId: bigint('last_message_id', { mode: 'number' }),
-  // Last sync time
-  lastSyncTime: timestamp('last_sync_time').notNull().defaultNow(),
-})

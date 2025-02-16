@@ -6,7 +6,7 @@ import { useLogger } from '@tg-search/common'
 
 import { createAdapter } from '../adapter/factory'
 import { getConfig } from '../composable/config'
-import { createMessage } from '../db'
+import { createMessage } from '../models/message'
 
 const logger = useLogger()
 
@@ -85,51 +85,41 @@ export default async function watch() {
     await adapter.connect()
     logger.log('已连接！')
 
-    // First, get all folders
+    // Get all folders
     const folders = await adapter.getFolders()
+    logger.debug(`获取到 ${folders.length} 个文件夹`)
     const folderChoices = folders.map(folder => ({
-      name: folder.title,
+      name: `${folder.emoji || ''} ${folder.title}`,
       value: folder.id,
     }))
 
-    // Let user select a folder
+    // Let user select folder
     const folderId = await input.select({
       message: '请选择要监听的文件夹：',
       choices: folderChoices,
     })
 
-    // Then, get dialogs in the selected folder
-    const selectedFolder = folders.find(f => f.id === folderId)
-    if (!selectedFolder) {
-      logger.log('找不到该文件夹')
-      throw new Error('Folder not found')
-    }
-
-    // Get dialogs for the selected folder
-    const result = await adapter.getDialogs()
-    const dialogs = result.dialogs.filter((dialog) => {
-      // Get folders for this dialog
-      const dialogFolders = adapter.getFoldersForChat(dialog.id)
-      return dialogFolders.then(folders => folders.some(f => f.id === folderId))
-    })
-
-    // Let user select a dialog
-    const choices = dialogs.map(dialog => ({
-      name: `[${dialog.type}] ${dialog.name}${dialog.unreadCount > 0 ? ` (${dialog.unreadCount})` : ''}`,
+    // Get all chats in folder
+    const dialogs = await adapter.getDialogs()
+    logger.debug(`获取到 ${dialogs.dialogs.length} 个会话`)
+    const chatChoices = dialogs.dialogs.map(dialog => ({
+      name: `[${dialog.type}] ${dialog.name} (${dialog.unreadCount} 条未读)`,
       value: dialog.id,
     }))
 
+    // Let user select chat
     const chatId = await input.select({
-      message: '请选择要监听的对话：',
-      choices,
+      message: '请选择要监听的会话：',
+      choices: chatChoices,
     })
 
-    // Start watching
-    const count = await watchChat(adapter, chatId, selectedFolder.title)
+    const selectedFolder = folders.find(f => f.id === folderId)
+    if (!selectedFolder) {
+      logger.log('找不到选择的文件夹')
+      return
+    }
 
-    // Keep the process running
-    await new Promise(() => {})
-    return count
+    return watchChat(adapter, chatId, selectedFolder.title)
   }
   catch (error) {
     await adapter.disconnect()

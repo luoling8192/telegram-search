@@ -3,39 +3,29 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { initLogger, useLogger } from '@tg-search/common'
 import { sql } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 
-import { getConfig, initConfig } from '../composable/config'
-
-initLogger()
-const logger = useLogger()
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-
-// Initialize config
-initConfig()
-const config = getConfig()
-
-// Database connection
-const client = postgres(config.databaseUrl, {
-  max: 1,
-  onnotice: () => {},
-})
+import { initConfig } from '../composable/config'
+import { initDB, useDB } from '../composable/db'
 
 // Run migrations
 async function main() {
+  initLogger()
+  const logger = useLogger()
+  const __filename = fileURLToPath(import.meta.url)
+  const __dirname = dirname(__filename)
+
+  // Initialize config
+  initConfig()
+  initDB()
   logger.log('正在运行数据库迁移...')
 
   try {
-    const db = drizzle(client)
-
     // Enable pgvector extension
-    await db.execute(sql`CREATE EXTENSION IF NOT EXISTS vector`)
+    await useDB().execute(sql`CREATE EXTENSION IF NOT EXISTS vector`)
     logger.log('向量扩展创建完成')
 
     // Create enum types
-    await db.execute(sql`
+    await useDB().execute(sql`
       DO $$ BEGIN
         CREATE TYPE message_type AS ENUM ('text', 'photo', 'video', 'document', 'sticker', 'other');
       EXCEPTION
@@ -51,7 +41,7 @@ async function main() {
     logger.log('枚举类型创建完成')
 
     // Create tables
-    await db.execute(sql`
+    await useDB().execute(sql`
       CREATE TABLE IF NOT EXISTS chats (
         uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         id BIGINT UNIQUE,
@@ -66,7 +56,7 @@ async function main() {
     `)
     logger.log('聊天表创建完成')
 
-    await db.execute(sql`
+    await useDB().execute(sql`
       CREATE TABLE IF NOT EXISTS folders (
         uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         id INTEGER UNIQUE,
@@ -77,7 +67,7 @@ async function main() {
     `)
     logger.log('文件夹表创建完成')
 
-    await db.execute(sql`
+    await useDB().execute(sql`
       CREATE TABLE IF NOT EXISTS messages (
         uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         id BIGINT NOT NULL,
@@ -90,7 +80,7 @@ async function main() {
     `)
     logger.log('消息表创建完成')
 
-    await db.execute(sql`
+    await useDB().execute(sql`
       CREATE TABLE IF NOT EXISTS sync_state (
         uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         chat_id BIGINT UNIQUE,
@@ -101,7 +91,7 @@ async function main() {
     logger.log('同步状态表创建完成')
 
     // Create indexes
-    await db.execute(sql`
+    await useDB().execute(sql`
       CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages (created_at DESC);
       CREATE INDEX IF NOT EXISTS messages_type_idx ON messages (type);
       CREATE INDEX IF NOT EXISTS messages_chat_id_created_at_idx ON messages (chat_id, created_at DESC);
@@ -109,7 +99,7 @@ async function main() {
     logger.log('索引创建完成')
 
     // Create similarity search function
-    await db.execute(sql`
+    await useDB().execute(sql`
       CREATE OR REPLACE FUNCTION similarity_search(
         query_embedding vector(1536),
         match_threshold float,
@@ -173,11 +163,8 @@ async function main() {
     logger.log('相似度搜索函数创建完成')
   }
   catch (error) {
-    logger.log('数据库迁移失败:', String(error))
+    logger.withError(error).error('数据库迁移失败')
     process.exit(1)
-  }
-  finally {
-    await client.end()
   }
 }
 

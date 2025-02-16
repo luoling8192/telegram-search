@@ -9,8 +9,7 @@ import { parse as parseDate } from 'date-fns'
 import { glob } from 'glob'
 import { JSDOM } from 'jsdom'
 
-import { db } from '../db'
-import { createMessageContentTable, messages } from '../db/schema/message'
+import { createMessage } from '../models/message'
 import { EmbeddingService } from '../services/embedding'
 
 interface ImportOptions {
@@ -106,13 +105,13 @@ function extractMediaInfo(element: Element) {
 
   // 检查贴纸
   const sticker = element.querySelector('.media_photo')
-  if (sticker?.querySelector('.title.bold')?.textContent?.trim() === 'Sticker') {
-    const status = sticker.querySelector('.status.details')
-    const size = status?.textContent?.match(/([\d.]+) KB/)
+  if (sticker?.classList.contains('sticker')) {
+    const img = sticker.querySelector('img')
     return {
-      fileId: '', // Sticker 文件未包含在导出中
+      fileId: img?.getAttribute('src') || '',
       type: 'sticker',
-      fileSize: size?.[1] ? Number(size[1]) * 1024 : undefined,
+      width: img?.getAttribute('width') ? Number(img.getAttribute('width')) : undefined,
+      height: img?.getAttribute('height') ? Number(img.getAttribute('height')) : undefined,
     }
   }
 
@@ -252,40 +251,41 @@ async function parseHtmlFile(filePath: string, logger: ReturnType<typeof useLogg
 
 export default async function importMessages(chatId?: string, path?: string, options: Partial<ImportOptions> = {}) {
   const logger = useLogger()
-  const embedding = new EmbeddingService()
 
   // 如果没有直接传入参数，则从命令行获取
   if (!chatId || !path) {
     const program = new Command()
     program
-      .option('-c, --chat-id <id>', 'Chat ID')
-      .option('-p, --path <path>', 'Path to HTML export files')
+      .argument('<chatId>', 'Chat ID to import messages to')
+      .argument('<path>', 'Path to HTML files')
+      .option('--no-embedding', 'Skip generating embeddings')
       .parse()
 
-    const opts = program.opts()
-    chatId = opts.chatId
-    path = opts.path
+    const args = program.args
+    chatId = args[0]
+    path = args[1]
+    options = program.opts()
   }
 
-  if (!chatId || !path) {
-    logger.error('缺少必要参数: chat-id 或 path')
-    process.exit(1)
-  }
+  // Initialize embedding service
+  const embedding = new EmbeddingService()
 
   try {
     const basePath = resolve(path)
-    // 搜索目录下所有的 HTML 文件，包括子目录
+    logger.debug(`正在搜索文件: ${basePath}`)
+
+    // Find all HTML files
     const files = await glob('**/*.html', {
       cwd: basePath,
       absolute: false,
     })
 
     if (files.length === 0) {
-      logger.error(`在目录 ${basePath} 下未找到任何 HTML 文件`)
-      process.exit(1)
+      logger.warn('未找到任何 HTML 文件')
+      return
     }
 
-    logger.debug(`找到 ${files.length} 个 HTML 文件`)
+    logger.debug(`找到 ${files.length} 个文件`)
     let totalMessages = 0
     let failedEmbeddings = 0
 
@@ -320,39 +320,29 @@ export default async function importMessages(chatId?: string, path?: string, opt
           }
         }
 
-        // Insert messages with embeddings
-        const contentTable = createMessageContentTable(chatIdNum)
-        const partitionTable = `messages_${chatIdNum}`
-
-        // Insert into content table
-        await db.insert(contentTable).values(
-          batch.map((msg, idx) => ({
-            id: msg.id,
-            chatId: msg.chatId,
-            type: msg.type,
-            content: msg.content,
-            embedding: options.noEmbedding ? undefined : embeddings[idx],
-            mediaInfo: msg.mediaInfo,
-            createdAt: msg.createdAt,
-            fromId: msg.fromId,
-            replyToId: msg.replyToId,
-            forwardFromChatId: msg.forwardFromChatId,
-            forwardFromMessageId: msg.forwardFromMessageId,
-            views: msg.views,
-            forwards: msg.forwards,
-          })),
-        ).onConflictDoNothing()
-
-        // Insert metadata into messages table
-        await db.insert(messages).values(
-          batch.map(msg => ({
-            id: msg.id,
-            chatId: msg.chatId,
-            type: msg.type,
-            createdAt: msg.createdAt,
-            partitionTable,
-          })),
-        ).onConflictDoNothing()
+        // Insert messages
+        try {
+          await createMessage(
+            batch.map((msg, idx) => ({
+              id: msg.id,
+              chatId: msg.chatId,
+              type: msg.type,
+              content: msg.content,
+              embedding: options.noEmbedding ? undefined : embeddings[idx],
+              mediaInfo: msg.mediaInfo,
+              createdAt: msg.createdAt,
+              fromId: msg.fromId,
+              replyToId: msg.replyToId,
+              forwardFromChatId: msg.forwardFromChatId,
+              forwardFromMessageId: msg.forwardFromMessageId,
+              views: msg.views,
+              forwards: msg.forwards,
+            })),
+          )
+        }
+        catch (error) {
+          logger.withError(error).error(`导入消息失败: ${msg.id}`)
+        }
 
         logger.debug(`已处理 ${i + batch.length}/${parsedMessages.length} 条消息`)
       }
@@ -369,5 +359,8 @@ export default async function importMessages(chatId?: string, path?: string, opt
   catch (error) {
     logger.withError(error).error('导入失败')
     process.exit(1)
+  }
+  finally {
+    embedding.destroy()
   }
 }

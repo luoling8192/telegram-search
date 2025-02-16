@@ -3,17 +3,19 @@ import { initLogger, useLogger } from '@tg-search/common'
 import { Command } from 'commander'
 
 import { initConfig } from './composable/config'
+import { initDB } from './composable/db'
 
 async function main() {
   // Initialize logger and config
   initLogger()
   initConfig()
+  initDB()
 
   const logger = useLogger()
 
   // Global error handler
   process.on('unhandledRejection', (error) => {
-    logger.log('Unhandled promise rejection:', String(error))
+    logger.withError(error).error('Unhandled promise rejection:')
   })
 
   // Graceful shutdown handler

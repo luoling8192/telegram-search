@@ -1,5 +1,5 @@
 import type { TelegramClient } from 'telegram'
-import type { MediaInfo } from '../db/schema/message'
+import type { MediaInfo } from '../db'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
