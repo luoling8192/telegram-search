@@ -1,11 +1,11 @@
-import type { TelegramMessageType } from '../adapter/types'
+import type { TelegramMessageType } from '../../../core/src/adapter/types'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
 
-import { TelegramCommand } from '.'
+import { TelegramCommand } from '../command'
 
 const logger = useLogger()
 

@@ -7,7 +7,7 @@
   },
   "include": [
     "src/**/*"
-, "../core/src/services", "../core/src/adapter"  ],
+  ],
   "exclude": [
     "node_modules",
     "dist"

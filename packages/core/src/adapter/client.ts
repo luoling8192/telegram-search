@@ -1,16 +1,15 @@
+import type { NewChat, NewFolder } from '@tg-search/db'
 import type { NewMessageEvent } from 'telegram/events'
-import type { NewChat, NewFolder } from '../db'
-import type { MessageOptions, TelegramAdapter, TelegramMessage, TelegramMessageType } from './types'
+import type { Dialog, MessageOptions, TelegramAdapter, TelegramMessage, TelegramMessageType } from './types'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as input from '@inquirer/prompts'
-import { useLogger } from '@tg-search/common'
+import { getConfig, useLogger } from '@tg-search/common'
 import { Api, TelegramClient } from 'telegram'
 import { NewMessage } from 'telegram/events'
 import { StringSession } from 'telegram/sessions'
 
-import { getConfig } from '../composable/config'
 import { MediaService } from '../services/media'
 
 export interface ClientAdapterConfig {
@@ -20,14 +19,14 @@ export interface ClientAdapterConfig {
   password?: string
 }
 
-export interface Dialog {
-  id: number
-  name: string
-  type: 'user' | 'group' | 'channel' | 'saved'
-  unreadCount: number
-  lastMessage?: string
-  lastMessageDate?: Date
-}
+// export interface Dialog {
+//   id: number
+//   name: string
+//   type: 'user' | 'group' | 'channel' | 'saved'
+//   unreadCount: number
+//   lastMessage?: string
+//   lastMessageDate?: Date
+// }
 
 export interface DialogsResult {
   dialogs: Dialog[]

@@ -1,6 +1,6 @@
 import { useLogger } from '@tg-search/common'
 
-import { TelegramCommand } from '.'
+import { TelegramCommand } from '../command'
 
 const logger = useLogger()
 

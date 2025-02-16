@@ -4,8 +4,8 @@ import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
 import { findSimilarMessages, getAllFolders, getChatsInFolder } from '@tg-search/db'
 
-import { TelegramCommand } from '.'
-import { EmbeddingService } from '../services/embedding'
+import { TelegramCommand } from '../command'
+import { EmbeddingService } from '../../../core/src/services/embedding'
 
 const logger = useLogger()
 

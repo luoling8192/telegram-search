@@ -1,4 +1,4 @@
-import type { ClientAdapter } from '../adapter/client'
+import type { ClientAdapter } from '../../core/src/adapter/client'
 
 /**
  * Command metadata interface
@@ -82,4 +82,4 @@ class CommandRegistry {
 }
 
 // Export singleton instance
-export const registry = new CommandRegistry() 
+export const registry = new CommandRegistry()

@@ -7,8 +7,8 @@ import { createMessage } from '@tg-search/db'
 import { glob } from 'glob'
 import { JSDOM } from 'jsdom'
 
-import { TelegramCommand } from '.'
-import { EmbeddingService } from '../services/embedding'
+import { TelegramCommand } from '../command'
+import { EmbeddingService } from '../../../core/src/services/embedding'
 
 const logger = useLogger()
 

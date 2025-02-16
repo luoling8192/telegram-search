@@ -1,0 +1,47 @@
+{
+  "name": "@tg-search/core",
+  "type": "module",
+  "version": "1.0.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "unbuild",
+    "dev": "unbuild --watch",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@guiiai/logg": "^1.0.7",
+    "@inquirer/prompts": "^7.3.2",
+    "@tg-search/common": "workspace:*",
+    "@tg-search/db": "workspace:*",
+    "@xsai/embed": "0.1.0-beta.5",
+    "@xsai/providers": "0.1.0-beta.5",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.39.3",
+    "grammy": "^1.35.0",
+    "pino": "^8.19.0",
+    "pino-pretty": "^10.3.1",
+    "postgres": "^3.4.5",
+    "telegram": "^2.26.22",
+    "tiktoken": "^1.0.20",
+    "unbuild": "^3.3.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "vitest": "^3.0.5"
+  }
+}

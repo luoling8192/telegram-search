@@ -1,4 +1,4 @@
-import type { MediaInfo } from '../db/schema/message'
+import type { MediaInfo } from '@tg-search/db'
 
 /**
  * Telegram adapter type
