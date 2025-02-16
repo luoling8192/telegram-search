@@ -1,10 +1,9 @@
 import type { ClientAdapter } from '../adapter/client'
 
 import { useLogger } from '@tg-search/common'
-import { sql } from 'drizzle-orm'
 
-import { db, updateChat, updateFolder } from '../db'
-import { chats, folders } from '../db/schema/message'
+import { deleteAllChats, deleteAllFolders, updateChat } from '../models/chat'
+import { updateFolder } from '../models/folder'
 
 const logger = useLogger()
 
@@ -17,8 +16,8 @@ export async function sync(adapter: ClientAdapter) {
   try {
     // Clear existing data
     logger.debug('清理现有数据...')
-    await db.delete(folders)
-    await db.delete(chats)
+    await deleteAllFolders()
+    await deleteAllChats()
     logger.debug('数据清理完成')
 
     // Sync folders
@@ -58,22 +57,6 @@ export async function sync(adapter: ClientAdapter) {
       }
     }
     logger.log(`共同步了 ${newChats.length} 个会话`)
-
-    // Verify sync results
-    const [folderCountResult, chatCountResult] = await Promise.all([
-      db.select({ count: sql<number>`count(*)` }).from(folders),
-      db.select({ count: sql<number>`count(*)` }).from(chats),
-    ])
-
-    const folderCount = Number(folderCountResult[0].count)
-    const chatCount = Number(chatCountResult[0].count)
-
-    if (folderCount !== newFolders.length) {
-      logger.warn(`文件夹同步数量不匹配：预期 ${newFolders.length}，实际 ${folderCount}`)
-    }
-    if (chatCount !== newChats.length) {
-      logger.warn(`会话同步数量不匹配：预期 ${newChats.length}，实际 ${chatCount}`)
-    }
 
     logger.log('同步完成')
   }

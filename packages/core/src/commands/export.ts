@@ -9,8 +9,10 @@ import { asc, eq } from 'drizzle-orm'
 
 import { createAdapter } from '../adapter/factory'
 import { getConfig } from '../composable/config'
-import { createMessage, db, updateChat } from '../db'
+import { useDB } from '../composable/db'
 import { messages } from '../db/schema/message'
+import { updateChat } from '../models/chat'
+import { createMessage } from '../models/message'
 
 const logger = useLogger()
 
@@ -18,11 +20,7 @@ const logger = useLogger()
  * Get last message ID from database
  */
 async function getLastMessageId(chatId: number): Promise<number> {
-  const result = await db.select({ id: messages.id })
-    .from(messages)
-    .where(eq(messages.chatId, chatId))
-    .orderBy(asc(messages.id))
-    .limit(1)
+  const result = await useDB().select({ id: messages.id }).from(messages).where(eq(messages.chatId, chatId)).orderBy(asc(messages.id)).limit(1)
 
   return result[0]?.id || 0
 }
@@ -30,40 +28,40 @@ async function getLastMessageId(chatId: number): Promise<number> {
 /**
  * Sync all chats to database
  */
-async function syncChats(adapter: ClientAdapter) {
-  logger.log('正在同步所有会话信息...')
-  const chats = await adapter.getChats()
-  logger.debug(`获取到 ${chats.length} 个会话`)
+// async function syncChats(adapter: ClientAdapter) {
+//   logger.log('正在同步所有会话信息...')
+//   const chats = await adapter.getChats()
+//   logger.debug(`获取到 ${chats.length} 个会话`)
 
-  for (const chat of chats) {
-    try {
-      await updateChat(chat)
-      logger.debug(`已同步会话: [${chat.type}] ${chat.name} (ID: ${chat.id})`)
-    }
-    catch (error) {
-      logger.withError(error).error(`同步会话失败: ${chat.name}`)
-    }
-  }
-  logger.log(`会话同步完成，共同步 ${chats.length} 个会话`)
-}
+//   for (const chat of chats) {
+//     try {
+//       await updateChat(chat)
+//       logger.debug(`已同步会话: [${chat.type}] ${chat.name} (ID: ${chat.id})`)
+//     }
+//     catch (error) {
+//       logger.withError(error).error(`同步会话失败: ${chat.name}`)
+//     }
+//   }
+//   logger.log(`会话同步完成，共同步 ${chats.length} 个会话`)
+// }
 
 /**
  * Export messages from Telegram
  */
 async function exportMessages(adapter: ClientAdapter) {
   // Get all folders
-  const folders = await adapter.getFolders()
-  logger.debug(`获取到 ${folders.length} 个文件夹`)
-  const folderChoices = folders.map(folder => ({
-    name: `${folder.emoji || ''} ${folder.title}`,
-    value: folder.id,
-  }))
+  // const folders = await adapter.getFolders()
+  // logger.debug(`获取到 ${folders.length} 个文件夹`)
+  // const folderChoices = folders.map(folder => ({
+  //   name: `${folder.emoji || ''} ${folder.title}`,
+  //   value: folder.id,
+  // }))
 
   // Let user select folder
-  const folderId = await input.select({
-    message: '请选择要导出的文件夹：',
-    choices: folderChoices,
-  })
+  // const folderId = await input.select({
+  //   message: '请选择要导出的文件夹：',
+  //   choices: folderChoices,
+  // })
 
   // Get all chats in folder
   const dialogs = await adapter.getDialogs()
@@ -220,6 +218,7 @@ async function exportMessages(adapter: ClientAdapter) {
               ...selectedChat,
               messageCount: totalProcessed,
               lastSyncTime: new Date(),
+              title: '',
             })
             logger.debug('已更新会话消息计数')
           }
@@ -255,6 +254,7 @@ async function exportMessages(adapter: ClientAdapter) {
         ...selectedChat,
         messageCount: totalProcessed,
         lastSyncTime: new Date(),
+        title: '',
       })
       logger.debug('已更新会话消息计数')
     }

@@ -14,12 +14,15 @@
     "db:logs": "docker compose logs -f postgres",
     "db:clean": "docker compose down -v",
     "db:generate": "pnpm -F @tg-search/core db:generate",
-    "db:migrate": "pnpm -F @tg-search/core db:migrate"
+    "db:migrate": "pnpm -F @tg-search/core db:migrate",
+    "test": "pnpm -r test",
+    "test:coverage": "pnpm -r test:coverage"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^4.1.1",
     "eslint": "^9.19.0",
     "eslint-plugin-format": "^1.0.1",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }
 }
