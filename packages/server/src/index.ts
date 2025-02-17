@@ -5,8 +5,8 @@ import { initConfig, initDB, initLogger, useLogger } from '@tg-search/common'
 import { Elysia } from 'elysia'
 
 import { chatRoutes } from './routes/chat'
-import { searchRoutes } from './routes/search'
 import { messageRoutes } from './routes/message'
+import { searchRoutes } from './routes/search'
 
 // Initialize core services
 async function initServices() {

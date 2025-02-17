@@ -12,10 +12,7 @@ const chats = ref<PublicChat[]>([])
 
 // Load chats from API
 async function loadChats() {
-  const response = await getChats()
-  if (response.data) {
-    chats.value = response.data
-  }
+  chats.value = await getChats()
 }
 
 // Navigate to chat view

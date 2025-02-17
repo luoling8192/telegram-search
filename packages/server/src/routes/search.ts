@@ -11,23 +11,23 @@ const logger = useLogger('search')
  */
 export const searchRoutes = new Elysia({ prefix: '/search' })
   .post('/', async ({ body }) => {
-    const { query, folderId, chatId, limit = 50, offset = 0 } = body as SearchRequest
+    const { folderId, chatId } = body as SearchRequest
 
     try {
       // Get chats to search in
-      let chats = []
+      let _chats = []
       if (chatId) {
         // Search in specific chat
         const chat = await getAllChats()
-        chats = chat.filter(c => c.id === chatId)
+        _chats = chat.filter(c => c.id === chatId)
       }
       else if (folderId) {
         // Search in folder
-        chats = await getChatsInFolder(folderId)
+        _chats = await getChatsInFolder(folderId)
       }
       else {
         // Search in all chats
-        chats = await getAllChats()
+        _chats = await getAllChats()
       }
 
       // TODO: Implement actual search logic
