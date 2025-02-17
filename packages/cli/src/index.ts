@@ -1,7 +1,7 @@
 import process from 'node:process'
 import { initConfig, initDB, initLogger, useLogger } from '@tg-search/common'
 
-import { main } from './cli'
+import { registerCommands, setupCli } from './cli'
 
 // Initialize logger and config
 initLogger()
@@ -27,4 +27,19 @@ process.on('exit', (code) => {
 })
 
 // Export main entry point
-export default main
+export default function main() { // Register commands
+  registerCommands()
+
+  // Setup CLI
+  const program = setupCli()
+
+  // Parse command line arguments
+  if (process.argv.length <= 2) {
+    program.help()
+  }
+  else {
+    program.parse()
+  }
+}
+
+main()

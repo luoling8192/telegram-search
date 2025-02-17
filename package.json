@@ -5,7 +5,7 @@
   "packageManager": "pnpm@9.15.4",
   "scripts": {
     "build": "pnpm -r build",
-    "dev": "pnpm -r dev",
+    "dev:db": "pnpm -F @tg-search/db dev",
     "dev:cli": "pnpm -F @tg-search/cli dev",
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",

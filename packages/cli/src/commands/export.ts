@@ -1,9 +1,11 @@
 import type { Dialog, TelegramMessageType } from '@tg-search/core'
+import type { MessageCreateInput, NewChat } from '@tg-search/db'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as input from '@inquirer/prompts'
-import { useLogger } from '@tg-search/common'
+import { getConfig, useLogger } from '@tg-search/common'
+import { createMessageBatch, updateChat } from '@tg-search/db'
 
 import { TelegramCommand } from '../command'
 
@@ -11,13 +13,76 @@ const logger = useLogger()
 
 interface ExportOptions {
   chatId?: number
-  format?: 'json' | 'html'
+  format?: 'database' | 'html' | 'json'
   path?: string
   messageTypes?: TelegramMessageType[]
   startTime?: Date
   endTime?: Date
   limit?: number
   batchSize?: number
+}
+
+/**
+ * Process a batch of messages for database export
+ */
+async function processDatabaseBatch(
+  messages: MessageCreateInput[],
+  startIndex: number,
+): Promise<{ shouldStop: boolean, failedCount: number }> {
+  try {
+    // Create messages in batch
+    const result = await createMessageBatch(messages)
+    const firstMessage = messages[0]
+    const lastMessage = messages[messages.length - 1]
+
+    logger.debug(
+      `已保存 ${startIndex + 1} - ${startIndex + messages.length} 条消息 `
+      + `(ID: ${firstMessage.id} - ${lastMessage.id})`,
+    )
+
+    // If any message already exists, stop the export
+    if (!result.success || result.duplicateCount > 0) {
+      logger.debug('检测到已存在的消息，导出完成')
+      return { shouldStop: true, failedCount: 0 }
+    }
+
+    return { shouldStop: false, failedCount: 0 }
+  }
+  catch (error) {
+    logger.withError(error).error(`保存批次消息失败 (${startIndex + 1} - ${startIndex + messages.length})`)
+    return { shouldStop: false, failedCount: messages.length }
+  }
+}
+
+/**
+ * Save messages to JSON file
+ */
+async function saveToJsonFile(messages: any[], chatId: number, exportPath: string): Promise<boolean> {
+  try {
+    const fileName = `${chatId}_${new Date().toISOString().split('T')[0]}`
+    const filePath = path.join(exportPath, `${fileName}.json`)
+    await fs.writeFile(filePath, JSON.stringify(messages, null, 2))
+    logger.debug(`已保存 JSON 文件: ${filePath}`)
+    logger.log(`已导出到文件: ${filePath}`)
+    return true
+  }
+  catch (error) {
+    logger.withError(error).error('保存 JSON 文件失败')
+    return false
+  }
+}
+
+/**
+ * Update chat metadata
+ */
+async function updateChatMetadata(chat: Dialog): Promise<void> {
+  const chatInput: NewChat = {
+    id: chat.id,
+    type: chat.type,
+    title: chat.name,
+    lastSyncTime: new Date(),
+  }
+  await updateChat(chatInput)
 }
 
 /**
@@ -55,16 +120,22 @@ export class ExportCommand extends TelegramCommand {
     const format = options.format || await input.select({
       message: '请选择导出格式：',
       choices: [
-        { name: 'HTML', value: 'html' },
-        { name: 'JSON', value: 'json' },
+        { name: 'Database', value: 'database' },
       ],
     })
 
-    // Get export path
-    const exportPath = options.path || await input.input({
-      message: '请输入导出路径：',
-      default: './export',
-    })
+    // Get export path if not exporting to database
+    let exportPath = options.path
+    if (format !== 'database') {
+      exportPath = exportPath || await input.input({
+        message: '请输入导出路径：',
+        default: './export',
+      })
+
+      // Create export directory
+      await fs.mkdir(exportPath, { recursive: true })
+      logger.debug(`已创建导出目录: ${exportPath}`)
+    }
 
     // Get message types
     const messageTypes = options.messageTypes || await input.checkbox({
@@ -109,21 +180,14 @@ export class ExportCommand extends TelegramCommand {
       default: '0',
     })
 
-    // Get batch size
-    const batchSize = options.batchSize || await input.input({
-      message: '每多少条消息提醒一次继续？',
-      default: '3000',
-    })
-
-    // Create export directory
-    await fs.mkdir(exportPath, { recursive: true })
-    logger.debug(`已创建导出目录: ${exportPath}`)
+    // Get batch size from config
+    const batchSize = options.batchSize || getConfig().messageBatchSize
 
     // Export messages
     logger.log('正在导出消息...')
     let count = 0
     let failedCount = 0
-    const skippedCount = 0
+    let shouldStop = false
     const messages = []
 
     // Export messages
@@ -138,17 +202,72 @@ export class ExportCommand extends TelegramCommand {
       count++
       if (count % Number(batchSize) === 0) {
         logger.debug(`已处理 ${count} 条消息`)
+
+        // Save current batch to database if format is database
+        if (format === 'database') {
+          const batch = messages.slice(count - Number(batchSize), count)
+          const messageInputs: MessageCreateInput[] = batch.map(message => ({
+            id: message.id,
+            chatId: message.chatId,
+            type: message.type,
+            content: message.content,
+            fromId: message.fromId,
+            replyToId: message.replyToId,
+            forwardFromChatId: message.forwardFromChatId,
+            forwardFromMessageId: message.forwardFromMessageId,
+            views: message.views,
+            forwards: message.forwards,
+            createdAt: message.createdAt,
+          }))
+
+          const result = await processDatabaseBatch(messageInputs, count - Number(batchSize))
+          shouldStop = result.shouldStop
+          failedCount += result.failedCount
+
+          if (shouldStop) {
+            break
+          }
+        }
       }
     }
 
-    // Save to file
-    const fileName = `${chatId}_${new Date().toISOString().split('T')[0]}`
-    const filePath = path.join(exportPath, `${fileName}.${format}`)
-
+    // Save to file or database
     try {
       if (format === 'json') {
-        await fs.writeFile(filePath, JSON.stringify(messages, null, 2))
-        logger.debug(`已保存 JSON 文件: ${filePath}`)
+        const success = await saveToJsonFile(messages, chatId, exportPath!)
+        if (!success) {
+          failedCount = count
+        }
+      }
+      else if (format === 'database' && !shouldStop) {
+        // Update chat metadata
+        await updateChatMetadata(selectedChat)
+
+        // Save remaining messages
+        const remainingCount = count % Number(batchSize)
+        if (remainingCount > 0) {
+          const batch = messages.slice(-remainingCount)
+          const messageInputs: MessageCreateInput[] = batch.map(message => ({
+            id: message.id,
+            chatId: message.chatId,
+            type: message.type,
+            content: message.content,
+            fromId: message.fromId,
+            replyToId: message.replyToId,
+            forwardFromChatId: message.forwardFromChatId,
+            forwardFromMessageId: message.forwardFromMessageId,
+            views: message.views,
+            forwards: message.forwards,
+            createdAt: message.createdAt,
+          }))
+
+          const result = await processDatabaseBatch(messageInputs, count - remainingCount)
+          failedCount += result.failedCount
+        }
+
+        if (failedCount === 0) {
+          logger.log('已导出到数据库')
+        }
       }
       else {
         // TODO: 实现 HTML 导出
@@ -158,27 +277,13 @@ export class ExportCommand extends TelegramCommand {
     }
     catch (error) {
       failedCount = count
-      logger.withError(error).error(`保存文件失败: ${filePath}`)
-    }
-
-    if (failedCount === 0) {
-      logger.log(`已导出到文件: ${filePath}`)
+      logger.withError(error).error(`保存失败`)
     }
 
     const summary = failedCount > 0
-      ? `导出完成，共导出 ${count} 条消息，${failedCount} 条消息失败，${skippedCount} 条消息已存在`
-      : `导出完成，共导出 ${count} 条消息，${skippedCount} 条消息已存在`
+      ? `导出完成，共导出 ${count} 条消息，${failedCount} 条消息失败`
+      : `导出完成，共导出 ${count} 条消息`
     logger.log(summary)
-
-    // Ask if continue
-    const shouldContinue = await input.confirm({
-      message: '是否继续导出？',
-      default: false,
-    })
-
-    if (shouldContinue) {
-      await this.execute(_args, options)
-    }
   }
 }
 

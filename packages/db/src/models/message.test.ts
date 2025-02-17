@@ -5,12 +5,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   createMessage,
+  findMessagesByChatId,
   findSimilarMessages,
-  getLastMessageId,
-  getMessageById,
-  getMessageCount,
-  getPartitionTables,
-  searchMessages,
+  getMessageStats,
+  refreshMessageStats,
 } from './message'
 import { getMessagesWithoutEmbedding } from './message-content'
 
@@ -24,10 +22,6 @@ vi.mock('../../db', () => ({
           orderBy: vi.fn(() => ({
             limit: vi.fn(() => [{ id: 1 }]),
           })),
-          groupBy: vi.fn(() => [
-            { tableName: 'messages_1', chatId: 1 },
-            { tableName: 'messages_2', chatId: 2 },
-          ]),
         })),
       })),
     })),
@@ -38,28 +32,11 @@ vi.mock('../../db', () => ({
         })),
       })),
     })),
+    execute: vi.fn(() => [{ message_count: 1, text_count: 1 }]),
   },
 }))
 
 describe('message Model', () => {
-  describe('searchMessages', () => {
-    it('should search messages with text query', async () => {
-      const result = await searchMessages('test', 10)
-      expect(result.items).toHaveLength(1)
-      expect(result.total).toBe(1)
-      expect(useDB().select).toHaveBeenCalled()
-    })
-  })
-
-  describe('getMessageById', () => {
-    it('should get message by ID', async () => {
-      const result = await getMessageById(1)
-      expect(result.items).toHaveLength(1)
-      expect(result.total).toBe(1)
-      expect(useDB().select).toHaveBeenCalled()
-    })
-  })
-
   describe('createMessage', () => {
     it('should create a single message', async () => {
       const message = {
@@ -69,8 +46,7 @@ describe('message Model', () => {
         content: 'test',
         createdAt: new Date(),
       }
-      const result = await createMessage(message)
-      expect(result).toHaveLength(1)
+      await createMessage(message)
       expect(useDB().insert).toHaveBeenCalled()
     })
 
@@ -91,14 +67,12 @@ describe('message Model', () => {
           createdAt: new Date(),
         },
       ]
-      const result = await createMessage(messages)
-      expect(result).toHaveLength(1) // Mock returns single item
+      await createMessage(messages)
       expect(useDB().insert).toHaveBeenCalled()
     })
 
     it('should handle empty message array', async () => {
-      const result = await createMessage([])
-      expect(result).toHaveLength(0)
+      await createMessage([])
       expect(useDB().insert).not.toHaveBeenCalled()
     })
   })
@@ -111,39 +85,18 @@ describe('message Model', () => {
     })
   })
 
-  describe('getMessageCount', () => {
-    it('should get total message count', async () => {
-      const result = await getMessageCount()
-      expect(result).toBe(1)
-      expect(useDB().select).toHaveBeenCalled()
-    })
-
-    it('should get message count for specific chat', async () => {
-      const result = await getMessageCount(1)
-      expect(result).toBe(1)
-      expect(useDB().select).toHaveBeenCalled()
+  describe('refreshMessageStats', () => {
+    it('should refresh message stats', async () => {
+      await refreshMessageStats(1)
+      expect(useDB().execute).toHaveBeenCalled()
     })
   })
 
-  describe('getLastMessageId', () => {
-    it('should get last message ID for chat', async () => {
-      const result = await getLastMessageId(1)
-      expect(result).toBe(1)
-      expect(useDB().select).toHaveBeenCalled()
-    })
-  })
-
-  describe('getPartitionTables', () => {
-    it('should get all partition tables', async () => {
-      const result = await getPartitionTables()
-      expect(result).toHaveLength(2)
-      expect(useDB().select).toHaveBeenCalled()
-    })
-
-    it('should get partition tables for specific chat', async () => {
-      const result = await getPartitionTables(1)
-      expect(result).toHaveLength(2)
-      expect(useDB().select).toHaveBeenCalled()
+  describe('getMessageStats', () => {
+    it('should get message stats', async () => {
+      const result = await getMessageStats(1)
+      expect(result).toEqual({ message_count: 1, text_count: 1 })
+      expect(useDB().execute).toHaveBeenCalled()
     })
   })
 
@@ -159,10 +112,11 @@ describe('message Model', () => {
       expect(result).toHaveLength(1)
       expect(useDB().select).toHaveBeenCalled()
     })
+  })
 
-    it('should handle empty options', async () => {
-      const embedding = [0.1, 0.2, 0.3]
-      const result = await findSimilarMessages(embedding)
+  describe('findMessagesByChatId', () => {
+    it('should find messages by chat ID', async () => {
+      const result = await findMessagesByChatId(1)
       expect(result).toHaveLength(1)
       expect(useDB().select).toHaveBeenCalled()
     })

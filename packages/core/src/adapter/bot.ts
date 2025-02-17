@@ -1,13 +1,13 @@
 import type { ITelegramBotAdapter, TelegramMessage, TelegramMessageType } from './types'
 
 import { useLogger } from '@tg-search/common'
-import { getChatStats } from '@tg-search/db'
+import { getMessageStats } from '@tg-search/db'
 import { Bot, GrammyError, HttpError } from 'grammy'
 
 export class BotAdapter implements ITelegramBotAdapter {
   private bot: Bot
   private messageCallback?: (message: TelegramMessage) => Promise<void>
-  private logger = useLogger()
+  private logger = useLogger('bot')
 
   constructor(token: string) {
     this.bot = new Bot(token)
@@ -40,18 +40,34 @@ export class BotAdapter implements ITelegramBotAdapter {
       const chatId = ctx.chat.id
       try {
         const msg = await ctx.reply('正在统计...')
-        const stats = await getChatStats(chatId)
+        const stats = await getMessageStats(chatId)
 
-        const typeStats = Object.entries(stats.byType)
-          .map(([type, count]) => `${type}: ${count}`)
-          .join('\n')
+        if (!stats) {
+          await ctx.api.editMessageText(
+            ctx.chat.id,
+            msg.message_id,
+            '暂无消息记录',
+          )
+          return
+        }
+
+        const typeStats = [
+          `文本消息: ${stats.text_count}`,
+          `图片: ${stats.photo_count}`,
+          `视频: ${stats.video_count}`,
+          `文档: ${stats.document_count}`,
+          `贴纸: ${stats.sticker_count}`,
+          `其他: ${stats.other_count}`,
+        ].join('\n')
 
         await ctx.api.editMessageText(
           ctx.chat.id,
           msg.message_id,
           `📊 消息统计\n\n`
-          + `总消息数：${stats.total}\n\n`
-          + `类型统计：\n${typeStats}`,
+          + `总消息数：${stats.message_count}\n\n`
+          + `类型统计：\n${typeStats}\n\n`
+          + `最后一条消息：${stats.last_message || '无'}\n`
+          + `最后更新时间：${stats.last_message_date?.toLocaleString() || '无'}`,
         )
       }
       catch (error) {

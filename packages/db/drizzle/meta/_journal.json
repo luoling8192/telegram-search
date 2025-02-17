@@ -15,6 +15,20 @@
       "when": 1739722870390,
       "tag": "0001_aspiring_pet_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1739731470383,
+      "tag": "0002_clumsy_nocturne",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1739731846799,
+      "tag": "0003_petite_spyke",
+      "breakpoints": true
     }
   ]
 }

@@ -233,10 +233,6 @@ packages/
   - 文件夹信息
   - 同步状态跟踪
 
-- `sync_state` 表：同步状态
-  - 记录同步进度
-  - 支持增量同步
-
 ## 📝 License
 
 MIT License © 2025

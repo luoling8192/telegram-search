@@ -23,7 +23,7 @@ export class ClientAdapter implements ITelegramClientAdapter {
   private sessionFile: string
   private session: StringSession
   private mediaService: MediaService
-  private logger = useLogger()
+  private logger = useLogger('client')
 
   constructor(config: ClientAdapterConfig) {
     this.config = config

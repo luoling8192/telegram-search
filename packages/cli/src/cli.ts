@@ -20,7 +20,7 @@ const logger = useLogger()
 /**
  * Register all commands
  */
-function registerCommands() {
+export function registerCommands() {
   registry.register(botCommand)
   registry.register(connectCommand)
   registry.register(embedCommand)
@@ -34,11 +34,12 @@ function registerCommands() {
 /**
  * Setup command line interface
  */
-function setupCli() {
+export function setupCli() {
   const program = new Commander()
 
   // Setup global options
   program
+    .name('tg-search')
     .version('1.0.0')
     .description('Telegram Search CLI')
     .option('-d, --debug', 'Enable debug mode')
@@ -98,25 +99,9 @@ function setupCli() {
     })
   }
 
+  // Show help by default
+  program.showHelpAfterError()
+  program.showSuggestionAfterError()
+
   return program
-}
-
-/**
- * Main entry point
- */
-export async function main() {
-  try {
-    // Register commands
-    registerCommands()
-
-    // Setup CLI
-    const program = setupCli()
-
-    // Parse command line arguments
-    program.parse()
-  }
-  catch (error) {
-    logger.withError(error).error('程序执行失败')
-    process.exit(1)
-  }
 }

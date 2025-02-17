@@ -1,11 +1,15 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 
+import { useLogger } from '../helper/logger'
 import { getConfig } from './config'
 
 let dbInstance: ReturnType<typeof drizzle>
 
 export function initDB() {
+  const logger = useLogger('db')
+  logger.debug('Initializing database...')
+
   // Database connection
   const config = getConfig()
   const client = postgres(config.databaseUrl, {

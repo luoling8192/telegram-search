@@ -6,8 +6,6 @@ import dotenv from 'dotenv'
 
 import { useLogger } from './logger'
 
-const logger = useLogger()
-
 /**
  * Find .env file path from command line arguments or project root
  */
@@ -56,6 +54,8 @@ export function loadEnv(options: {
   /** Whether to throw error if required variables not found */
   throwIfMissing?: boolean
 } = {}): string | undefined {
+  const logger = useLogger('env')
+
   const {
     required = [],
     throwIfNotFound = false,
@@ -67,7 +67,7 @@ export function loadEnv(options: {
 
   // Load .env file if found
   if (envPath && existsSync(envPath)) {
-    logger.withFields({ envPath }).log('Loading .env')
+    logger.withFields({ envPath }).debug('Loading .env')
     dotenv.config({ path: envPath })
 
     // Check required variables

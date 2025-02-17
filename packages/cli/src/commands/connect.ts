@@ -15,7 +15,7 @@ export class ConnectCommand implements Command {
 
   meta = {
     name: 'connect',
-    description: '连接到 Telegram 账号',
+    description: 'Connect to Telegram account',
     usage: '[options]',
   }
 

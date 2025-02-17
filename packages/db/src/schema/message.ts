@@ -5,31 +5,6 @@ import { bigint, customType, integer, jsonb, pgTable, text, timestamp, uuid } fr
 
 import { messageTypeEnum } from './types'
 
-// Base messages table (metadata only)
-export const messages = pgTable('messages', {
-  // UUID for external reference
-  uuid: uuid('uuid').defaultRandom().primaryKey(),
-  // Message ID from Telegram
-  id: bigint('id', { mode: 'number' }).notNull(),
-  // Chat ID from Telegram
-  chatId: bigint('chat_id', { mode: 'number' }).notNull(),
-  // Message type
-  type: messageTypeEnum('type').notNull().default('text'),
-  // Creation time
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  // Partition table name
-  partitionTable: text('partition_table').notNull(),
-}, table => [
-  // Unique constraint for chat_id and id
-  sql`UNIQUE (chat_id, id)`,
-  // Index for created_at
-  sql`CREATE INDEX IF NOT EXISTS messages_created_at_idx ON ${table} (created_at DESC)`,
-  // Index for type
-  sql`CREATE INDEX IF NOT EXISTS messages_type_idx ON ${table} (type)`,
-  // Index for chat_id and created_at
-  sql`CREATE INDEX IF NOT EXISTS messages_chat_id_created_at_idx ON ${table} (chat_id, created_at DESC)`,
-])
-
 // Vector type
 const vector = customType<{ data: number[] }>({
   dataType() {
@@ -83,6 +58,8 @@ export function createMessageContentTable(chatId: number | bigint) {
     sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_created_at_idx ON ${table} (created_at DESC)`,
     // Index for type
     sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_type_idx ON ${table} (type)`,
+    // Index for id
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_id_idx ON ${table} (id)`,
   ])
 }
 
@@ -107,7 +84,8 @@ export function createChatPartition(chatId: number | bigint) {
       forward_from_message_id BIGINT,
       views INTEGER,
       forwards INTEGER,
-      UNIQUE (chat_id, id)
+      UNIQUE (chat_id, id),
+      UNIQUE (id)
     );
 
     CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_embedding_idx
@@ -119,5 +97,28 @@ export function createChatPartition(chatId: number | bigint) {
 
     CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_type_idx
     ON ${sql.raw(tableName)} (type);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_id_idx
+    ON ${sql.raw(tableName)} (id);
+
+    -- Create materialized view for message stats
+    CREATE MATERIALIZED VIEW IF NOT EXISTS message_stats_${sql.raw(tableName)} AS
+    SELECT 
+      chat_id,
+      COUNT(*) as message_count,
+      COUNT(*) FILTER (WHERE type = 'text') as text_count,
+      COUNT(*) FILTER (WHERE type = 'photo') as photo_count,
+      COUNT(*) FILTER (WHERE type = 'video') as video_count,
+      COUNT(*) FILTER (WHERE type = 'document') as document_count,
+      COUNT(*) FILTER (WHERE type = 'sticker') as sticker_count,
+      COUNT(*) FILTER (WHERE type = 'other') as other_count,
+      MAX(created_at) as last_message_date,
+      (array_agg(content ORDER BY created_at DESC))[1] as last_message
+    FROM ${sql.raw(tableName)}
+    GROUP BY chat_id;
+
+    -- Create index on materialized view
+    CREATE UNIQUE INDEX IF NOT EXISTS message_stats_${sql.raw(tableName)}_chat_id_idx
+    ON message_stats_${sql.raw(tableName)} (chat_id);
   `
 }

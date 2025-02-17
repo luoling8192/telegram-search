@@ -14,7 +14,11 @@ export function initLogger() {
  * Get logger instance with directory name and filename
  * @returns logger instance configured with "directoryName/filename"
  */
-export function useLogger() {
+export function useLogger(name?: string) {
+  // If name is provided, use it directly
+  if (name)
+    return useLogg(name).useGlobalConfig()
+
   const stack = new Error('logger').stack
   const caller = stack?.split('\n')[2]
 

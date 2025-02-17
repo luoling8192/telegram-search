@@ -4,6 +4,7 @@ import { useDB } from '@tg-search/common'
 import { eq, sql } from 'drizzle-orm'
 
 import { chats } from '../schema/chat'
+import { getMessageStats } from './message'
 
 // Export types
 export type Chat = InferSelectModel<typeof chats>
@@ -13,16 +14,25 @@ export type NewChat = InferInsertModel<typeof chats>
  * Update or create a chat in the database
  */
 export async function updateChat(data: NewChat) {
-  return useDB().insert(chats).values(data).onConflictDoUpdate({
+  // Get message stats from materialized view
+  const stats = await getMessageStats(data.id)
+
+  return useDB().insert(chats).values({
+    ...data,
+    // Use stats from materialized view
+    messageCount: stats?.message_count || 0,
+    lastMessage: stats?.last_message || data.lastMessage,
+    lastMessageDate: stats?.last_message_date || data.lastMessageDate,
+  }).onConflictDoUpdate({
     target: chats.id,
     set: {
       title: data.title,
       type: data.type,
       username: data.username,
-      lastMessage: data.lastMessage,
-      lastMessageDate: data.lastMessageDate,
+      lastMessage: stats?.last_message || data.lastMessage,
+      lastMessageDate: stats?.last_message_date || data.lastMessageDate,
       lastSyncTime: data.lastSyncTime,
-      messageCount: data.messageCount,
+      messageCount: stats?.message_count || 0,
       folderId: data.folderId,
     },
   }).returning()

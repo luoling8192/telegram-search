@@ -158,6 +158,7 @@ async function main() {
       $$;
     `)
     logger.log('相似度搜索函数创建完成')
+    process.exit(0)
   }
   catch (error) {
     logger.withError(error).error('数据库迁移失败')

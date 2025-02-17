@@ -6,6 +6,7 @@ words:
   - guiiai
   - Logg
   - onnotice
+  - pgvector
   - tiktoken
   - tsquery
   - tsvector

@@ -1,12 +1,7 @@
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
 import { EmbeddingService } from '@tg-search/core'
-import {
-  getMessageCount,
-  getMessagesWithoutEmbedding,
-  getPartitionTables,
-  updateMessageEmbedding,
-} from '@tg-search/db'
+import { findMessagesByChatId, updateMessageEmbeddings } from '@tg-search/db'
 
 import { TelegramCommand } from '../command'
 
@@ -29,20 +24,24 @@ export class EmbedCommand extends TelegramCommand {
   }
 
   async execute(_args: string[], options: EmbedOptions): Promise<void> {
+    // Get chat ID (required)
+    const chatId = options.chatId || await input.input({
+      message: '请输入会话 ID：',
+      default: '',
+    })
+
+    if (!chatId) {
+      throw new Error('会话 ID 是必需的')
+    }
+
     // Get batch size
     const batchSize = options.batchSize || await input.input({
       message: '请输入每批处理的消息数量：',
       default: '1000',
     })
 
-    // Get chat ID
-    const chatId = options.chatId || await input.input({
-      message: '请输入会话 ID（留空处理所有会话）：',
-      default: '',
-    })
-
     // Get concurrency
-    const _concurrency = options.concurrency || await input.input({
+    const concurrency = options.concurrency || await input.input({
       message: '请输入并发数：',
       default: '4',
     })
@@ -51,47 +50,43 @@ export class EmbedCommand extends TelegramCommand {
     const embedding = new EmbeddingService()
 
     try {
-      // Get message count
-      const tables = await getPartitionTables()
-      let totalMessages = 0
-      let totalProcessed = 0
-      let failedEmbeddings = 0
-
-      for (const table of tables) {
-        const count = await getMessageCount(Number(table.tableName))
-        totalMessages += count
-      }
+      // Get all messages for the chat
+      const messages = await findMessagesByChatId(Number(chatId))
+      const messagesToEmbed = messages.filter(m => !m.embedding && m.content)
+      const totalMessages = messagesToEmbed.length
 
       logger.log(`共有 ${totalMessages} 条消息需要处理`)
 
       // Process messages in batches
-      while (true) {
-        const messages = await getMessagesWithoutEmbedding(
-          chatId ? Number(chatId) : undefined,
-          Number(batchSize),
-        )
+      let totalProcessed = 0
+      let failedEmbeddings = 0
 
-        if (messages.length === 0) {
-          break
-        }
-
-        logger.debug(`获取到 ${messages.length} 条消息`)
+      // Split messages into batches
+      for (let i = 0; i < messagesToEmbed.length; i += Number(batchSize)) {
+        const batch = messagesToEmbed.slice(i, i + Number(batchSize))
+        logger.debug(`处理第 ${i + 1} 到 ${i + batch.length} 条消息`)
 
         // Generate embeddings in parallel
-        const contents = messages.map(m => m.content || '')
+        const contents = batch.map(m => m.content!)
         const embeddings = await embedding.generateEmbeddings(contents)
 
-        // Update embeddings
-        for (let i = 0; i < messages.length; i++) {
-          const message = messages[i]
-          try {
-            await updateMessageEmbedding(message.id, message.chatId, embeddings[i])
-            totalProcessed++
+        // Prepare updates
+        const updates = batch.map((message, index) => ({
+          id: message.id,
+          embedding: embeddings[index],
+        }))
+
+        try {
+          // Update embeddings in batches with concurrency control
+          for (let j = 0; j < updates.length; j += Number(concurrency)) {
+            const concurrentBatch = updates.slice(j, j + Number(concurrency))
+            await updateMessageEmbeddings(Number(chatId), concurrentBatch)
+            totalProcessed += concurrentBatch.length
           }
-          catch (error) {
-            logger.withError(error).warn(`更新消息 ${message.id} 的向量嵌入失败`)
-            failedEmbeddings++
-          }
+        }
+        catch (error) {
+          logger.withError(error).warn(`更新消息向量嵌入失败`)
+          failedEmbeddings += batch.length
         }
 
         logger.log(`已处理 ${totalProcessed}/${totalMessages} 条消息，${failedEmbeddings} 条失败`)
