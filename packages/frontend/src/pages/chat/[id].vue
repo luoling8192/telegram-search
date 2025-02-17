@@ -45,17 +45,17 @@ async function loadMessages(page = 1, append = false) {
       offset,
     })
 
-    if (response.data) {
+    if (response.items) {
       // Get current scroll position
       const scrollPos = messageContainer.value?.scrollHeight || 0
       if (append) {
         // Add messages to the beginning
-        messages.value.unshift(...response.data)
+        messages.value.unshift(...response.items)
       }
       else {
-        messages.value = response.data
+        messages.value = response.items
       }
-      total.value = response.data.length
+      total.value = response.total
       currentPage.value = page
 
       // Restore scroll position after appending messages

@@ -200,14 +200,35 @@ export async function findSimilarMessages(embedding: number[], options: SearchOp
 }
 
 /**
- * Find messages by chat ID
+ * Find messages by chat ID with pagination
  */
-export async function findMessagesByChatId(chatId: number) {
+export async function findMessagesByChatId(chatId: number, options?: {
+  limit?: number
+  offset?: number
+}) {
   const contentTable = createMessageContentTable(chatId)
-  return useDB()
+  const query = useDB()
     .select()
     .from(contentTable)
-    .orderBy(contentTable.createdAt)
+    .orderBy(sql`${contentTable.createdAt} DESC`)
+
+  // Get total count first
+  const [{ count }] = await useDB()
+    .select({ count: sql<number>`count(*)` })
+    .from(contentTable)
+
+  // Apply pagination if options provided
+  if (options?.limit)
+    query.limit(options.limit)
+  if (options?.offset)
+    query.offset(options.offset)
+
+  const messages = await query
+
+  return {
+    items: messages,
+    total: Number(count),
+  }
 }
 
 /**

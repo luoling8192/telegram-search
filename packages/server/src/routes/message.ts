@@ -9,7 +9,7 @@ const logger = useLogger('message')
 /**
  * Convert database message to public message
  */
-function toPublicMessage(message: Awaited<ReturnType<typeof findMessagesByChatId>>[number]): PublicMessage {
+function toPublicMessage(message: Awaited<ReturnType<typeof findMessagesByChatId>>['items'][number]): PublicMessage {
   return {
     id: message.id,
     chatId: message.chatId,
@@ -36,10 +36,19 @@ function toPublicMessage(message: Awaited<ReturnType<typeof findMessagesByChatId
  */
 export const messageRoutes = new Elysia({ prefix: '/messages' })
   // Get messages in chat
-  .get('/:id', async ({ params: { id } }) => {
+  .get('/:id', async ({ params: { id }, query: { limit = '50', offset = '0' } }) => {
     try {
-      const messages = await findMessagesByChatId(Number(id))
-      return messages.map(toPublicMessage)
+      const { items, total } = await findMessagesByChatId(Number(id), {
+        limit: Number(limit),
+        offset: Number(offset),
+      })
+
+      return {
+        items: items.map(toPublicMessage),
+        total,
+        limit: Number(limit),
+        offset: Number(offset),
+      }
     }
     catch (error) {
       logger.withError(error).error('Failed to get messages')
@@ -48,5 +57,9 @@ export const messageRoutes = new Elysia({ prefix: '/messages' })
   }, {
     params: t.Object({
       id: t.String(),
+    }),
+    query: t.Object({
+      limit: t.Optional(t.String()),
+      offset: t.Optional(t.String()),
     }),
   })

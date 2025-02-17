@@ -1,4 +1,4 @@
-import type { PaginatedResponse, PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/types'
+import type { PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/types'
 import { ref } from 'vue'
 import { getChats as fetchChats, getFolders as fetchFolders, getMessages as fetchMessages, searchMessages } from '../api'
 
@@ -20,19 +20,18 @@ export function useApi() {
    */
   const request = async <T>(
     fn: () => Promise<T>,
-  ): Promise<ApiResponse<T>> => {
+  ): Promise<T> => {
     loading.value = true
     error.value = null
 
     try {
-      const data = await fn()
-      return { data }
+      return await fn()
     }
     catch (e) {
       const message = e instanceof Error ? e.message : 'Unknown error'
       error.value = message
       console.error('API Error:', message)
-      return { error: message }
+      throw e
     }
     finally {
       loading.value = false
@@ -57,4 +56,4 @@ export function useApi() {
 }
 
 // Re-export types
-export type { PaginatedResponse, PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse }
+export type { PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse }

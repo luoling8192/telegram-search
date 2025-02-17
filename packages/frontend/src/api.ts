@@ -58,7 +58,12 @@ export async function getChats(): Promise<PublicChat[]> {
 /**
  * Get messages in chat
  */
-export async function getMessages(chatId: number, params?: PaginationParams): Promise<PaginatedResponse<PublicMessage>> {
+export async function getMessages(chatId: number, params?: PaginationParams): Promise<{
+  items: PublicMessage[]
+  total: number
+  limit: number
+  offset: number
+}> {
   const url = new URL(`${API_BASE}/messages/${chatId}`)
   if (params?.limit)
     url.searchParams.set('limit', params.limit.toString())
