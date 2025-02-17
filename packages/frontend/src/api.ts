@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import type { ErrorResponse, PaginatedResponse, PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/types'
 
 /**
@@ -57,7 +59,7 @@ export async function getChats(): Promise<PublicChat[]> {
  * Get messages in chat
  */
 export async function getMessages(chatId: number, params?: PaginationParams): Promise<PaginatedResponse<PublicMessage>> {
-  const url = new URL(`${API_BASE}/chats/${chatId}/messages`)
+  const url = new URL(`${API_BASE}/messages/${chatId}`)
   if (params?.limit)
     url.searchParams.set('limit', params.limit.toString())
   if (params?.offset)

@@ -1,4 +1,4 @@
-<!-- Message bubble component -->
+<!-- Message bubble component for displaying PublicMessage -->
 <script setup lang="ts">
 import type { PublicMessage } from '@tg-search/server/types'
 import { Icon } from '@iconify/vue'
@@ -6,15 +6,15 @@ import { computed } from 'vue'
 
 const props = defineProps<{
   message: PublicMessage
-  // 当前用户 ID，用于区分消息方向
+  // Current user ID to determine message direction
   currentUserId?: number
 }>()
 
-// 判断是否是自己发送的消息
+// Check if message is from current user
 const isSelf = computed(() => props.message.fromId === props.currentUserId)
 
 // Format time to HH:mm
-function formatTime(date: Date | string) {
+function formatTime(date: Date | string): string {
   const dateObj = date instanceof Date ? date : new Date(date)
   return dateObj.toLocaleTimeString('default', {
     hour: '2-digit',
@@ -23,7 +23,7 @@ function formatTime(date: Date | string) {
 }
 
 // Format date to relative time
-function formatDate(date: Date | string) {
+function formatDate(date: Date | string): string {
   const dateObj = date instanceof Date ? date : new Date(date)
   const now = new Date()
   const diff = now.getTime() - dateObj.getTime()
@@ -41,14 +41,14 @@ function formatDate(date: Date | string) {
   else {
     return dateObj.toLocaleDateString('default', {
       year: 'numeric',
-      month: 'short',
+      month: 'short', 
       day: 'numeric',
     })
   }
 }
 
 // Format file size to human readable string
-function formatFileSize(bytes: number) {
+function formatFileSize(bytes: number): string {
   const units = ['B', 'KB', 'MB', 'GB']
   let size = bytes
   let unit = 0
@@ -69,8 +69,8 @@ function formatFileSize(bytes: number) {
     }"
   >
     <!-- Sender info -->
-    <div class="mb-1 text-sm text-gray-500">
-      {{ formatDate(message.createdAt) }} {{ formatTime(message.createdAt) }}
+    <div class="mb-1 text-sm text-gray-500 text-left">
+      <span class="font-medium">{{ message.fromName }}</span> • {{ formatDate(message.createdAt) }} {{ formatTime(message.createdAt) }}
     </div>
 
     <!-- Message content -->

@@ -1,5 +1,4 @@
 import type { PublicMessage } from '../types'
-import type { MessageType } from '@tg-search/db/schema/types'
 
 import { useLogger } from '@tg-search/common'
 import { findMessagesByChatId } from '@tg-search/db'
@@ -16,14 +15,19 @@ function toPublicMessage(message: Awaited<ReturnType<typeof findMessagesByChatId
     chatId: message.chatId,
     type: message.type,
     content: message.content,
-    mediaInfo: message.mediaInfo || null,
-    createdAt: message.createdAt,
+    mediaInfo: message.mediaInfo,
     fromId: message.fromId,
+    fromName: message.fromName,
+    fromAvatar: message.fromAvatar,
     replyToId: message.replyToId,
     forwardFromChatId: message.forwardFromChatId,
+    forwardFromChatName: message.forwardFromChatName,
     forwardFromMessageId: message.forwardFromMessageId,
     views: message.views,
     forwards: message.forwards,
+    links: message.links,
+    metadata: message.metadata,
+    createdAt: message.createdAt,
   }
 }
 
