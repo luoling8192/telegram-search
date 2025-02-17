@@ -3,6 +3,8 @@ ignorePaths: []
 dictionaryDefinitions: []
 dictionaries: []
 words:
+  - Elysia
+  - elysiajs
   - guiiai
   - iconify
   - Logg
@@ -10,6 +12,7 @@ words:
   - pgvector
   - taze
   - tiktoken
+  - trpc
   - tsquery
   - tsvector
   - unocss
