@@ -214,12 +214,6 @@ importers:
       '@tg-search/db':
         specifier: workspace:*
         version: link:../db
-      '@tg-search/server':
-        specifier: workspace:*
-        version: link:../server
-      '@trpc/client':
-        specifier: ^10.45.2
-        version: 10.45.2(@trpc/server@11.0.0-rc.768(typescript@5.7.3))
       '@vueuse/core':
         specifier: ^12.4.0
         version: 12.7.0(typescript@5.7.3)
@@ -302,15 +296,27 @@ importers:
 
   packages/server:
     dependencies:
+      '@elysiajs/cors':
+        specifier: ^1.0.0
+        version: 1.2.0(elysia@1.2.13(@sinclair/typebox@0.34.25)(typescript@5.7.3))
+      '@elysiajs/node':
+        specifier: ^1.2.5
+        version: 1.2.5(bufferutil@4.0.9)(elysia@1.2.13(@sinclair/typebox@0.34.25)(typescript@5.7.3))(formidable@3.5.2)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))
+      '@tg-search/common':
+        specifier: workspace:*
+        version: link:../common
       '@tg-search/db':
         specifier: workspace:*
         version: link:../db
-      '@trpc/server':
-        specifier: next
-        version: 11.0.0-rc.768(typescript@5.7.3)
+      elysia:
+        specifier: ^1.0.0
+        version: 1.2.13(@sinclair/typebox@0.34.25)(typescript@5.7.3)
       tsx:
         specifier: ^4.19.2
         version: 4.19.2
+      web-streams-polyfill:
+        specifier: ^3.3.2
+        version: 3.3.3
       zod:
         specifier: ^3.24.2
         version: 3.24.2
@@ -557,6 +563,22 @@ packages:
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
+
+  '@elysiajs/cors@1.2.0':
+    resolution: {integrity: sha512-qsJwDAg6WfdQRMfj6uSMcDPSpXvm/zQFeAX1uuJXhIgazH8itSfcDxcH9pMuXVRX1yQNi2pPwNQLJmAcw5mzvw==}
+    peerDependencies:
+      elysia: '>= 1.2.0'
+
+  '@elysiajs/node@1.2.5':
+    resolution: {integrity: sha512-g5iE2csoixsx4KT4Q57BVjQqjcjJPigWF1ruGHguxrwmI/nfTlWNnpKAR6XU+MERhr3Cf7dd6GI826BBNgo0xw==}
+    peerDependencies:
+      bufferutil: '>= 4.0.1'
+      elysia: '>= 1.2.7'
+      formidable: '>= 3.5.2'
+      ws: '>= 8.18.0'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
 
   '@emnapi/core@1.3.1':
     resolution: {integrity: sha512-pVGjBIt1Y6gg3EJN8jTcfpP/+uuRksIo055oE/OBkDNcjZqVbfkWCksG1Jp4yZnj3iKWyWX8fdG/j6UDYPbFog==}
@@ -1753,6 +1775,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@sinclair/typebox@0.34.25':
+    resolution: {integrity: sha512-gu+tdy9WZIRulrR4CAcGXZAAixwakKszkUXudMJ4EhtNflBEify5Pm5vnVEVqdmMkxnT4tcdfJps5XYqaNeF9Q==}
+
   '@stylistic/eslint-plugin@2.13.0':
     resolution: {integrity: sha512-RnO1SaiCFHn666wNz2QfZEFxvmiNRqhzaMXHXxXXKt+MEP7aajlPxUSMIQpKAaJfverpovEYqjBOXDq6dDcaOQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
@@ -1790,16 +1815,6 @@ packages:
     engines: {node: '>=12'}
     peerDependencies:
       vue: '>=3.2'
-
-  '@trpc/client@10.45.2':
-    resolution: {integrity: sha512-ykALM5kYWTLn1zYuUOZ2cPWlVfrXhc18HzBDyRhoPYN0jey4iQHEFSEowfnhg1RvYnrAVjNBgHNeSAXjrDbGwg==}
-    peerDependencies:
-      '@trpc/server': 10.45.2
-
-  '@trpc/server@11.0.0-rc.768':
-    resolution: {integrity: sha512-+2du6a3uZEcQBj1OdT6EfWxa6dw/vqBG37aNR7YReTJ/UOMnheOmI/bskHkbK+x/kAcHPj8YN+/xc01QJDxwXQ==}
-    peerDependencies:
-      typescript: '>=5.7.2'
 
   '@trysound/sax@0.2.0':
     resolution: {integrity: sha512-L7z9BgrNEcYyUYtF+HaEfiS5ebkh9jXqbszz7pC0hRBPaatV0XjSD3+eHrpqFemQfgwiFF0QPIarnIihIDn7OA==}
@@ -2388,6 +2403,9 @@ packages:
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
 
+  asap@2.0.6:
+    resolution: {integrity: sha512-BSHWgDSAiKs50o2Re8ppvp3seVHXSRM44cdSsT9FfNEUUZLOGWVCsiWaRPWM1Znn+mqZ1OfVZ3z3DWEzSp7hRA==}
+
   assertion-error@2.0.1:
     resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
     engines: {node: '>=12'}
@@ -2597,6 +2615,10 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
+  cookie@1.0.2:
+    resolution: {integrity: sha512-9Kr/j4O16ISv8zBBhJoi4bXOYNTkFLOqSL3UDB0njXxCXNezjeyVrJyGOWtgfs/q2km1gwBcfH8q1yEGoMYunA==}
+    engines: {node: '>=18'}
+
   copy-anything@3.0.5:
     resolution: {integrity: sha512-yCEafptTtb4bk7GLEQoM8KVJpxAfdBJYaXyzQEgQQQgYrZiDp8SJmGKlYza6CYjEDNstAdNdKA3UuoULlEbS6w==}
     engines: {node: '>=12.13'}
@@ -2744,6 +2766,9 @@ packages:
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
 
+  dezalgo@1.0.4:
+    resolution: {integrity: sha512-rXSP0bf+5n0Qonsb+SVVfNfIsimO4HEtmnIpPHY8Q1UCzKlQrDMfdobr8nJOOsRgWCyMRqeSBQzmWUMq7zvVig==}
+
   doctrine@3.0.0:
     resolution: {integrity: sha512-yS+Q5i3hBf7GBkd4KG8a7eBNNWNGLTaEwwYWUijIYM7zrlYDM0BFXHjjPWlWZ1Rg7UaddZeIDmi9jF3HmqiQ2w==}
     engines: {node: '>=6.0.0'}
@@ -2882,6 +2907,18 @@ packages:
 
   electron-to-chromium@1.5.101:
     resolution: {integrity: sha512-L0ISiQrP/56Acgu4/i/kfPwWSgrzYZUnQrC0+QPFuhqlLP1Ir7qzPPDVS9BcKIyWTRU8+o6CC8dKw38tSWhYIA==}
+
+  elysia@1.2.13:
+    resolution: {integrity: sha512-dNoPX9/1us+yYGX0igznlFTEG9jmEo8YaReD2EkoLL7IwvdZeMnC83GACxhk4ycv7I27192bsDatxWZSsOPQcA==}
+    peerDependencies:
+      '@sinclair/typebox': '>= 0.34.0'
+      openapi-types: '>= 12.0.0'
+      typescript: '>= 5.0.0'
+    peerDependenciesMeta:
+      openapi-types:
+        optional: true
+      typescript:
+        optional: true
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -3299,6 +3336,9 @@ packages:
     resolution: {integrity: sha512-hGfm/slu0ZabnNt4oaRZ6uREyfCj6P4fT/n6A1rGV+Z0VdGXjfOhVUpkn6qVQONHGIFwmveGXyDs75+nr6FM8w==}
     engines: {node: '>= 6'}
 
+  formidable@3.5.2:
+    resolution: {integrity: sha512-Jqc1btCy3QzRbJaICGwKcBfGWuLADRerLzDqi2NwSt/UkXLsHJw2TVResiaoBufHVHy9aSgClOHCeJsSsFLTbg==}
+
   fraction.js@4.3.7:
     resolution: {integrity: sha512-ZsDfxO51wGAXREY55a7la9LScWpwv9RxIrYABrlvOFBlH/ShPnrtsXeuUIfXKKOVicNxQ+o8JTbJvjS4M89yew==}
 
@@ -3403,6 +3443,10 @@ packages:
   he@1.2.0:
     resolution: {integrity: sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==}
     hasBin: true
+
+  hexoid@2.0.0:
+    resolution: {integrity: sha512-qlspKUK7IlSQv2o+5I7yhUd7TxlOG2Vr5LTa3ve2XSNVKAL/n/u/7KLvKmFNimomDIKvZFXWHv0T12mv7rT8Aw==}
+    engines: {node: '>=8'}
 
   hookable@5.5.3:
     resolution: {integrity: sha512-Yc+BQe8SvoXH1643Qez1zqLRmbA5rCL+sSmk6TVos0LWVfNIB7PGncdlId77WzLGSIB5KaWgTaNTs2lNVEI6VQ==}
@@ -3729,6 +3773,9 @@ packages:
 
   mdn-data@2.12.2:
     resolution: {integrity: sha512-IEn+pegP1aManZuckezWCO+XZQDplx1366JoVhTpMpBB1sPey/SbveZQUosKiKiGYjg1wH4pMlNgXbCiYgihQA==}
+
+  memoirist@0.3.0:
+    resolution: {integrity: sha512-wR+4chMgVPq+T6OOsk40u9Wlpw1Pjx66NMNiYxCQQ4EUJ7jDs3D9kTCeKdBOkvAiqXlHLVJlvYL01PvIJ1MPNg==}
 
   merge2@1.4.1:
     resolution: {integrity: sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg==}
@@ -5129,6 +5176,10 @@ packages:
     resolution: {integrity: sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==}
     engines: {node: '>=18'}
 
+  web-streams-polyfill@3.3.3:
+    resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
+    engines: {node: '>= 8'}
+
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
 
@@ -5529,6 +5580,18 @@ snapshots:
   '@dprint/toml@0.6.4': {}
 
   '@drizzle-team/brocli@0.10.2': {}
+
+  '@elysiajs/cors@1.2.0(elysia@1.2.13(@sinclair/typebox@0.34.25)(typescript@5.7.3))':
+    dependencies:
+      elysia: 1.2.13(@sinclair/typebox@0.34.25)(typescript@5.7.3)
+
+  '@elysiajs/node@1.2.5(bufferutil@4.0.9)(elysia@1.2.13(@sinclair/typebox@0.34.25)(typescript@5.7.3))(formidable@3.5.2)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))':
+    dependencies:
+      elysia: 1.2.13(@sinclair/typebox@0.34.25)(typescript@5.7.3)
+      formidable: 3.5.2
+      ws: 8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+    optionalDependencies:
+      bufferutil: 4.0.9
 
   '@emnapi/core@1.3.1':
     dependencies:
@@ -6333,6 +6396,8 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.34.7':
     optional: true
 
+  '@sinclair/typebox@0.34.25': {}
+
   '@stylistic/eslint-plugin@2.13.0(eslint@9.20.1(jiti@2.4.2))(typescript@5.7.3)':
     dependencies:
       '@typescript-eslint/utils': 8.24.0(eslint@9.20.1(jiti@2.4.2))(typescript@5.7.3)
@@ -6377,14 +6442,6 @@ snapshots:
     dependencies:
       '@tanstack/table-core': 8.21.2
       vue: 3.5.13(typescript@5.7.3)
-
-  '@trpc/client@10.45.2(@trpc/server@11.0.0-rc.768(typescript@5.7.3))':
-    dependencies:
-      '@trpc/server': 11.0.0-rc.768(typescript@5.7.3)
-
-  '@trpc/server@11.0.0-rc.768(typescript@5.7.3)':
-    dependencies:
-      typescript: 5.7.3
 
   '@trysound/sax@0.2.0': {}
 
@@ -7202,6 +7259,8 @@ snapshots:
 
   argparse@2.0.1: {}
 
+  asap@2.0.6: {}
+
   assertion-error@2.0.1: {}
 
   ast-kit@1.4.0:
@@ -7405,6 +7464,8 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
+  cookie@1.0.2: {}
+
   copy-anything@3.0.5:
     dependencies:
       is-what: 4.1.16
@@ -7557,6 +7618,11 @@ snapshots:
     dependencies:
       dequal: 2.0.3
 
+  dezalgo@1.0.4:
+    dependencies:
+      asap: 2.0.6
+      wrappy: 1.0.2
+
   doctrine@3.0.0:
     dependencies:
       esutils: 2.0.3
@@ -7630,6 +7696,14 @@ snapshots:
       semver: 7.7.1
 
   electron-to-chromium@1.5.101: {}
+
+  elysia@1.2.13(@sinclair/typebox@0.34.25)(typescript@5.7.3):
+    dependencies:
+      '@sinclair/typebox': 0.34.25
+      cookie: 1.0.2
+      memoirist: 0.3.0
+    optionalDependencies:
+      typescript: 5.7.3
 
   emoji-regex@8.0.0: {}
 
@@ -8260,6 +8334,12 @@ snapshots:
       es-set-tostringtag: 2.1.0
       mime-types: 2.1.35
 
+  formidable@3.5.2:
+    dependencies:
+      dezalgo: 1.0.4
+      hexoid: 2.0.0
+      once: 1.4.0
+
   fraction.js@4.3.7: {}
 
   fsevents@2.3.3:
@@ -8366,6 +8446,8 @@ snapshots:
       function-bind: 1.1.2
 
   he@1.2.0: {}
+
+  hexoid@2.0.0: {}
 
   hookable@5.5.3: {}
 
@@ -8763,6 +8845,8 @@ snapshots:
   mdn-data@2.0.30: {}
 
   mdn-data@2.12.2: {}
+
+  memoirist@0.3.0: {}
 
   merge2@1.4.1: {}
 
@@ -10333,6 +10417,8 @@ snapshots:
   w3c-xmlserializer@5.0.0:
     dependencies:
       xml-name-validator: 5.0.0
+
+  web-streams-polyfill@3.3.3: {}
 
   webidl-conversions@3.0.1: {}
 

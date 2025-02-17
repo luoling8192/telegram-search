@@ -1,55 +1,82 @@
-import { createServer } from 'node:http'
-import { chatRouter } from './routers/chat'
-import { router } from './trpc'
-import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
+import process from 'node:process'
+import { cors } from '@elysiajs/cors'
+import { node } from '@elysiajs/node'
+import { initConfig, initDB, initLogger, useLogger } from '@tg-search/common'
+import { Elysia } from 'elysia'
 
-// Create the root router
-export const appRouter = router({
-  chat: chatRouter,
-})
+import { chatRoutes } from './routes/chat'
 
-// Export type definition of API
-export type AppRouter = typeof appRouter
+// Initialize core services
+async function initServices() {
+  initLogger()
+  const logger = useLogger('server')
+  initConfig()
 
-// Create HTTP server
-const server = createServer(async (req, res) => {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3333')
-  res.setHeader('Access-Control-Allow-Credentials', 'true')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200)
-    res.end()
-    return
+  try {
+    initDB()
+    logger.debug('Database initialized successfully')
+  }
+  catch (error) {
+    logger.withError(error).error('Failed to initialize database')
+    process.exit(1)
   }
 
-  // Handle tRPC requests
-  if (req.url?.startsWith('/trpc')) {
-    const response = await fetchRequestHandler({
-      endpoint: '/trpc',
-      req: new Request(`http://${req.headers.host}${req.url}`, {
-        method: req.method,
-        headers: req.headers as HeadersInit,
-        body: req.method !== 'GET' && req.method !== 'HEAD' ? req : undefined,
-      }),
-      router: appRouter,
-      createContext: () => ({}),
+  return logger
+}
+
+// Create error response
+function createErrorResponse(error: unknown) {
+  return {
+    success: false,
+    error: error instanceof Error ? error.message : 'Internal Server Error',
+    code: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
+    timestamp: new Date().toISOString(),
+  }
+}
+
+// Setup process error handlers
+function setupErrorHandlers(logger: ReturnType<typeof useLogger>) {
+  const handleFatalError = (error: unknown, type: string) => {
+    logger.withError(error).error(type)
+    process.exit(1)
+  }
+
+  process.on('uncaughtException', error => handleFatalError(error, 'Uncaught exception'))
+  process.on('unhandledRejection', error => handleFatalError(error, 'Unhandled rejection'))
+}
+
+// Main server setup
+async function setupServer() {
+  const logger = await initServices()
+  setupErrorHandlers(logger)
+
+  const app = new Elysia({ adapter: node() })
+    .use(cors({
+      origin: 'http://localhost:3333',
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    }))
+    .use(chatRoutes)
+    .onError(({ error }) => {
+      logger.withError(error).error('Application error')
+      return createErrorResponse(error)
+    })
+    .listen(3000, () => {
+      logger.debug('Server listening on http://localhost:3000')
     })
 
-    res.setHeader('Content-Type', response.headers.get('Content-Type') ?? 'application/json')
-    res.writeHead(response.status)
-    res.end(await response.text())
-    return
+  // 添加优雅关闭处理
+  const shutdown = () => {
+    process.exit(0)
   }
+  process.on('SIGINT', shutdown)
+  process.on('SIGTERM', shutdown)
 
-  // Handle 404
-  res.writeHead(404)
-  res.end('Not found')
-})
+  return app
+}
 
 // Start server
-server.listen(3000)
-console.log('Server listening on http://localhost:3000')
+(async () => {
+  await setupServer()
+})()

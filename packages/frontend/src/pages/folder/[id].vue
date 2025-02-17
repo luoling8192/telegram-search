@@ -1,38 +1,49 @@
-<!-- Chat list page -->
+<!-- Folder chats page -->
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { type Chat, useApi } from '../composables/api'
+import { useRoute, useRouter } from 'vue-router'
+import { type Chat, useApi } from '../../composables/api'
 
 // Initialize API client and router
 const api = useApi()
+const route = useRoute()
 const router = useRouter()
 const chats = ref<Chat[]>([])
 
-// Load chats
+// Get folder ID from route
+const folderId = Number(route.params.id)
+
+// Load chats in folder
 async function loadChats() {
-  const response = await api.getChats()
+  const response = await api.getChatsByFolder(folderId)
   if (response.data) {
     chats.value = response.data.chats
   }
 }
 
-// Navigate to folder
-function goToFolder(folderId: number) {
-  router.push(`/folder/${folderId}`)
-}
-
 // Load chats on mount
 onMounted(() => {
+  if (isNaN(folderId)) {
+    router.push('/')
+    return
+  }
   loadChats()
 })
 </script>
 
 <template>
   <div class="p-4">
-    <h1 class="mb-4 text-2xl font-bold">
-      Chats
-    </h1>
+    <div class="mb-4 flex items-center">
+      <button
+        class="mr-2 rounded bg-gray-100 px-3 py-1 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+        @click="router.back()"
+      >
+        Back
+      </button>
+      <h1 class="text-2xl font-bold">
+        Folder {{ folderId }}
+      </h1>
+    </div>
 
     <!-- Loading state -->
     <div v-if="api.loading" class="text-gray-500">
@@ -54,18 +65,11 @@ onMounted(() => {
         <h2 class="text-lg font-semibold">
           {{ chat.title }}
         </h2>
-        <p
-          v-if="chat.folder_id"
-          class="cursor-pointer text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-          @click="goToFolder(chat.folder_id)"
-        >
-          View folder {{ chat.folder_id }}
-        </p>
       </div>
 
       <!-- Empty state -->
       <div v-if="chats.length === 0" class="text-gray-500">
-        No chats found
+        No chats found in this folder
       </div>
     </div>
   </div>
