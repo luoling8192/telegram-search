@@ -15,7 +15,16 @@ export type NewChat = InferInsertModel<typeof chats>
  */
 export async function updateChat(data: NewChat) {
   // Get message stats from materialized view
-  const stats = await getMessageStats(data.id)
+  let stats = null
+  try {
+    stats = await getMessageStats(data.id)
+  }
+  catch (error) {
+    // Skip if message stats table does not exist
+    if (!(error instanceof Error) || !error.message.includes('does not exist')) {
+      throw error
+    }
+  }
 
   return useDB().insert(chats).values({
     ...data,
@@ -28,7 +37,6 @@ export async function updateChat(data: NewChat) {
     set: {
       title: data.title,
       type: data.type,
-      username: data.username,
       lastMessage: stats?.last_message || data.lastMessage,
       lastMessageDate: stats?.last_message_date || data.lastMessageDate,
       lastSyncTime: data.lastSyncTime,

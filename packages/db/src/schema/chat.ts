@@ -13,8 +13,6 @@ export const chats = pgTable('chats', {
   type: chatTypeEnum('type').notNull(),
   // Chat title
   title: text('title').notNull(),
-  // Chat username
-  username: text('username'),
   // Last message
   lastMessage: text('last_message'),
   // Last message date
@@ -30,8 +28,6 @@ export const chats = pgTable('chats', {
   sql`CREATE INDEX IF NOT EXISTS chats_type_idx ON ${table} (type)`,
   // Index for last_sync_time
   sql`CREATE INDEX IF NOT EXISTS chats_last_sync_time_idx ON ${table} (last_sync_time DESC)`,
-  // Index for username
-  sql`CREATE INDEX IF NOT EXISTS chats_username_idx ON ${table} (username)`,
   // Index for folder_id
   sql`CREATE INDEX IF NOT EXISTS chats_folder_id_idx ON ${table} (folder_id)`,
   // Index for last_message_date
