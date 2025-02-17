@@ -1,4 +1,4 @@
-import type { ErrorResponse, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/types'
+import type { ErrorResponse, PaginatedResponse, PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/types'
 
 /**
  * Base API configuration
@@ -56,8 +56,14 @@ export async function getChats(): Promise<PublicChat[]> {
 /**
  * Get messages in chat
  */
-export async function getMessages(chatId: number): Promise<PublicMessage[]> {
-  const response = await fetch(`${API_BASE}/chats/${chatId}/messages`)
+export async function getMessages(chatId: number, params?: PaginationParams): Promise<PaginatedResponse<PublicMessage>> {
+  const url = new URL(`${API_BASE}/chats/${chatId}/messages`)
+  if (params?.limit)
+    url.searchParams.set('limit', params.limit.toString())
+  if (params?.offset)
+    url.searchParams.set('offset', params.offset.toString())
+
+  const response = await fetch(url)
   const data = await response.json()
   if (!response.ok) {
     const error = data as ErrorResponse

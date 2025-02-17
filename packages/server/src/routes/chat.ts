@@ -2,7 +2,7 @@ import type { PublicChat } from '../types'
 
 import { useLogger } from '@tg-search/common'
 import { findMessagesByChatId, getAllChats } from '@tg-search/db'
-import { Elysia } from 'elysia'
+import { Elysia, t } from 'elysia'
 
 const logger = useLogger('chat')
 
@@ -35,37 +35,51 @@ export const chatRoutes = new Elysia({ prefix: '/chats' })
     }
   })
   // Get messages in chat
-  .get('/:id/messages', async ({ params: { id } }) => {
+  .get('/:id/messages', async ({ params: { id }, query: { limit = '50', offset = '0' } }) => {
     try {
+      // Get messages with pagination
       const messages = await findMessagesByChatId(Number(id))
-      return messages.map(message => ({
-        id: message.id,
-        chatId: message.chatId,
-        date: message.createdAt,
-        text: message.content || '',
-        type: message.type,
-        replyToMessageId: message.replyToId || undefined,
-        media: message.mediaInfo
-          ? {
-              type: message.mediaInfo.type,
-              mimeType: message.mediaInfo.mimeType,
-              fileName: message.mediaInfo.fileName,
-              fileSize: message.mediaInfo.fileSize,
-              width: message.mediaInfo.width,
-              height: message.mediaInfo.height,
-              duration: message.mediaInfo.duration,
-              thumbnail: message.mediaInfo.thumbnail
-                ? {
-                    width: message.mediaInfo.thumbnail.width,
-                    height: message.mediaInfo.thumbnail.height,
-                  }
-                : undefined,
-            }
-          : undefined,
-      }))
+      const total = messages.length
+      const slicedMessages = messages
+        .slice(Number(offset), Number(offset) + Number(limit))
+        .map(message => ({
+          id: message.id,
+          chatId: message.chatId,
+          date: message.createdAt,
+          text: message.content || '',
+          type: message.type,
+          replyToMessageId: message.replyToId || undefined,
+          media: message.mediaInfo
+            ? {
+                type: message.mediaInfo.type,
+                mimeType: message.mediaInfo.mimeType,
+                fileName: message.mediaInfo.fileName,
+                fileSize: message.mediaInfo.fileSize,
+                width: message.mediaInfo.width,
+                height: message.mediaInfo.height,
+                duration: message.mediaInfo.duration,
+                thumbnail: message.mediaInfo.thumbnail
+                  ? {
+                      width: message.mediaInfo.thumbnail.width,
+                      height: message.mediaInfo.thumbnail.height,
+                    }
+                  : undefined,
+              }
+            : undefined,
+        }))
+
+      return {
+        total,
+        items: slicedMessages,
+      }
     }
     catch (error) {
       logger.withError(error).error('Failed to get messages')
       throw error
     }
+  }, {
+    query: t.Object({
+      limit: t.Optional(t.String()),
+      offset: t.Optional(t.String()),
+    }),
   })

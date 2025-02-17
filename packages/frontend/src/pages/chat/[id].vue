@@ -1,7 +1,7 @@
 <!-- Chat messages page -->
 <script setup lang="ts">
 import type { PublicMessage } from '@tg-search/server/types'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '../../composables/api'
 
@@ -10,15 +10,41 @@ const { loading, error, getMessages } = useApi()
 const route = useRoute()
 const router = useRouter()
 const messages = ref<PublicMessage[]>([])
+const total = ref(0)
+
+// Pagination
+const pageSize = 50
+const currentPage = ref(1)
+const totalPages = computed(() => Math.ceil(total.value / pageSize))
 
 // Get chat ID from route
 const chatId = Number(route.params.id)
 
 // Load messages from chat
-async function loadMessages() {
-  const response = await getMessages(chatId)
+async function loadMessages(page = 1) {
+  const offset = (page - 1) * pageSize
+  const response = await getMessages(chatId, {
+    limit: pageSize,
+    offset,
+  })
   if (response.data) {
-    messages.value = response.data
+    messages.value = response.data.items
+    total.value = response.data.total
+    currentPage.value = page
+  }
+}
+
+// Load next page
+async function loadNextPage() {
+  if (currentPage.value < totalPages.value) {
+    await loadMessages(currentPage.value + 1)
+  }
+}
+
+// Load previous page
+async function loadPrevPage() {
+  if (currentPage.value > 1) {
+    await loadMessages(currentPage.value - 1)
   }
 }
 
@@ -58,6 +84,31 @@ onMounted(() => {
 
     <!-- Message list -->
     <div v-else class="space-y-4">
+      <!-- Pagination info -->
+      <div class="mb-4 flex items-center justify-between text-sm text-gray-500">
+        <div>
+          Total: {{ total }} messages
+        </div>
+        <div class="flex items-center gap-4">
+          <button
+            :disabled="currentPage === 1"
+            class="rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-50 dark:hover:bg-gray-800"
+            @click="loadPrevPage"
+          >
+            Previous
+          </button>
+          <span>Page {{ currentPage }} of {{ totalPages }}</span>
+          <button
+            :disabled="currentPage === totalPages"
+            class="rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-50 dark:hover:bg-gray-800"
+            @click="loadNextPage"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      <!-- Messages -->
       <div
         v-for="message in messages"
         :key="message.id"

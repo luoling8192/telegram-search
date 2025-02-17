@@ -12,16 +12,29 @@ export interface SearchRequest {
 }
 
 /**
+ * Pagination parameters
+ */
+export interface PaginationParams {
+  limit?: number
+  offset?: number
+}
+
+/**
+ * Paginated response
+ */
+export interface PaginatedResponse<T> {
+  total: number
+  items: T[]
+}
+
+/**
  * Search response structure
  */
-export interface SearchResponse {
-  total: number
-  items: Array<{
-    message: PublicMessage
-    chat: PublicChat
-    folder?: PublicFolder
-  }>
-}
+export type SearchResponse = PaginatedResponse<{
+  message: PublicMessage
+  chat: PublicChat
+  folder?: PublicFolder
+}>
 
 /**
  * API error response

@@ -1,4 +1,4 @@
-import type { PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/types'
+import type { PaginatedResponse, PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/types'
 import { ref } from 'vue'
 import { getChats as fetchChats, getFolders as fetchFolders, getMessages as fetchMessages, searchMessages } from '../api'
 
@@ -43,7 +43,7 @@ export function useApi() {
   const search = (params: SearchRequest) => request(() => searchMessages(params))
   const getChats = () => request(() => fetchChats())
   const getFolders = () => request(() => fetchFolders())
-  const getMessages = (chatId: number) => request(() => fetchMessages(chatId))
+  const getMessages = (chatId: number, params?: PaginationParams) => request(() => fetchMessages(chatId, params))
 
   return {
     loading,
@@ -57,4 +57,4 @@ export function useApi() {
 }
 
 // Re-export types
-export type { PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse }
+export type { PaginatedResponse, PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse }
