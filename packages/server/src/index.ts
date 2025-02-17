@@ -24,12 +24,20 @@ async function initServices() {
   return logger
 }
 
-// Create error response
-function createErrorResponse(error: unknown) {
+// Create standardized response
+function createResponse<T>(data?: T, error?: unknown) {
+  if (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Internal Server Error',
+      code: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
+      timestamp: new Date().toISOString(),
+    }
+  }
+
   return {
-    success: false,
-    error: error instanceof Error ? error.message : 'Internal Server Error',
-    code: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
+    success: true,
+    data,
     timestamp: new Date().toISOString(),
   }
 }
@@ -60,13 +68,13 @@ async function setupServer() {
     .use(chatRoutes)
     .onError(({ error }) => {
       logger.withError(error).error('Application error')
-      return createErrorResponse(error)
+      return createResponse(undefined, error)
     })
     .listen(3000, () => {
       logger.debug('Server listening on http://localhost:3000')
     })
 
-  // 添加优雅关闭处理
+  // Graceful shutdown handler
   const shutdown = () => {
     process.exit(0)
   }
