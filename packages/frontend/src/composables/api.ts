@@ -1,68 +1,32 @@
-import { ofetch } from 'ofetch'
+import type { PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/types'
 import { ref } from 'vue'
-
-// API base URL
-const API_BASE = 'http://localhost:3000/api'
+import { getChats as fetchChats, getFolders as fetchFolders, getMessages as fetchMessages, searchMessages } from '../api'
 
 // API response types
-export interface Chat {
-  id: number
-  title: string
-  folder_id?: number
-}
-
-export interface ChatListResponse {
-  chats: Chat[]
-}
-
 export interface ApiResponse<T> {
   data?: T
   error?: string
 }
 
-// API client
+/**
+ * API composable for managing API state and requests
+ */
 export function useApi() {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  // Create ofetch instance with base configuration
-  const apiFetch = ofetch.create({
-    baseURL: API_BASE,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    // Handle response errors
-    onResponseError: ({ response }) => {
-      throw new Error(response._data?.error || `HTTP error! status: ${response.status}`)
-    },
-    // Handle request errors
-    onRequestError: ({ error: err }) => {
-      throw new Error(err.message || 'Network error')
-    },
-  })
-
-  // Generic fetch wrapper
-  const fetchApi = async <T>(
-    endpoint: string,
-    options: RequestInit = {},
+  /**
+   * Generic API request wrapper
+   */
+  const request = async <T>(
+    fn: () => Promise<T>,
   ): Promise<ApiResponse<T>> => {
     loading.value = true
     error.value = null
 
     try {
-      const response = await apiFetch(endpoint, {
-        ...options,
-      })
-      console.warn('API Response:', response)
-      // Ensure we're returning the response in the correct format
-      if (typeof response === 'object' && response !== null) {
-        return { data: response as T }
-      }
-      else {
-        console.warn('Unexpected response format:', response)
-        return { error: 'Invalid response format' }
-      }
+      const data = await fn()
+      return { data }
     }
     catch (e) {
       const message = e instanceof Error ? e.message : 'Unknown error'
@@ -75,16 +39,22 @@ export function useApi() {
     }
   }
 
-  // Chat API methods
-  const getChats = () => fetchApi<ChatListResponse>('/chat')
-  const getChatsByFolder = (folderId: number) =>
-    fetchApi<ChatListResponse>(`/chat/folder/${folderId}`)
+  // API methods
+  const search = (params: SearchRequest) => request(() => searchMessages(params))
+  const getChats = () => request(() => fetchChats())
+  const getFolders = () => request(() => fetchFolders())
+  const getMessages = (chatId: number) => request(() => fetchMessages(chatId))
 
   return {
     loading,
     error,
-    // Chat methods
+    // Methods
+    search,
     getChats,
-    getChatsByFolder,
+    getFolders,
+    getMessages,
   }
 }
+
+// Re-export types
+export type { PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse }

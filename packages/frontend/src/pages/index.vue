@@ -2,25 +2,23 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { type Chat, useApi } from '../composables/api'
+import { useApi } from '../composables/api'
+import type { PublicChat } from '@tg-search/server/types'
 
 // Initialize API client and router
 const { loading, getChats } = useApi()
 const router = useRouter()
-const chats = ref<Chat[]>([])
+const chats = ref<PublicChat[]>([])
 
 // Load chats from API
 async function loadChats() {
   const response = await getChats()
-  if (response.data?.chats) {
-    chats.value = response.data.chats
-  }
-  else {
-    console.warn('No chats data in response')
+  if (response.data) {
+    chats.value = response.data
   }
 }
 
-// Navigate to folder view
+// Navigate to chat view
 function goToChat(chatId: number) {
   router.push(`/chat/${chatId}`)
 }
@@ -53,12 +51,18 @@ onMounted(() => {
         <h2 class="text-lg font-semibold">
           {{ chat.title }}
         </h2>
-        <p
-          v-if="chat.id"
-          class="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-        >
-          View chat {{ chat.id }}
-        </p>
+        <div class="mt-2 flex items-center gap-4 text-sm text-gray-500">
+          <span>{{ chat.type }}</span>
+          <span>{{ chat.messageCount }} messages</span>
+          <span v-if="chat.lastMessageDate">
+            Last message: {{ new Date(chat.lastMessageDate).toLocaleString() }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div v-if="chats.length === 0" class="text-gray-500">
+        No chats found
       </div>
     </div>
   </div>

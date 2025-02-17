@@ -1,32 +1,27 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "target": "es2020",
-    "jsx": "preserve",
-    "lib": ["DOM", "ESNext"],
-    "baseUrl": ".",
+    "target": "ESNext",
+    "useDefineForClassFields": true,
     "module": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
     "moduleResolution": "bundler",
-    "paths": {
-      "~/*": ["src/*"]
-    },
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
-    "types": [
-      "vite/client",
-      "unplugin-vue-macros/macros-global",
-      "unplugin-vue-router/client"
-    ],
-    "allowJs": true,
-    "strict": true,
-    "strictNullChecks": true,
-    "noUnusedLocals": true,
+    "isolatedModules": true,
     "noEmit": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true
+    "jsx": "preserve",
+
+    /* Paths */
+    "baseUrl": ".",
+    "paths": {
+      "@tg-search/server/*": ["../server/src/*"],
+      "@tg-search/db/*": ["../db/src/*"]
+    }
   },
-  "exclude": [
-    "dist",
-    "node_modules",
-    "eslint.config.js"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -5,6 +5,8 @@ import { initConfig, initDB, initLogger, useLogger } from '@tg-search/common'
 import { Elysia } from 'elysia'
 
 import { chatRoutes } from './routes/chat'
+import { searchRoutes } from './routes/search'
+import { messageRoutes } from './routes/message'
 
 // Initialize core services
 async function initServices() {
@@ -66,6 +68,8 @@ async function setupServer() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     }))
     .use(chatRoutes)
+    .use(searchRoutes)
+    .use(messageRoutes)
     .onError(({ error }) => {
       logger.withError(error).error('Application error')
       return createResponse(undefined, error)
