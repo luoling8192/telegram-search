@@ -16,7 +16,7 @@
   ],
   "scripts": {
     "build": "unbuild",
-    "dev": "unbuild --stub"
+    "stub": "unbuild --stub"
   },
   "peerDependencies": {
     "drizzle-orm": "^0.29.3"

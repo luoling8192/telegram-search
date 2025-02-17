@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "build": "unbuild",
-    "dev": "unbuild --stub",
+    "stub": "unbuild --stub",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "typecheck": "tsc --noEmit",
