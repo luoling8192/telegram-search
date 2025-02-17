@@ -4,13 +4,17 @@ dictionaryDefinitions: []
 dictionaries: []
 words:
   - guiiai
+  - iconify
   - Logg
   - onnotice
   - pgvector
+  - taze
   - tiktoken
   - tsquery
   - tsvector
   - unocss
+  - unplugin
+  - vueuse
   - xsai
 ignoreWords: []
 import: []
