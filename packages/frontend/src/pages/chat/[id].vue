@@ -6,12 +6,18 @@ import { useRoute, useRouter } from 'vue-router'
 import MessageBubble from '../../components/MessageBubble.vue'
 import { useApi } from '../../composables/api'
 
+// Local message type with highlight support
+interface LocalMessage extends PublicMessage {
+  highlight?: boolean
+}
+
 // Initialize API client and router
-const { loading, error, getMessages } = useApi()
+const { loading, error, getMessages, getChats } = useApi()
 const route = useRoute()
 const router = useRouter()
-const messages = ref<PublicMessage[]>([])
+const messages = ref<LocalMessage[]>([])
 const total = ref(0)
+const chatTitle = ref('')
 
 // Pagination
 const pageSize = 50
@@ -28,6 +34,15 @@ const messageContainer = ref<HTMLElement>()
 
 // Current user ID (TODO: Get from auth)
 const currentUserId = ref(123456789)
+
+// Load chat info
+async function loadChatInfo() {
+  const chats = await getChats()
+  const chat = chats.find(c => c.id === chatId)
+  if (chat) {
+    chatTitle.value = chat.title
+  }
+}
 
 // Load messages from chat
 async function loadMessages(page = 1, append = false) {
@@ -49,11 +64,11 @@ async function loadMessages(page = 1, append = false) {
       // Get current scroll position
       const scrollPos = messageContainer.value?.scrollHeight || 0
       if (append) {
-        // Add messages to the beginning
+        // Add older messages to the beginning (since they're in reverse order)
         messages.value.unshift(...response.items)
       }
       else {
-        messages.value = response.items
+        messages.value = response.items.reverse()
       }
       total.value = response.total
       currentPage.value = page
@@ -98,13 +113,67 @@ async function onScroll(e: Event) {
   }
 }
 
+// Jump to message by ID
+async function jumpToMessage(messageId: number) {
+  // Find message in current list
+  const targetMessage = messages.value.find(m => m.id === messageId)
+  if (targetMessage) {
+    // Message is in current list, scroll to it
+    const messageElement = document.getElementById(`message-${messageId}`)
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Highlight message temporarily
+      targetMessage.highlight = true
+      setTimeout(() => {
+        targetMessage.highlight = false
+      }, 2000)
+    }
+    return
+  }
+
+  // Message not in current list, load it
+  loading.value = true
+  try {
+    // Calculate approximate page
+    const page = Math.floor(messageId / pageSize)
+    const response = await getMessages(chatId, {
+      limit: pageSize,
+      offset: page * pageSize,
+    })
+
+    if (response.items) {
+      messages.value = response.items.reverse()
+      total.value = response.total
+      currentPage.value = page + 1
+
+      await nextTick()
+      const messageElement = document.getElementById(`message-${messageId}`)
+      if (messageElement) {
+        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        // Highlight message temporarily
+        const targetMessage = messages.value.find(m => m.id === messageId)
+        if (targetMessage) {
+          targetMessage.highlight = true
+          setTimeout(() => {
+            targetMessage.highlight = false
+          }, 2000)
+        }
+      }
+    }
+  }
+  finally {
+    loading.value = false
+  }
+}
+
 // Load messages on mount
-onMounted(() => {
+onMounted(async () => {
   if (Number.isNaN(chatId)) {
     router.push('/')
     return
   }
-  loadMessages()
+  await loadChatInfo()
+  await loadMessages()
 })
 </script>
 
@@ -119,7 +188,7 @@ onMounted(() => {
         Back
       </button>
       <h1 class="text-2xl font-bold">
-        Chat {{ chatId }}
+        {{ chatTitle }} <span class="text-gray-500 dark:text-gray-400">({{ chatId }})</span>
       </h1>
     </div>
 
@@ -140,7 +209,7 @@ onMounted(() => {
       </div>
 
       <!-- Messages -->
-      <div v-else class="flex flex-col-reverse space-y-4 space-y-reverse">
+      <div v-else class="flex flex-col space-y-4">
         <!-- Load more indicator -->
         <div
           v-if="loadingMore"
@@ -153,8 +222,10 @@ onMounted(() => {
         <MessageBubble
           v-for="message in messages"
           :key="message.id"
+          :id="`message-${message.id}`"
           :message="message"
           :current-user-id="currentUserId"
+          @jump-to-message="jumpToMessage"
         />
 
         <!-- Empty state -->

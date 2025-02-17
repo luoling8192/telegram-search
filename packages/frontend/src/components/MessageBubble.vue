@@ -10,6 +10,10 @@ const props = defineProps<{
   currentUserId?: number
 }>()
 
+const emit = defineEmits<{
+  (e: 'jumpToMessage', messageId: number): void
+}>()
+
 // Check if message is from current user
 const isSelf = computed(() => props.message.fromId === props.currentUserId)
 
@@ -75,10 +79,11 @@ function formatFileSize(bytes: number): string {
 
     <!-- Message content -->
     <div
-      class="rounded-lg p-3"
+      class="rounded-lg p-3 transition-colors duration-300"
       :class="{
         'bg-blue-500 text-white': isSelf,
         'bg-gray-100 dark:bg-gray-800': !isSelf,
+        'highlight': message.highlight,
       }"
     >
       <!-- Text content -->
@@ -150,7 +155,13 @@ function formatFileSize(bytes: number): string {
       </div>
 
       <!-- Message info -->
-      <div class="mt-1 text-left text-xs opacity-0 transition-opacity group-hover:opacity-100">
+      <div 
+        class="mt-1 text-left text-xs"
+        :class="{
+          'text-white/60 group-hover:text-white': isSelf,
+          'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300': !isSelf,
+        }"
+      >
         <span v-if="message.views" class="mr-2">
           <Icon icon="carbon:view" class="mr-1 inline h-4 w-4" />
           {{ message.views }} views
@@ -159,7 +170,11 @@ function formatFileSize(bytes: number): string {
           <Icon icon="carbon:share" class="mr-1 inline h-4 w-4" />
           {{ message.forwards }} forwards
         </span>
-        <span v-if="message.replyToId" class="mr-2">
+        <span 
+          v-if="message.replyToId" 
+          class="mr-2 cursor-pointer hover:underline"
+          @click="emit('jumpToMessage', message.replyToId)"
+        >
           <Icon icon="carbon:reply" class="mr-1 inline h-4 w-4" />
           Reply to {{ message.replyToId }}
         </span>
@@ -179,5 +194,9 @@ function formatFileSize(bytes: number): string {
 
 .message-content {
   @apply rounded-2xl px-4 py-2 shadow-sm;
+}
+
+.highlight {
+  @apply ring-2 ring-blue-500 dark:ring-blue-400 !important;
 }
 </style>
