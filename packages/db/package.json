@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "build": "unbuild",
-    "dev": "unbuild --watch",
+    "dev": "unbuild --stub",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "typecheck": "tsc --noEmit",
@@ -32,7 +32,6 @@
     "drizzle-orm": "^0.39.3",
     "pg": "^8.13.3",
     "postgres": "^3.4.5",
-    "unbuild": "^3.3.1",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -40,6 +39,7 @@
     "@types/pg": "^8.11.11",
     "dotenv": "^16.4.7",
     "tsx": "^4.19.2",
+    "unbuild": "^3.3.1",
     "vitest": "^3.0.5"
   }
 }
