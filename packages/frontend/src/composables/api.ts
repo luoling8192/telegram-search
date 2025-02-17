@@ -1,3 +1,4 @@
+import { ofetch } from 'ofetch'
 import { ref } from 'vue'
 
 // API base URL
@@ -10,61 +11,63 @@ export interface Chat {
   folder_id?: number
 }
 
+export interface ChatListResponse {
+  chats: Chat[]
+}
+
 export interface ApiResponse<T> {
   data?: T
   error?: string
 }
-
-// Retry configuration
-const MAX_RETRIES = 3
-const RETRY_DELAY = 1000 // 1 second
 
 // API client
 export function useApi() {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  // Sleep helper
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+  // Create ofetch instance with base configuration
+  const apiFetch = ofetch.create({
+    baseURL: API_BASE,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    // Handle response errors
+    onResponseError: ({ response }) => {
+      throw new Error(response._data?.error || `HTTP error! status: ${response.status}`)
+    },
+    // Handle request errors
+    onRequestError: ({ error: err }) => {
+      throw new Error(err.message || 'Network error')
+    },
+  })
 
-  // Generic fetch wrapper with retry
+  // Generic fetch wrapper
   const fetchApi = async <T>(
     endpoint: string,
     options: RequestInit = {},
-    retries = MAX_RETRIES,
   ): Promise<ApiResponse<T>> => {
     loading.value = true
     error.value = null
 
     try {
-      const response = await fetch(`${API_BASE}${endpoint}`, {
+      const response = await apiFetch(endpoint, {
         ...options,
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
       })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || `HTTP error! status: ${response.status}`)
+      console.warn('API Response:', response)
+      // Ensure we're returning the response in the correct format
+      if (typeof response === 'object' && response !== null) {
+        return { data: response as T }
       }
-
-      const data = await response.json()
-      return { data }
+      else {
+        console.warn('Unexpected response format:', response)
+        return { error: 'Invalid response format' }
+      }
     }
     catch (e) {
       const message = e instanceof Error ? e.message : 'Unknown error'
-
-      // Retry on network errors
-      if (retries > 0 && (e instanceof TypeError || message.includes('Failed to fetch'))) {
-        console.log(`Retrying... ${retries} attempts left`)
-        await sleep(RETRY_DELAY)
-        return fetchApi(endpoint, options, retries - 1)
-      }
-
       error.value = message
+      console.error('API Error:', message)
       return { error: message }
     }
     finally {
@@ -73,9 +76,9 @@ export function useApi() {
   }
 
   // Chat API methods
-  const getChats = () => fetchApi<{ chats: Chat[] }>('/chat')
+  const getChats = () => fetchApi<ChatListResponse>('/chat')
   const getChatsByFolder = (folderId: number) =>
-    fetchApi<{ chats: Chat[] }>(`/chat/folder/${folderId}`)
+    fetchApi<ChatListResponse>(`/chat/folder/${folderId}`)
 
   return {
     loading,

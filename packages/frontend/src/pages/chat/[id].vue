@@ -23,7 +23,7 @@ async function loadChats() {
 
 // Load chats on mount
 onMounted(() => {
-  if (isNaN(folderId)) {
+  if (Number.isNaN(folderId)) {
     router.push('/')
     return
   }

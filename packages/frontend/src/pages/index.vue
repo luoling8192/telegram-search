@@ -5,24 +5,27 @@ import { useRouter } from 'vue-router'
 import { type Chat, useApi } from '../composables/api'
 
 // Initialize API client and router
-const api = useApi()
+const { loading, getChats } = useApi()
 const router = useRouter()
 const chats = ref<Chat[]>([])
 
-// Load chats
+// Load chats from API
 async function loadChats() {
-  const response = await api.getChats()
-  if (response.data) {
+  const response = await getChats()
+  if (response.data?.chats) {
     chats.value = response.data.chats
+  }
+  else {
+    console.warn('No chats data in response')
   }
 }
 
-// Navigate to folder
-function goToFolder(folderId: number) {
-  router.push(`/folder/${folderId}`)
+// Navigate to folder view
+function goToChat(chatId: number) {
+  router.push(`/chat/${chatId}`)
 }
 
-// Load chats on mount
+// Load chats on component mount
 onMounted(() => {
   loadChats()
 })
@@ -35,13 +38,8 @@ onMounted(() => {
     </h1>
 
     <!-- Loading state -->
-    <div v-if="api.loading" class="text-gray-500">
+    <div v-if="loading" class="text-gray-500">
       Loading...
-    </div>
-
-    <!-- Error state -->
-    <div v-else-if="api.error" class="text-red-500">
-      {{ api.error }}
     </div>
 
     <!-- Chat list -->
@@ -49,23 +47,18 @@ onMounted(() => {
       <div
         v-for="chat in chats"
         :key="chat.id"
-        class="rounded-lg bg-gray-100 p-4 transition-colors dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+        class="cursor-pointer rounded-lg bg-gray-100 p-4 transition-colors dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+        @click="goToChat(chat.id)"
       >
         <h2 class="text-lg font-semibold">
           {{ chat.title }}
         </h2>
         <p
-          v-if="chat.folder_id"
-          class="cursor-pointer text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-          @click="goToFolder(chat.folder_id)"
+          v-if="chat.id"
+          class="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
         >
-          View folder {{ chat.folder_id }}
+          View chat {{ chat.id }}
         </p>
-      </div>
-
-      <!-- Empty state -->
-      <div v-if="chats.length === 0" class="text-gray-500">
-        No chats found
       </div>
     </div>
   </div>
