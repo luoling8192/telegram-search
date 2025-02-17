@@ -20,10 +20,7 @@
     "stub": "unbuild --stub",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@guiiai/logg": "^1.0.7",

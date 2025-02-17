@@ -7,11 +7,10 @@
     "build": "vite build",
     "dev": "vite --port 3333 --open",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "typecheck": "vue-tsc",
     "preview": "vite preview",
-    "test": "vitest",
-    "up": "taze major -I",
-    "postinstall": "npx simple-git-hooks"
+    "up": "taze major -I"
   },
   "dependencies": {
     "@vueuse/core": "^12.4.0",
