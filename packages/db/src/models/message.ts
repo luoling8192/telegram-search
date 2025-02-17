@@ -16,11 +16,20 @@ export interface MessageCreateInput {
   type?: MessageType
   content?: string
   fromId?: number
+  fromName?: string
+  fromAvatar?: {
+    type: 'photo' | 'emoji'
+    value: string
+    color?: string
+  }
   replyToId?: number
   forwardFromChatId?: number
+  forwardFromChatName?: string
   forwardFromMessageId?: number
   views?: number
   forwards?: number
+  links?: string[]
+  metadata?: Record<string, unknown>
   createdAt: Date
 }
 
@@ -54,7 +63,6 @@ interface MessageWithSimilarity {
  */
 export async function createMessage(data: MessageCreateInput | MessageCreateInput[]): Promise<void> {
   const messageArray = Array.isArray(data) ? data : [data]
-  // logger.debug(`正在保存 ${messageArray.length} 条消息到数据库`)
 
   try {
     // Create partition tables if not exist
@@ -81,11 +89,16 @@ export async function createMessage(data: MessageCreateInput | MessageCreateInpu
             mediaInfo: null,
             createdAt: msg.createdAt,
             fromId: msg.fromId || null,
+            fromName: msg.fromName || null,
+            fromAvatar: msg.fromAvatar || null,
             replyToId: msg.replyToId || null,
             forwardFromChatId: msg.forwardFromChatId || null,
+            forwardFromChatName: msg.forwardFromChatName || null,
             forwardFromMessageId: msg.forwardFromMessageId || null,
             views: msg.views || null,
             forwards: msg.forwards || null,
+            metadata: msg.metadata || null,
+            links: msg.links || null,
           })),
         ).onConflictDoNothing({
           target: [contentTable.id],
@@ -238,40 +251,19 @@ export async function checkDuplicateMessages(chatId: number, id1: number, id2: n
 }
 
 /**
- * Create messages in batch and check for duplicates
+ * Create messages in batch
  */
-export async function createMessageBatch(messages: MessageCreateInput[]): Promise<{
-  success: boolean
-  duplicateCount: number
-}> {
+export async function createMessageBatch(messages: MessageCreateInput[]): Promise<void> {
   if (messages.length === 0) {
-    return { success: true, duplicateCount: 0 }
+    return
   }
 
   try {
     // Create messages
     await createMessage(messages)
-
-    // Check for duplicates
-    const firstMessage = messages[0]
-    const lastMessage = messages[messages.length - 1]
-    const { actualCount, expectedCount } = await checkDuplicateMessages(
-      firstMessage.chatId,
-      firstMessage.id,
-      lastMessage.id,
-    )
-
-    const duplicateCount = expectedCount - actualCount
-    return {
-      success: true,
-      duplicateCount,
-    }
   }
   catch (error) {
     logger.withError(error).error('保存消息批次失败')
-    return {
-      success: false,
-      duplicateCount: 0,
-    }
+    throw error
   }
 }

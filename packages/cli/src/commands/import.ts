@@ -26,6 +26,11 @@ interface MessageData {
   createdAt: Date
   fromId?: number
   fromName?: string
+  fromAvatar?: {
+    type: 'photo' | 'emoji'
+    value: string
+    color?: string
+  }
   links?: string[]
   replyToId?: number
   forwardFromChatId?: number
@@ -119,6 +124,37 @@ function extractMediaInfo(element: Element) {
 }
 
 /**
+ * Extract avatar info from element
+ */
+function extractAvatarInfo(element: Element) {
+  const avatarElement = element.querySelector('.userpic')
+  if (!avatarElement)
+    return undefined
+
+  // 检查是否是表情符号头像
+  const emojiElement = avatarElement.querySelector('.emoji')
+  if (emojiElement) {
+    const color = avatarElement.getAttribute('data-color')
+    return {
+      type: 'emoji' as const,
+      value: emojiElement.textContent || '👤',
+      color: color || undefined,
+    }
+  }
+
+  // 检查是否是图片头像
+  const imgElement = avatarElement.querySelector('img')
+  if (imgElement) {
+    return {
+      type: 'photo' as const,
+      value: imgElement.getAttribute('src') || '',
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Determine message type from element
  */
 function getMessageType(element: Element): MessageType {
@@ -176,6 +212,7 @@ async function parseHtmlFile(filePath: string): Promise<MessageData[]> {
       const fromNameElement = body.querySelector('.from_name')
       const fromName = fromNameElement?.textContent?.trim()
       const fromId = fromNameElement?.getAttribute('data-peer-id')
+      const fromAvatar = extractAvatarInfo(element)
 
       // Get message content
       const textElement = body.querySelector('.text')
@@ -231,6 +268,7 @@ async function parseHtmlFile(filePath: string): Promise<MessageData[]> {
             createdAt,
             fromId: fromId ? Number(fromId) : undefined,
             fromName,
+            fromAvatar,
             links: links.length > 0 ? links : undefined,
             replyToId: replyToId ? Number(replyToId) : undefined,
             forwardFromChatId: forwardFromChatId ? Number(forwardFromChatId) : undefined,
@@ -340,11 +378,20 @@ export class ImportCommand extends TelegramCommand {
                   mediaInfo: mediaInfo || null,
                   createdAt: messageData.createdAt,
                   fromId: messageData.fromId,
+                  fromName: messageData.fromName,
                   replyToId: messageData.replyToId,
                   forwardFromChatId: messageData.forwardFromChatId,
                   forwardFromMessageId: messageData.forwardFromMessageId,
                   views: messageData.views,
                   forwards: messageData.forwards,
+                  links: links || null,
+                  metadata: {
+                    // 存储任何其他可能有用的信息
+                    hasLinks: links && links.length > 0,
+                    hasMedia: !!mediaInfo,
+                    isForwarded: !!messageData.forwardFromChatId,
+                    isReply: !!messageData.replyToId,
+                  },
                 })
 
                 totalMessages++

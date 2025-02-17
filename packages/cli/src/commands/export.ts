@@ -1,5 +1,5 @@
-import type { Dialog, TelegramMessageType } from '@tg-search/core'
-import type { MessageCreateInput, NewChat } from '@tg-search/db'
+import type { Dialog, TelegramMessage } from '@tg-search/core'
+import type { MessageType, NewChat } from '@tg-search/db'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -15,7 +15,7 @@ interface ExportOptions {
   chatId?: number
   format?: 'database' | 'html' | 'json'
   path?: string
-  messageTypes?: TelegramMessageType[]
+  messageTypes?: MessageType[]
   startTime?: Date
   endTime?: Date
   limit?: number
@@ -26,12 +26,12 @@ interface ExportOptions {
  * Process a batch of messages for database export
  */
 async function processDatabaseBatch(
-  messages: MessageCreateInput[],
+  messages: TelegramMessage[],
   startIndex: number,
-): Promise<{ shouldStop: boolean, failedCount: number }> {
+): Promise<{ failedCount: number }> {
   try {
     // Create messages in batch
-    const result = await createMessageBatch(messages)
+    await createMessageBatch(messages)
     const firstMessage = messages[0]
     const lastMessage = messages[messages.length - 1]
 
@@ -40,17 +40,11 @@ async function processDatabaseBatch(
       + `(ID: ${firstMessage.id} - ${lastMessage.id})`,
     )
 
-    // If any message already exists, stop the export
-    if (!result.success || result.duplicateCount > 0) {
-      logger.debug('检测到已存在的消息，导出完成')
-      return { shouldStop: true, failedCount: 0 }
-    }
-
-    return { shouldStop: false, failedCount: 0 }
+    return { failedCount: 0 }
   }
   catch (error) {
     logger.withError(error).error(`保存批次消息失败 (${startIndex + 1} - ${startIndex + messages.length})`)
-    return { shouldStop: false, failedCount: messages.length }
+    return { failedCount: messages.length }
   }
 }
 
@@ -187,7 +181,6 @@ export class ExportCommand extends TelegramCommand {
     logger.log('正在导出消息...')
     let count = 0
     let failedCount = 0
-    let shouldStop = false
     const messages = []
 
     // Export messages
@@ -206,27 +199,26 @@ export class ExportCommand extends TelegramCommand {
         // Save current batch to database if format is database
         if (format === 'database') {
           const batch = messages.slice(count - Number(batchSize), count)
-          const messageInputs: MessageCreateInput[] = batch.map(message => ({
+          const messageInputs: TelegramMessage[] = batch.map((message: TelegramMessage) => ({
             id: message.id,
             chatId: message.chatId,
             type: message.type,
             content: message.content,
             fromId: message.fromId,
+            fromName: message.fromName,
             replyToId: message.replyToId,
             forwardFromChatId: message.forwardFromChatId,
+            forwardFromChatName: message.forwardFromChatName,
             forwardFromMessageId: message.forwardFromMessageId,
             views: message.views,
             forwards: message.forwards,
+            links: message.links || undefined,
+            metadata: message.metadata,
             createdAt: message.createdAt,
           }))
 
           const result = await processDatabaseBatch(messageInputs, count - Number(batchSize))
-          shouldStop = result.shouldStop
           failedCount += result.failedCount
-
-          if (shouldStop) {
-            break
-          }
         }
       }
     }
@@ -239,7 +231,7 @@ export class ExportCommand extends TelegramCommand {
           failedCount = count
         }
       }
-      else if (format === 'database' && !shouldStop) {
+      else if (format === 'database') {
         // Update chat metadata
         await updateChatMetadata(selectedChat)
 
@@ -247,17 +239,21 @@ export class ExportCommand extends TelegramCommand {
         const remainingCount = count % Number(batchSize)
         if (remainingCount > 0) {
           const batch = messages.slice(-remainingCount)
-          const messageInputs: MessageCreateInput[] = batch.map(message => ({
+          const messageInputs: TelegramMessage[] = batch.map((message: TelegramMessage) => ({
             id: message.id,
             chatId: message.chatId,
             type: message.type,
             content: message.content,
             fromId: message.fromId,
+            fromName: message.fromName,
             replyToId: message.replyToId,
             forwardFromChatId: message.forwardFromChatId,
+            forwardFromChatName: message.forwardFromChatName,
             forwardFromMessageId: message.forwardFromMessageId,
             views: message.views,
             forwards: message.forwards,
+            links: message.links || undefined,
+            metadata: message.metadata,
             createdAt: message.createdAt,
           }))
 

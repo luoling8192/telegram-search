@@ -20,11 +20,20 @@ export interface TelegramMessage {
   content?: string
   mediaInfo?: MediaInfo
   fromId?: number
+  fromName?: string
+  fromAvatar?: {
+    type: 'photo' | 'emoji'
+    value: string
+    color?: string
+  }
   replyToId?: number
   forwardFromChatId?: number
+  forwardFromChatName?: string
   forwardFromMessageId?: number
   views?: number
   forwards?: number
+  links?: string[]
+  metadata?: Record<string, unknown>
   createdAt: Date
 }
 

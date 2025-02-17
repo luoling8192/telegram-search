@@ -307,7 +307,7 @@ declare global {
   export type { Component, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
   // @ts-ignore
-  export type { ApiResponse, PublicChat, PublicFolder, SearchRequest, SearchResponse } from './src/composables/api'
+  export type { ApiResponse, PaginatedResponse, PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from './src/composables/api'
   import('./src/composables/api')
 }
 

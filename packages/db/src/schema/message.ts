@@ -36,16 +36,30 @@ export function createMessageContentTable(chatId: number | bigint) {
     createdAt: timestamp('created_at').notNull().defaultNow(),
     // From user ID
     fromId: bigint('from_id', { mode: 'number' }),
+    // From user name
+    fromName: text('from_name'),
+    // From user avatar
+    fromAvatar: jsonb('from_avatar').$type<{
+      type: 'photo' | 'emoji'
+      value: string // 如果是 photo 则是 URL，如果是 emoji 则是表情符号
+      color?: string // emoji 背景色
+    }>(),
     // Reply to message ID
     replyToId: bigint('reply_to_id', { mode: 'number' }),
     // Forward from chat ID
     forwardFromChatId: bigint('forward_from_chat_id', { mode: 'number' }),
+    // Forward from chat name
+    forwardFromChatName: text('forward_from_chat_name'),
     // Forward from message ID
     forwardFromMessageId: bigint('forward_from_message_id', { mode: 'number' }),
     // Views count
     views: integer('views'),
     // Forwards count
     forwards: integer('forwards'),
+    // Links in message
+    links: jsonb('links').$type<string[]>(),
+    // Message metadata
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
   }, table => [
     // Unique constraint for chat_id and id
     sql`UNIQUE (chat_id, id)`,
@@ -79,11 +93,16 @@ export function createChatPartition(chatId: number | bigint) {
       media_info JSONB,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       from_id BIGINT,
+      from_name TEXT,
+      from_avatar JSONB,
       reply_to_id BIGINT,
       forward_from_chat_id BIGINT,
+      forward_from_chat_name TEXT,
       forward_from_message_id BIGINT,
       views INTEGER,
       forwards INTEGER,
+      links JSONB,
+      metadata JSONB,
       UNIQUE (chat_id, id),
       UNIQUE (id)
     );

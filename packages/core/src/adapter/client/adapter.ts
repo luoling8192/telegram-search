@@ -50,7 +50,7 @@ export class ClientAdapter implements ITelegramClientAdapter {
 
     // Initialize services
     this.mediaService = new MediaService(this.client)
-    this.messageConverter = new MessageConverter(this.mediaService)
+    this.messageConverter = new MessageConverter(this.mediaService, this.client)
     this.dialogManager = new DialogManager(this.client)
     this.folderManager = new FolderManager(this.client)
   }
