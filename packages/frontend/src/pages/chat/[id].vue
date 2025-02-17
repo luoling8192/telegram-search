@@ -1,8 +1,9 @@
 <!-- Chat messages page -->
 <script setup lang="ts">
 import type { PublicMessage } from '@tg-search/server/types'
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import MessageBubble from '../../components/MessageBubble.vue'
 import { useApi } from '../../composables/api'
 
 // Initialize API client and router
@@ -16,35 +17,82 @@ const total = ref(0)
 const pageSize = 50
 const currentPage = ref(1)
 const totalPages = computed(() => Math.ceil(total.value / pageSize))
+const hasMore = computed(() => currentPage.value < totalPages.value)
+const loadingMore = ref(false)
 
 // Get chat ID from route
 const chatId = Number(route.params.id)
 
+// Message container ref for scroll handling
+const messageContainer = ref<HTMLElement>()
+
 // Load messages from chat
-async function loadMessages(page = 1) {
-  const offset = (page - 1) * pageSize
-  const response = await getMessages(chatId, {
-    limit: pageSize,
-    offset,
-  })
-  if (response.data) {
-    messages.value = response.data.items
-    total.value = response.data.total
-    currentPage.value = page
+async function loadMessages(page = 1, append = false) {
+  if (!append) {
+    loading.value = true
+  }
+  else {
+    loadingMore.value = true
+  }
+
+  try {
+    const offset = (page - 1) * pageSize
+    const response = await getMessages(chatId, {
+      limit: pageSize,
+      offset,
+    })
+
+    if (response.data) {
+      // Get current scroll position
+      const scrollPos = messageContainer.value?.scrollHeight || 0
+
+      if (append) {
+        // Add messages to the beginning
+        messages.value.unshift(...response.data.items)
+      }
+      else {
+        messages.value = response.data.items
+      }
+      total.value = response.data.total
+      currentPage.value = page
+
+      // Restore scroll position after appending messages
+      if (append) {
+        await nextTick()
+        const newScrollPos = messageContainer.value?.scrollHeight || 0
+        messageContainer.value?.scrollTo({
+          top: newScrollPos - scrollPos,
+          behavior: 'instant',
+        })
+      }
+      else {
+        // Scroll to bottom for initial load
+        await nextTick()
+        messageContainer.value?.scrollTo({
+          top: messageContainer.value.scrollHeight,
+          behavior: 'instant',
+        })
+      }
+    }
+  }
+  finally {
+    loading.value = false
+    loadingMore.value = false
   }
 }
 
-// Load next page
-async function loadNextPage() {
-  if (currentPage.value < totalPages.value) {
-    await loadMessages(currentPage.value + 1)
-  }
-}
+// Handle scroll to load more
+async function onScroll(e: Event) {
+  const target = e.target as HTMLElement
+  const { scrollTop } = target
+  const threshold = 100 // px from top
 
-// Load previous page
-async function loadPrevPage() {
-  if (currentPage.value > 1) {
-    await loadMessages(currentPage.value - 1)
+  if (
+    !loadingMore.value
+    && hasMore.value
+    && scrollTop < threshold
+  ) {
+    await loadMessages(currentPage.value + 1, true)
   }
 }
 
@@ -59,8 +107,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-4">
-    <div class="mb-4 flex items-center">
+  <div class="h-screen flex flex-col">
+    <!-- Header -->
+    <div class="flex items-center border-b bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
       <button
         class="mr-2 rounded bg-gray-100 px-3 py-1 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
         @click="router.back()"
@@ -72,72 +121,60 @@ onMounted(() => {
       </h1>
     </div>
 
-    <!-- Loading state -->
-    <div v-if="loading" class="text-gray-500">
-      Loading...
-    </div>
-
-    <!-- Error state -->
-    <div v-else-if="error" class="text-red-500">
-      {{ error }}
-    </div>
-
     <!-- Message list -->
-    <div v-else class="space-y-4">
-      <!-- Pagination info -->
-      <div class="mb-4 flex items-center justify-between text-sm text-gray-500">
-        <div>
-          Total: {{ total }} messages
-        </div>
-        <div class="flex items-center gap-4">
-          <button
-            :disabled="currentPage === 1"
-            class="rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-50 dark:hover:bg-gray-800"
-            @click="loadPrevPage"
-          >
-            Previous
-          </button>
-          <span>Page {{ currentPage }} of {{ totalPages }}</span>
-          <button
-            :disabled="currentPage === totalPages"
-            class="rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-50 dark:hover:bg-gray-800"
-            @click="loadNextPage"
-          >
-            Next
-          </button>
-        </div>
+    <div
+      ref="messageContainer"
+      class="flex-1 overflow-y-auto p-4"
+      @scroll="onScroll"
+    >
+      <!-- Loading state -->
+      <div v-if="loading" class="h-full flex items-center justify-center text-gray-500">
+        Loading...
+      </div>
+
+      <!-- Error state -->
+      <div v-else-if="error" class="h-full flex items-center justify-center text-red-500">
+        {{ error }}
       </div>
 
       <!-- Messages -->
-      <div
-        v-for="message in messages"
-        :key="message.id"
-        class="rounded-lg bg-gray-100 p-4 dark:bg-gray-800"
-      >
-        <div class="mb-2 text-sm text-gray-500">
-          {{ new Date(message.date).toLocaleString() }}
+      <div v-else class="flex flex-col-reverse space-y-4 space-y-reverse">
+        <!-- Load more indicator -->
+        <div
+          v-if="loadingMore"
+          class="flex justify-center py-4 text-sm text-gray-500"
+        >
+          Loading more messages...
         </div>
-        <div class="whitespace-pre-wrap">
-          {{ message.text }}
-        </div>
-        <!-- Media preview -->
-        <div v-if="message.media" class="mt-2">
-          <div class="text-sm text-gray-500">
-            {{ message.media.type }}
-            <span v-if="message.media.fileName">
-              - {{ message.media.fileName }}
-            </span>
-            <span v-if="message.media.fileSize">
-              ({{ (message.media.fileSize / 1024 / 1024).toFixed(1) }} MB)
-            </span>
-          </div>
-        </div>
-      </div>
 
-      <!-- Empty state -->
-      <div v-if="messages.length === 0" class="text-gray-500">
-        No messages found
+        <!-- Message bubbles -->
+        <MessageBubble
+          v-for="message in messages"
+          :key="message.id"
+          :message="message"
+        />
+
+        <!-- Empty state -->
+        <div
+          v-if="messages.length === 0"
+          class="h-full flex items-center justify-center text-gray-500"
+        >
+          No messages found
+        </div>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Hide scrollbar for Chrome, Safari and Opera */
+.overflow-y-auto::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.overflow-y-auto {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+</style>
