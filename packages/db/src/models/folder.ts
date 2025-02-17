@@ -13,12 +13,15 @@ export type NewFolder = InferInsertModel<typeof folders>
  * Update or create a folder in the database
  */
 export async function updateFolder(data: NewFolder) {
-  return useDB().insert(folders).values(data).onConflictDoUpdate({
+  return useDB().insert(folders).values({
+    ...data,
+    lastSyncTime: data.lastSyncTime ? new Date(data.lastSyncTime) : new Date(),
+  }).onConflictDoUpdate({
     target: folders.id,
     set: {
       title: data.title,
       emoji: data.emoji,
-      lastSyncTime: data.lastSyncTime,
+      lastSyncTime: data.lastSyncTime ? new Date(data.lastSyncTime) : new Date(),
     },
   }).returning()
 }

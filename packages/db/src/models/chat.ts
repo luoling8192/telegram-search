@@ -31,15 +31,15 @@ export async function updateChat(data: NewChat) {
     // Use stats from materialized view
     messageCount: stats?.message_count || 0,
     lastMessage: stats?.last_message || data.lastMessage,
-    lastMessageDate: stats?.last_message_date || data.lastMessageDate,
+    lastMessageDate: stats?.last_message_date ? new Date(stats.last_message_date) : (data.lastMessageDate ? new Date(data.lastMessageDate) : null),
   }).onConflictDoUpdate({
     target: chats.id,
     set: {
       title: data.title,
       type: data.type,
       lastMessage: stats?.last_message || data.lastMessage,
-      lastMessageDate: stats?.last_message_date || data.lastMessageDate,
-      lastSyncTime: data.lastSyncTime,
+      lastMessageDate: stats?.last_message_date ? new Date(stats.last_message_date) : (data.lastMessageDate ? new Date(data.lastMessageDate) : null),
+      lastSyncTime: data.lastSyncTime ? new Date(data.lastSyncTime) : new Date(),
       messageCount: stats?.message_count || 0,
       folderId: data.folderId,
     },
