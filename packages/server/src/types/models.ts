@@ -1,5 +1,5 @@
 import type { Chat, Folder } from '@tg-search/db'
-import type { chatTypeEnum } from '@tg-search/db/schema/types'
+import type { messageTypeEnum } from '@tg-search/db/schema/types'
 
 /**
  * Public chat type for API responses
@@ -17,13 +17,10 @@ export type PublicFolder = Pick<Folder, 'id' | 'title' | 'emoji'>
  */
 export interface PublicMessage {
   id: number
-  date: Date
-  text: string
-  type: (typeof chatTypeEnum.enumValues)[number]
   chatId: number
-  folderId?: number
-  replyToMessageId?: number
-  media?: {
+  type: (typeof messageTypeEnum.enumValues)[number]
+  content: string | null
+  mediaInfo: {
     type: string
     mimeType?: string
     fileName?: string
@@ -35,5 +32,12 @@ export interface PublicMessage {
       width: number
       height: number
     }
-  }
+  } | null
+  createdAt: Date
+  fromId: number | null
+  replyToId: number | null
+  forwardFromChatId: number | null
+  forwardFromMessageId: number | null
+  views: number | null
+  forwards: number | null
 }

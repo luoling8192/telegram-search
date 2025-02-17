@@ -45,27 +45,16 @@ export const chatRoutes = new Elysia({ prefix: '/chats' })
         .map(message => ({
           id: message.id,
           chatId: message.chatId,
-          date: message.createdAt,
-          text: message.content || '',
           type: message.type,
-          replyToMessageId: message.replyToId || undefined,
-          media: message.mediaInfo
-            ? {
-                type: message.mediaInfo.type,
-                mimeType: message.mediaInfo.mimeType,
-                fileName: message.mediaInfo.fileName,
-                fileSize: message.mediaInfo.fileSize,
-                width: message.mediaInfo.width,
-                height: message.mediaInfo.height,
-                duration: message.mediaInfo.duration,
-                thumbnail: message.mediaInfo.thumbnail
-                  ? {
-                      width: message.mediaInfo.thumbnail.width,
-                      height: message.mediaInfo.thumbnail.height,
-                    }
-                  : undefined,
-              }
-            : undefined,
+          content: message.content,
+          mediaInfo: message.mediaInfo || null,
+          createdAt: message.createdAt,
+          fromId: message.fromId,
+          replyToId: message.replyToId,
+          forwardFromChatId: message.forwardFromChatId,
+          forwardFromMessageId: message.forwardFromMessageId,
+          views: message.views,
+          forwards: message.forwards,
         }))
 
       return {

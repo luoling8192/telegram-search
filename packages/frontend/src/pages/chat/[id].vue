@@ -26,6 +26,9 @@ const chatId = Number(route.params.id)
 // Message container ref for scroll handling
 const messageContainer = ref<HTMLElement>()
 
+// Current user ID (TODO: Get from auth)
+const currentUserId = ref(123456789)
+
 // Load messages from chat
 async function loadMessages(page = 1, append = false) {
   if (!append) {
@@ -152,6 +155,7 @@ onMounted(() => {
           v-for="message in messages"
           :key="message.id"
           :message="message"
+          :current-user-id="currentUserId"
         />
 
         <!-- Empty state -->
