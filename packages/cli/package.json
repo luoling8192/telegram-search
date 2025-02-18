@@ -13,6 +13,7 @@
     "@tg-search/common": "workspace:*",
     "@tg-search/core": "workspace:*",
     "@tg-search/db": "workspace:*",
+    "cli-progress": "^3.12.0",
     "commander": "^13.1.0",
     "date-fns": "^4.1.0",
     "glob": "^11.0.1",
@@ -21,6 +22,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/cli-progress": "^3.11.6",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.13.4",
     "dotenv": "^16.4.7",

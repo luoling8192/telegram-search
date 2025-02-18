@@ -132,29 +132,39 @@ function formatFileSize(bytes: number): string {
       <!-- Media content -->
       <div v-if="message.mediaInfo" class="mt-2">
         <!-- Photo -->
-        <img
-          v-if="message.mediaInfo.type === 'photo'"
-          :src="`/api/media/${message.chatId}/${message.id}`"
-          :alt="message.mediaInfo.fileName || 'Photo'"
-          class="max-w-full rounded-lg"
-          :style="{
-            width: message.mediaInfo.width ? `${message.mediaInfo.width}px` : 'auto',
-            height: message.mediaInfo.height ? `${message.mediaInfo.height}px` : 'auto',
-          }"
-        >
+        <div v-if="message.mediaInfo.type === 'photo'">
+          <img
+            v-if="message.mediaInfo.width && message.mediaInfo.height"
+            :src="`/api/media/${message.chatId}/${message.id}`"
+            :alt="message.mediaInfo.fileName || 'Photo'"
+            class="max-w-full rounded-lg"
+            :style="{
+              width: `${message.mediaInfo.width}px`,
+              height: `${message.mediaInfo.height}px`,
+            }"
+          >
+          <div v-else class="flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700" style="width: 200px; height: 200px">
+            <Icon icon="carbon:image" class="h-12 w-12 text-gray-400" />
+          </div>
+        </div>
 
         <!-- Video -->
-        <video
-          v-else-if="message.mediaInfo.type === 'video'"
-          :src="`/api/media/${message.chatId}/${message.id}`"
-          :poster="message.mediaInfo.thumbnail ? `/api/media/${message.chatId}/${message.id}/thumbnail` : undefined"
-          controls
-          class="max-w-full rounded-lg"
-          :style="{
-            width: message.mediaInfo.width ? `${message.mediaInfo.width}px` : 'auto',
-            height: message.mediaInfo.height ? `${message.mediaInfo.height}px` : 'auto',
-          }"
-        />
+        <div v-else-if="message.mediaInfo.type === 'video'">
+          <video
+            v-if="message.mediaInfo.width && message.mediaInfo.height"
+            :src="`/api/media/${message.chatId}/${message.id}`"
+            :poster="message.mediaInfo.thumbnail ? `/api/media/${message.chatId}/${message.id}/thumbnail` : undefined"
+            controls
+            class="max-w-full rounded-lg"
+            :style="{
+              width: `${message.mediaInfo.width}px`,
+              height: `${message.mediaInfo.height}px`,
+            }"
+          />
+          <div v-else class="flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700" style="width: 200px; height: 200px">
+            <Icon icon="carbon:video" class="h-12 w-12 text-gray-400" />
+          </div>
+        </div>
 
         <!-- Document -->
         <div
@@ -180,12 +190,17 @@ function formatFileSize(bytes: number): string {
         </div>
 
         <!-- Sticker -->
-        <img
-          v-else-if="message.mediaInfo.type === 'sticker'"
-          :src="`/api/media/${message.chatId}/${message.id}`"
-          :alt="message.mediaInfo.fileName || 'Sticker'"
-          class="max-h-[238px] max-w-[238px] rounded-lg object-contain"
-        >
+        <div v-else-if="message.mediaInfo.type === 'sticker'">
+          <img
+            v-if="message.mediaInfo.width && message.mediaInfo.height"
+            :src="`/api/media/${message.chatId}/${message.id}`"
+            :alt="message.mediaInfo.fileName || 'Sticker'"
+            class="max-h-[238px] max-w-[238px] rounded-lg object-contain"
+          >
+          <div v-else class="flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700" style="width: 120px; height: 120px">
+            <Icon icon="carbon:face-satisfied" class="h-12 w-12 text-gray-400" />
+          </div>
+        </div>
       </div>
 
       <!-- Message info -->

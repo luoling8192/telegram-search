@@ -6,14 +6,14 @@ import { createAdapter } from '@tg-search/core'
 import { Command as Commander } from 'commander'
 
 import { registry } from './command'
-import botCommand from './commands/bot'
-import connectCommand from './commands/connect'
-import embedCommand from './commands/embed'
-import exportCommand from './commands/export'
-import importCommand from './commands/import'
-import searchCommand from './commands/search'
-import syncCommand from './commands/sync'
-import watchCommand from './commands/watch'
+import { BotCommand } from './commands/bot'
+import { ConnectCommand } from './commands/connect'
+import { EmbedCommand } from './commands/embed'
+import { ExportCommand } from './commands/export'
+import { ImportCommand } from './commands/import'
+import { SearchCommand } from './commands/search'
+import { SyncCommand } from './commands/sync'
+import { WatchCommand } from './commands/watch'
 
 const logger = useLogger()
 
@@ -21,14 +21,14 @@ const logger = useLogger()
  * Register all commands
  */
 export function registerCommands() {
-  registry.register(botCommand)
-  registry.register(connectCommand)
-  registry.register(embedCommand)
-  registry.register(exportCommand)
-  registry.register(importCommand)
-  registry.register(searchCommand)
-  registry.register(syncCommand)
-  registry.register(watchCommand)
+  registry.register(new BotCommand())
+  registry.register(new ConnectCommand())
+  registry.register(new EmbedCommand())
+  registry.register(new ExportCommand())
+  registry.register(new ImportCommand())
+  registry.register(new SearchCommand())
+  registry.register(new SyncCommand())
+  registry.register(new WatchCommand())
 }
 
 /**
@@ -89,6 +89,7 @@ export function setupCli() {
           catch (error) {
             // If connection failed, try to use connect command
             if (error instanceof Error && (error.message === 'Code is required' || error.message === '2FA password is required')) {
+              const connectCommand = new ConnectCommand()
               connectCommand.setClient(client)
               await connectCommand.execute([], {})
             }

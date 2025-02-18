@@ -27,5 +27,18 @@ export function useLogger(name?: string) {
   const dirName = match?.[1] || 'unknown'
   const fileName = match?.[2] || 'unknown'
 
-  return useLogg(`${dirName}/${fileName}`).useGlobalConfig()
+  const logger = useLogg(`${dirName}/${fileName}`).useGlobalConfig()
+
+  // Add alias for logger.log with fields
+  const originalLog = logger.log.bind(logger)
+  logger.log = (message: string, fields?: Record<string, unknown>) => {
+    if (fields) {
+      return logger.withFields(fields).log(message)
+    }
+    return originalLog(message)
+  }
+  // Add alias for logger.info to use logger.log
+  ;(logger as any).info = logger.log
+
+  return logger
 }
