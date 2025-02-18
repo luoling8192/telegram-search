@@ -1,5 +1,6 @@
-import { useLogger } from '@tg-search/common'
 import type { BaseCommand, CommandMiddleware } from '../types/command'
+
+import { useLogger } from '@tg-search/common'
 
 const logger = useLogger()
 
@@ -16,4 +17,4 @@ export function createLoggingMiddleware<TOptions>(): CommandMiddleware<TOptions>
       logger.log(`Command completed: ${command.meta.name}`)
     },
   }
-} 
+}

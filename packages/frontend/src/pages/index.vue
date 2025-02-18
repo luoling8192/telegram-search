@@ -52,7 +52,9 @@ onMounted(() => {
     <div v-else class="space-y-6">
       <!-- Private chats -->
       <div v-if="privateChats.length > 0">
-        <h2 class="mb-2 text-xl font-semibold text-gray-700 dark:text-gray-300">Private Chats</h2>
+        <h2 class="mb-2 text-xl text-gray-700 font-semibold dark:text-gray-300">
+          Private Chats
+        </h2>
         <div class="space-y-2">
           <div
             v-for="chat in privateChats"
@@ -75,7 +77,9 @@ onMounted(() => {
 
       <!-- Group chats -->
       <div v-if="groupChats.length > 0">
-        <h2 class="mb-2 text-xl font-semibold text-gray-700 dark:text-gray-300">Groups</h2>
+        <h2 class="mb-2 text-xl text-gray-700 font-semibold dark:text-gray-300">
+          Groups
+        </h2>
         <div class="space-y-2">
           <div
             v-for="chat in groupChats"
@@ -98,7 +102,9 @@ onMounted(() => {
 
       <!-- Channels -->
       <div v-if="channelChats.length > 0">
-        <h2 class="mb-2 text-xl font-semibold text-gray-700 dark:text-gray-300">Channels</h2>
+        <h2 class="mb-2 text-xl text-gray-700 font-semibold dark:text-gray-300">
+          Channels
+        </h2>
         <div class="space-y-2">
           <div
             v-for="chat in channelChats"

@@ -1,16 +1,17 @@
+import type { ImportOptions } from './types'
+
+import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
 import { EmbeddingService } from '@tg-search/core'
 import { createMessage, getAllChats, refreshMessageStats, updateChat } from '@tg-search/db'
 import cliProgress from 'cli-progress'
 import { glob } from 'glob'
-import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
 
 import { createLoggingMiddleware } from '../../middleware/logging'
 import { CommandError, TelegramCommand } from '../../types/command'
 import { TelegramUtils } from '../../utils/telegram'
-import type { ImportOptions } from './types'
 import { parseHtmlFile } from './utils'
 
 const logger = useLogger()
@@ -175,9 +176,9 @@ export class ImportCommand extends TelegramCommand<ImportOptions> {
     const shouldGenerateEmbeddings = noEmbedding !== undefined
       ? !noEmbedding
       : await input.confirm({
-          message: '是否生成向量嵌入（用于语义搜索）？',
-          default: false,
-        })
+        message: '是否生成向量嵌入（用于语义搜索）？',
+        default: false,
+      })
 
     // Process each file
     let totalMessages = 0
@@ -270,5 +271,4 @@ export class ImportCommand extends TelegramCommand<ImportOptions> {
       process.stdout.write('\x1B[?25h')
     }
   }
-} 
-
+}

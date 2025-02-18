@@ -1,13 +1,28 @@
-import type { Message } from '@tg-search/db'
+import type { Message } from '../../types/message'
 
 export interface ExportOptions {
+  /**
+   * Output directory path
+   */
   path?: string
+
+  /**
+   * Chat ID to export
+   */
   chatId?: number
-  format?: 'json' | 'html'
+
+  /**
+   * Export format
+   */
+  format?: 'json' | 'html' | 'db'
+
+  /**
+   * Include media files in export
+   */
   includeMedia?: boolean
 }
 
-export interface ExportedMessage extends Message {
+export interface ExportedMessage extends Omit<Message, 'fromAvatar'> {
   chat: {
     id: number
     title: string
@@ -43,4 +58,4 @@ export interface ExportedMessage extends Message {
       height: number
     }
   }
-} 
+}

@@ -136,4 +136,4 @@ export abstract class TelegramCommand<TOptions = unknown, T extends TelegramAdap
         await m.after(this, args, options)
     }
   }
-} 
+}

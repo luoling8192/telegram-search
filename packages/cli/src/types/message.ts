@@ -1,11 +1,12 @@
-import type { MessageType } from '@tg-search/db'
+/**
+ * Message type
+ */
+export type MessageType = 'text' | 'photo' | 'video' | 'document' | 'sticker' | 'other'
 
-export interface ImportOptions {
-  path?: string
-  noEmbedding?: boolean
-}
-
-export interface MessageData {
+/**
+ * Base message interface
+ */
+export interface Message {
   id: number
   chatId: number
   type: MessageType
@@ -18,12 +19,12 @@ export interface MessageData {
     value: string
     color?: string
   }
-  links?: string[]
   replyToId?: number
   forwardFromChatId?: number
   forwardFromMessageId?: number
   views?: number
   forwards?: number
+  embedding?: number[]
   mediaInfo?: {
     fileId: string
     type: string
@@ -39,10 +40,4 @@ export interface MessageData {
       height: number
     }
   }
-}
-
-export interface TelegramChat {
-  id: number
-  type: string
-  title: string
 }

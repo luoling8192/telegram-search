@@ -1,158 +1,125 @@
-import { writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import type { Message } from '@tg-search/db'
 import type { ExportedMessage } from './types'
 
-/**
- * Convert message to export format
- */
-export async function convertMessage(message: Message): Promise<ExportedMessage> {
-  const {
-    id,
-    chatId,
-    type,
-    content,
-    createdAt,
-    fromId,
-    fromName,
-    fromAvatar,
-    replyToId,
-    forwardFromChatId,
-    forwardFromMessageId,
-    views,
-    forwards,
-    mediaInfo,
-  } = message
+import { writeFile } from 'node:fs/promises'
+import { useLogger } from '@tg-search/common'
+import { findMessagesByChatId, getAllFolders } from '@tg-search/db'
 
-  return {
-    id,
-    chatId,
-    type,
-    content,
-    createdAt,
-    views,
-    forwards,
-    from: fromId
+const logger = useLogger()
+
+/**
+ * Export messages from a chat
+ */
+export async function exportMessages(chatId: number): Promise<ExportedMessage[]> {
+  // Get chat info
+  const folders = await getAllFolders()
+  const chat = folders.find(f => f.id === chatId)
+  if (!chat)
+    throw new Error('Chat not found')
+
+  // Get messages
+  const { items: messages } = await findMessagesByChatId(chatId)
+  if (messages.length === 0)
+    throw new Error('No messages found')
+
+  // Transform messages
+  return messages.map(message => ({
+    id: message.id,
+    chatId: message.chatId,
+    type: message.type,
+    content: message.content || '',
+    createdAt: message.createdAt,
+    views: message.views || undefined,
+    forwards: message.forwards || undefined,
+    chat: {
+      id: chat.id,
+      title: chat.title,
+    },
+    from: message.fromId
       ? {
-          id: fromId,
-          name: fromName || '',
-          avatar: fromAvatar,
+          id: message.fromId,
+          name: message.fromName || '',
+          avatar: message.fromAvatar || undefined,
         }
       : undefined,
-    replyTo: replyToId
+    replyTo: message.replyToId ? {
+      id: message.replyToId,
+      content: '', // TODO: Get reply message content
+    } : undefined,
+    forwardFrom: message.forwardFromChatId && message.forwardFromMessageId
       ? {
-          id: replyToId,
-          content: '', // Will be filled later
+          chatId: message.forwardFromChatId,
+          messageId: message.forwardFromMessageId,
         }
       : undefined,
-    forwardFrom: forwardFromChatId && forwardFromMessageId
-      ? {
-          chatId: forwardFromChatId,
-          messageId: forwardFromMessageId,
-        }
-      : undefined,
-    media: mediaInfo
-      ? {
-          type: mediaInfo.type,
-          url: mediaInfo.fileId,
-          fileName: mediaInfo.fileName,
-          fileSize: mediaInfo.fileSize,
-          width: mediaInfo.width,
-          height: mediaInfo.height,
-          duration: mediaInfo.duration,
-          thumbnail: mediaInfo.thumbnail
-            ? {
-                url: mediaInfo.thumbnail.fileId,
-                width: mediaInfo.thumbnail.width,
-                height: mediaInfo.thumbnail.height,
-              }
-            : undefined,
-        }
-      : undefined,
-  }
+    media: message.mediaInfo ? {
+      type: message.mediaInfo.type,
+      url: '', // TODO: Get media URL
+      fileName: message.mediaInfo.fileName,
+      fileSize: message.mediaInfo.fileSize,
+      width: message.mediaInfo.width,
+      height: message.mediaInfo.height,
+      duration: message.mediaInfo.duration,
+      thumbnail: message.mediaInfo.thumbnail ? {
+        url: '', // TODO: Get thumbnail URL
+        width: message.mediaInfo.thumbnail.width,
+        height: message.mediaInfo.thumbnail.height,
+      } : undefined,
+    } : undefined,
+  }))
 }
 
 /**
- * Generate HTML export
+ * Export messages to JSON file
  */
-export async function generateHtml(messages: ExportedMessage[], outputPath: string): Promise<void> {
+export async function exportToJson(messages: ExportedMessage[], path: string): Promise<void> {
+  await writeFile(path, JSON.stringify(messages, null, 2))
+}
+
+/**
+ * Export messages to HTML file
+ */
+export async function exportToHtml(messages: ExportedMessage[], path: string): Promise<void> {
   const html = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Telegram Chat Export</title>
+  <title>Telegram Messages</title>
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      line-height: 1.5;
-      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
       padding: 20px;
     }
     .message {
       margin-bottom: 20px;
       padding: 10px;
-      border-radius: 8px;
-      background: #f5f5f5;
+      border-radius: 5px;
+      background-color: #f5f5f5;
     }
     .message-header {
-      margin-bottom: 5px;
+      margin-bottom: 10px;
       color: #666;
     }
     .message-content {
       white-space: pre-wrap;
     }
-    .message-footer {
-      margin-top: 5px;
-      color: #999;
-      font-size: 0.9em;
-    }
-    .media {
-      margin-top: 10px;
-    }
-    .media img, .media video {
-      max-width: 100%;
-      border-radius: 4px;
-    }
   </style>
 </head>
 <body>
-  <div class="messages">
-    ${messages.map(message => `
-      <div class="message">
-        <div class="message-header">
-          ${message.from ? `<strong>${message.from.name}</strong>` : 'Unknown'}
-          <span class="date">${message.createdAt.toLocaleString()}</span>
-        </div>
-        <div class="message-content">${message.content}</div>
-        ${message.media ? `
-          <div class="media">
-            ${message.media.type === 'photo' || message.media.type === 'sticker'
-              ? `<img src="${message.media.url}" alt="Media" ${message.media.width ? `width="${message.media.width}"` : ''} ${message.media.height ? `height="${message.media.height}"` : ''}>`
-              : message.media.type === 'video'
-                ? `<video src="${message.media.url}" controls ${message.media.width ? `width="${message.media.width}"` : ''} ${message.media.height ? `height="${message.media.height}"` : ''}></video>`
-                : `<a href="${message.media.url}">${message.media.fileName || 'Download file'}</a>`
-            }
-          </div>
-        ` : ''}
-        <div class="message-footer">
-          ${message.views ? `${message.views} views` : ''}
-          ${message.forwards ? `${message.forwards} forwards` : ''}
-        </div>
-      </div>
-    `).join('\n')}
+  <h1>Telegram Messages</h1>
+  ${messages.map(message => `
+  <div class="message">
+    <div class="message-header">
+      ${message.from ? `From: ${message.from.name}` : ''}
+      ${message.createdAt.toLocaleString()}
+    </div>
+    <div class="message-content">${message.content}</div>
   </div>
+  `).join('\n')}
 </body>
 </html>
-  `
-
-  await writeFile(outputPath, html, 'utf-8')
+`
+  await writeFile(path, html)
 }
-
-/**
- * Generate JSON export
- */
-export async function generateJson(messages: ExportedMessage[], outputPath: string): Promise<void> {
-  const json = JSON.stringify(messages, null, 2)
-  await writeFile(outputPath, json, 'utf-8')
-} 

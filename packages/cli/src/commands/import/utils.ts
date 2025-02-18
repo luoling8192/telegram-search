@@ -1,8 +1,9 @@
-import { readFile } from 'node:fs/promises'
 import type { MessageType } from '@tg-search/db'
 import type { MessageData } from './types'
-import { JSDOM } from 'jsdom'
+
+import { readFile } from 'node:fs/promises'
 import { useLogger } from '@tg-search/common'
+import { JSDOM } from 'jsdom'
 
 const logger = useLogger()
 
@@ -243,4 +244,4 @@ export async function parseHtmlFile(filePath: string): Promise<MessageData[]> {
       } as MessageData
     })
     .filter((message): message is MessageData => message !== null)
-} 
+}
