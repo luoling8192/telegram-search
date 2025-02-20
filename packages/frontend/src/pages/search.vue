@@ -57,21 +57,23 @@ function formatDate(date: string | Date): string {
 </script>
 
 <template>
-  <div class="container mx-auto px-4 py-8">
+  <div class="mx-auto px-4 py-8 container">
     <!-- Toaster -->
-    <Toaster position="top-right" :expand="true" :richColors="true" />
+    <Toaster position="top-right" :expand="true" :rich-colors="true" />
 
     <!-- Search header -->
-    <div class="flex items-center gap-4 mb-8">
+    <div class="mb-8 flex items-center gap-4">
       <button
-        class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+        class="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800"
         @click="router.back()"
       >
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
       </button>
-      <h1 class="text-2xl font-bold">Search in Chat</h1>
+      <h1 class="text-2xl font-bold">
+        Search in Chat
+      </h1>
     </div>
 
     <!-- Search form -->
@@ -81,12 +83,12 @@ function formatDate(date: string | Date): string {
           v-model="query"
           type="search"
           placeholder="输入搜索关键词..."
-          class="flex-1 px-4 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="flex-1 border rounded-lg px-4 py-2 dark:border-gray-700 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
           :disabled="isLoading"
         >
         <button
           type="submit"
-          class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+          class="rounded-lg bg-blue-500 px-6 py-2 text-white hover:bg-blue-600 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           :disabled="isLoading || !query.trim()"
         >
           {{ isLoading ? '搜索中...' : '搜索' }}
@@ -97,15 +99,15 @@ function formatDate(date: string | Date): string {
     <!-- Search progress -->
     <div v-if="isStreaming || searchProgress.length > 0" class="mb-8 space-y-4">
       <!-- Progress bar -->
-      <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+      <div class="h-2.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
         <div
-          class="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+          class="h-2.5 rounded-full bg-blue-600 transition-all duration-300"
           :style="{ width: isStreaming ? '90%' : '100%' }"
         />
       </div>
 
       <!-- Progress logs -->
-      <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2">
+      <div class="rounded-lg bg-gray-50 p-4 space-y-2 dark:bg-gray-800">
         <div
           v-for="(log, index) in searchProgress"
           :key="index"
@@ -119,7 +121,7 @@ function formatDate(date: string | Date): string {
     <!-- Error message -->
     <div
       v-if="error"
-      class="mb-8 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400"
+      class="mb-8 border border-red-200 rounded-lg bg-red-50 p-4 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
     >
       {{ error.message }}
     </div>
@@ -168,12 +170,12 @@ function formatDate(date: string | Date): string {
       </div>
 
       <!-- Pagination -->
-      <div v-if="total > pageSize" class="flex justify-center mt-8">
+      <div v-if="total > pageSize" class="mt-8 flex justify-center">
         <nav class="flex items-center gap-2">
           <button
             v-for="page in Math.ceil(total / pageSize)"
             :key="page"
-            class="px-3 py-1 rounded-lg"
+            class="rounded-lg px-3 py-1"
             :class="{
               'bg-blue-500 text-white': page === currentPage,
               'hover:bg-gray-100 dark:hover:bg-gray-800': page !== currentPage,
@@ -189,7 +191,7 @@ function formatDate(date: string | Date): string {
     <!-- No results -->
     <div
       v-else-if="!isLoading && query.trim()"
-      class="text-center text-gray-500 dark:text-gray-400 py-8"
+      class="py-8 text-center text-gray-500 dark:text-gray-400"
     >
       No results found
     </div>

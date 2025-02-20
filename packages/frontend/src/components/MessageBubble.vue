@@ -5,87 +5,72 @@ import { Icon } from '@iconify/vue'
 import { computed } from 'vue'
 
 const props = defineProps<{
-  message: PublicMessage
-  // Current user ID to determine message direction
-  currentUserId?: number
-  // Previous message in the chat
-  previousMessage?: PublicMessage
-  // Next message in the chat
-  nextMessage?: PublicMessage
+  message: PublicMessage & { highlight?: boolean }
+  isSelf?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'jumpToMessage', messageId: number): void
 }>()
 
-// Check if message is from current user
-const isSelf = computed(() => props.message.fromId === props.currentUserId)
+// Get avatar letter from name
+const avatarLetter = computed(() => {
+  const name = props.message.fromName || 'Unknown'
+  return name.charAt(0).toUpperCase()
+})
 
-// Check if this message should show sender info
-const shouldShowSender = computed(() => {
-  if (!props.previousMessage)
-    return true
+// Get avatar background color based on name
+const avatarColor = computed(() => {
+  if (props.message.fromAvatar?.type === 'emoji' && props.message.fromAvatar.color) {
+    return props.message.fromAvatar.color
+  }
 
-  // Show sender if previous message is from different sender
-  if (props.previousMessage.fromId !== props.message.fromId)
-    return true
-
-  // Show sender if messages are more than 5 minutes apart
-  const prevTime = new Date(props.previousMessage.createdAt).getTime()
-  const currentTime = new Date(props.message.createdAt).getTime()
-  return (currentTime - prevTime) > 5 * 60 * 1000
+  // Generate a consistent color based on the user name
+  const name = props.message.fromName || 'Unknown'
+  // Monet-inspired color palette with lower saturation
+  const colors = [
+    'bg-[#8BA7B5]', // 莫奈蓝，水面的柔和蓝色
+    'bg-[#B5A088]', // 温暖的米褐色
+    'bg-[#899F84]', // 柔和的橄榄绿
+    'bg-[#B58D7C]', // 淡赭石色
+    'bg-[#8E9FA8]', // 雾蓝色
+    'bg-[#A89B8C]', // 温和的灰褐色
+    'bg-[#9E8B83]', // 柔和的玫瑰褐色
+    'bg-[#7F938F]', // 青灰色
+  ]
+  const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
+  return colors[index]
 })
 
 // Get bubble position class
 const bubblePositionClass = computed(() => {
-  const classes = []
-
-  // Basic alignment
-  classes.push(isSelf.value ? 'self-end' : 'self-start')
-
-  return classes
+  return props.isSelf ? 'flex flex-row-reverse items-start' : 'flex items-start'
 })
 
 // Get bubble content class
 const bubbleContentClass = computed(() => {
-  const classes = []
+  const classes = ['relative', 'max-w-[70%]', 'px-5', 'py-3', 'rounded-2xl', 'shadow-sm']
 
-  // Base styles
-  classes.push('p-3 transition-colors duration-300')
-
-  // Background color
-  if (isSelf.value) {
-    classes.push('bg-blue-500 text-white')
+  if (props.isSelf) {
+    classes.push('bg-[#8BA7B5]', 'text-white', 'ml-16')
+    // Add right triangle
+    classes.push('after:absolute', 'after:right-[-8px]', 'after:top-[18px]', 'after:mt-[-6px]')
+    classes.push('after:border-[6px]', 'after:border-transparent')
+    classes.push('after:border-l-[#8BA7B5]', 'after:border-l-[8px]')
   }
   else {
-    classes.push('bg-gray-100 dark:bg-gray-800')
+    classes.push('bg-gray-100', 'dark:bg-gray-800', 'mr-16')
+    // Add left triangle
+    classes.push('after:absolute', 'after:left-[-8px]', 'after:top-[18px]', 'after:mt-[-6px]')
+    classes.push('after:border-[6px]', 'after:border-transparent')
+    classes.push('after:border-r-gray-100', 'dark:after:border-r-gray-800', 'after:border-r-[8px]')
   }
 
-  // Top radius
-  if (shouldShowSender.value) {
-    classes.push(isSelf.value ? 'rounded-tr-3xl rounded-tl-2xl' : 'rounded-tl-3xl rounded-tr-2xl')
-  }
-  else {
-    classes.push(isSelf.value ? 'rounded-tr-md rounded-tl-2xl' : 'rounded-tl-md rounded-tr-2xl')
-  }
-
-  // Bottom radius
-  if (!props.nextMessage || props.nextMessage.fromId !== props.message.fromId) {
-    classes.push(isSelf.value ? 'rounded-br-3xl rounded-bl-2xl' : 'rounded-bl-3xl rounded-br-2xl')
-  }
-  else {
-    classes.push(isSelf.value ? 'rounded-br-md rounded-bl-2xl' : 'rounded-bl-md rounded-br-2xl')
+  if (props.message.highlight) {
+    classes.push('highlight')
   }
 
   return classes
-})
-
-// Get bubble spacing class
-const bubbleSpacingClass = computed(() => {
-  if (!props.nextMessage || props.nextMessage.fromId !== props.message.fromId) {
-    return 'mb-4'
-  }
-  return 'mb-[2px]'
 })
 
 // Format time to HH:mm
@@ -111,26 +96,45 @@ function formatFileSize(bytes: number): string {
 </script>
 
 <template>
-  <div
-    class="group message-bubble"
-    :class="[bubblePositionClass, bubbleSpacingClass]"
-  >
-    <!-- Sender info -->
-    <div v-if="shouldShowSender" class="mb-1 text-left text-sm text-gray-500 dark:text-gray-400">
-      <span class="text-blue-500 font-medium dark:text-blue-400">{{ message.fromName }}</span>
-      <span class="mx-1">•</span>
-      <span class="text-gray-400 dark:text-gray-500">{{ formatTime(message.createdAt) }}</span>
+  <div class="message-bubble mb-6" :class="bubblePositionClass">
+    <!-- Avatar -->
+    <div class="mx-4 h-10 w-10 flex-shrink-0">
+      <div
+        v-if="message.fromAvatar?.type === 'emoji'"
+        class="h-10 w-10 flex items-center justify-center rounded-full text-xl"
+        :style="{ backgroundColor: message.fromAvatar.color || '#e5e7eb' }"
+      >
+        {{ message.fromAvatar.value }}
+      </div>
+      <img
+        v-else-if="message.fromAvatar?.type === 'photo'"
+        :src="message.fromAvatar.value"
+        :alt="message.fromName || undefined"
+        class="h-10 w-10 rounded-full object-cover"
+      >
+      <div
+        v-else
+        class="h-10 w-10 flex items-center justify-center rounded-full text-lg text-white font-medium"
+        :class="avatarColor"
+      >
+        {{ avatarLetter }}
+      </div>
     </div>
 
     <!-- Message content -->
     <div :class="bubbleContentClass">
+      <!-- Sender name -->
+      <div class="mb-2 text-sm font-medium" :class="{ 'text-blue-500 dark:text-blue-400': !isSelf }">
+        {{ message.fromName || 'Unknown' }}
+      </div>
+
       <!-- Text content -->
-      <div v-if="message.content" class="whitespace-pre-wrap text-left">
+      <div v-if="message.content" class="whitespace-pre-wrap break-words text-left leading-relaxed">
         {{ message.content }}
       </div>
 
       <!-- Media content -->
-      <div v-if="message.mediaInfo" class="mt-2">
+      <div v-if="message.mediaInfo" class="mt-3">
         <!-- Photo -->
         <img
           v-if="message.mediaInfo.type === 'photo'"
@@ -159,21 +163,21 @@ function formatFileSize(bytes: number): string {
         <!-- Document -->
         <div
           v-else-if="message.mediaInfo.type === 'document'"
-          class="flex items-center rounded bg-gray-50 p-2 space-x-2 dark:bg-gray-700"
+          class="flex items-center rounded bg-gray-50 p-3 space-x-3 dark:bg-gray-700"
         >
           <Icon icon="carbon:document" class="h-6 w-6" />
           <div class="flex-1">
             <div class="text-sm font-medium">
               {{ message.mediaInfo.fileName || 'Document' }}
             </div>
-            <div class="text-xs text-gray-500">
+            <div class="mt-1 text-xs text-gray-500">
               {{ message.mediaInfo.fileSize ? formatFileSize(message.mediaInfo.fileSize) : '' }}
             </div>
           </div>
           <a
             :href="`/api/media/${message.chatId}/${message.id}`"
             download
-            class="rounded bg-gray-200 px-2 py-1 text-sm dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500"
+            class="rounded bg-gray-200 px-3 py-1.5 text-sm dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500"
           >
             Download
           </a>
@@ -189,13 +193,8 @@ function formatFileSize(bytes: number): string {
       </div>
 
       <!-- Message info -->
-      <div
-        class="mt-1 flex items-center gap-2 text-left text-xs"
-        :class="{
-          'text-white/60 group-hover:text-white': isSelf,
-          'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300': !isSelf,
-        }"
-      >
+      <div class="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+        <span>{{ formatTime(message.createdAt) }}</span>
         <span v-if="message.views" class="inline-flex items-center">
           <Icon icon="carbon:view" class="mr-1 h-4 w-4" />
           {{ message.views }}
@@ -223,7 +222,7 @@ function formatFileSize(bytes: number): string {
 
 <style scoped>
 .message-bubble {
-  @apply max-w-[80%];
+  @apply w-full;
 }
 
 .highlight {

@@ -5,7 +5,7 @@ interface Props {
   query: string
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 
 /**
  * Split text into segments and highlight matches

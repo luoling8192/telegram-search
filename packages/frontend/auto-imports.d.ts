@@ -6,7 +6,9 @@
 // biome-ignore lint: disable
 export {}
 declare global {
+  const APIError: typeof import('./src/composables/api')['APIError']
   const EffectScope: typeof import('vue')['EffectScope']
+  const api: typeof import('./src/composables/api')['api']
   const asyncComputed: typeof import('@vueuse/core')['asyncComputed']
   const autoResetRef: typeof import('@vueuse/core')['autoResetRef']
   const computed: typeof import('vue')['computed']
@@ -308,7 +310,7 @@ declare global {
   export type { Component, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
   // @ts-ignore
-  export type { PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from './src/composables/api'
+  export type { APIError, PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from './src/composables/api'
   import('./src/composables/api')
 }
 
@@ -317,7 +319,9 @@ import { UnwrapRef } from 'vue'
 declare module 'vue' {
   interface GlobalComponents {}
   interface ComponentCustomProperties {
+    readonly APIError: UnwrapRef<typeof import('./src/composables/api')['APIError']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
+    readonly api: UnwrapRef<typeof import('./src/composables/api')['api']>
     readonly asyncComputed: UnwrapRef<typeof import('@vueuse/core')['asyncComputed']>
     readonly autoResetRef: UnwrapRef<typeof import('@vueuse/core')['autoResetRef']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>

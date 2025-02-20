@@ -17,7 +17,7 @@
     "@tanstack/vue-query": "^5.66.3",
     "@tanstack/vue-table": "^8.21.2",
     "@tg-search/db": "workspace:*",
-    "@vueuse/core": "^12.4.0",
+    "@vueuse/core": "^12.7.0",
     "ofetch": "^1.4.1",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0",

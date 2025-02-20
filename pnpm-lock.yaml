@@ -236,7 +236,7 @@ importers:
         specifier: workspace:*
         version: link:../db
       '@vueuse/core':
-        specifier: ^12.4.0
+        specifier: ^12.7.0
         version: 12.7.0(typescript@5.7.3)
       ofetch:
         specifier: ^1.4.1

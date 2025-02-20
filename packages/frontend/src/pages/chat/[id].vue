@@ -182,13 +182,33 @@ onMounted(async () => {
   }
   await loadChatInfo()
   await loadMessages()
+
+  // Handle hash change for message jumping
+  const hash = window.location.hash
+  if (hash.startsWith('#message-')) {
+    const messageId = Number(hash.slice('#message-'.length))
+    if (!Number.isNaN(messageId)) {
+      await jumpToMessage(messageId)
+    }
+  }
+
+  // Listen for hash changes
+  window.addEventListener('hashchange', async () => {
+    const hash = window.location.hash
+    if (hash.startsWith('#message-')) {
+      const messageId = Number(hash.slice('#message-'.length))
+      if (!Number.isNaN(messageId)) {
+        await jumpToMessage(messageId)
+      }
+    }
+  })
 })
 </script>
 
 <template>
   <div class="h-screen flex flex-col">
     <!-- Chat header -->
-    <div class="flex items-center justify-between border-b bg-white px-4 py-2 dark:border-gray-800 dark:bg-gray-900">
+    <div class="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2 transition-colors duration-300 dark:border-gray-800 dark:bg-gray-900">
       <div class="flex items-center gap-2">
         <button
           class="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -201,18 +221,21 @@ onMounted(async () => {
         </h1>
       </div>
 
-      <button
-        class="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800"
-        @click="handleSearch"
-      >
-        <div class="i-carbon-search h-5 w-5 dark:text-white" />
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          class="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+          @click="handleSearch"
+        >
+          <div class="i-carbon-search h-5 w-5 dark:text-white" />
+        </button>
+      </div>
     </div>
 
     <!-- Chat messages -->
     <div
       ref="messageContainer"
-      class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4 dark:bg-gray-900"
+      class="flex-1 overflow-y-auto bg-gray-50 p-4 transition-colors duration-300 space-y-4 dark:bg-gray-900"
+      @scroll="onScroll"
     >
       <!-- Loading state -->
       <div v-if="loading" class="text-center text-gray-500 dark:text-gray-400">
@@ -228,6 +251,7 @@ onMounted(async () => {
       <template v-else>
         <MessageBubble
           v-for="message in messages"
+          :id="`message-${message.id}`"
           :key="message.id"
           :message="message"
           :is-self="message.fromId === currentUserId"
