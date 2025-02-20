@@ -12,6 +12,7 @@ export interface MessageConfig {
     batchSize: number
     concurrent: number
     retryTimes: number
+    maxTakeoutRetries: number
   }
   batch: {
     size: number

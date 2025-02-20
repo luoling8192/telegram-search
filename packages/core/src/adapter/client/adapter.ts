@@ -2,9 +2,9 @@ import type { NewChat, NewFolder } from '@tg-search/db'
 import type { ConnectOptions, DialogsResult, Folder, ITelegramClientAdapter, MessageOptions, TelegramMessage } from '../types'
 
 import { getConfig, useLogger } from '@tg-search/common'
+import bigInt from 'big-integer'
 import { TelegramClient } from 'telegram'
 import { Api } from 'telegram/tl'
-import bigInt from 'big-integer'
 
 import { MediaService } from '../../services/media'
 import { DialogManager } from './dialog-manager'
@@ -160,28 +160,38 @@ export class ClientAdapter implements ITelegramClientAdapter {
       return
     }
 
-    const maxRetries = 3
+    const appConfig = getConfig()
+    // maxRetries = 0 means infinite retries
+    const maxRetries = appConfig.message?.export?.maxTakeoutRetries ?? 3
     let retryCount = 0
     let lastError: Error | null = null
+    const waitTime = 30 * 1000 // 30 seconds
 
-    while (retryCount < maxRetries) {
+    // eslint-disable-next-line no-unmodified-loop-condition
+    while (maxRetries === 0 || retryCount < maxRetries) {
       try {
         await this.client.invoke(new Api.account.FinishTakeoutSession({
           success: true,
         }))
         this.takeoutSession = undefined
+        this.logger.log('成功结束 takeout 会话')
         return
-      } catch (error: any) {
+      }
+      catch (error: any) {
         lastError = error
         // Check if we need to wait for takeout
         if (error?.message?.includes('TAKEOUT_REQUIRED')) {
-          this.logger.warn('等待 takeout 会话完成...')
-          // Wait for 30 seconds before retrying
-          await new Promise(resolve => setTimeout(resolve, 30 * 1000))
+          const retryInfo = maxRetries === 0
+            ? '无限重试'
+            : `第 ${retryCount + 1}/${maxRetries} 次重试`
+          this.logger.warn(`等待 takeout 会话完成...（${retryInfo}，等待 ${waitTime / 1000} 秒）`)
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, waitTime))
           retryCount++
           continue
         }
         // For other errors, throw immediately
+        this.logger.error(`结束 takeout 会话时遇到未知错误：${error.message}`)
         throw error
       }
     }
@@ -208,8 +218,16 @@ export class ClientAdapter implements ITelegramClientAdapter {
 
     // Boolean flags with default false
     const booleanFlags = [
-      'out', 'mentioned', 'mediaUnread', 'silent', 'post',
-      'fromScheduled', 'legacy', 'editHide', 'pinned', 'noforwards',
+      'out',
+      'mentioned',
+      'mediaUnread',
+      'silent',
+      'post',
+      'fromScheduled',
+      'legacy',
+      'editHide',
+      'pinned',
+      'noforwards',
     ].reduce((acc, key) => ({
       ...acc,
       [key]: message[key] || false,
@@ -217,10 +235,22 @@ export class ClientAdapter implements ITelegramClientAdapter {
 
     // Direct property mappings
     const directProps = [
-      'peerId', 'fwdFrom', 'viaBotId', 'replyTo', 'media',
-      'replyMarkup', 'entities', 'views', 'forwards', 'replies',
-      'editDate', 'postAuthor', 'groupedId', 'reactions',
-      'restrictionReason', 'ttlPeriod',
+      'peerId',
+      'fwdFrom',
+      'viaBotId',
+      'replyTo',
+      'media',
+      'replyMarkup',
+      'entities',
+      'views',
+      'forwards',
+      'replies',
+      'editDate',
+      'postAuthor',
+      'groupedId',
+      'reactions',
+      'restrictionReason',
+      'ttlPeriod',
     ].reduce((acc, key) => ({
       ...acc,
       [key]: message[key],
@@ -268,7 +298,7 @@ export class ClientAdapter implements ITelegramClientAdapter {
           new Api.InvokeWithTakeout({
             takeoutId: takeoutSession.id,
             query,
-          })
+          }),
         ) as Api.messages.MessagesSlice | Api.messages.Messages | Api.messages.ChannelMessages
 
         // Check if we have messages
@@ -397,13 +427,13 @@ export class ClientAdapter implements ITelegramClientAdapter {
   async *getMessages(chatId: number, limit = 100, options?: MessageOptions): AsyncGenerator<TelegramMessage> {
     try {
       // Try to use takeout first
-      yield* this.takeoutMessages(chatId, limit, options)
+      yield * this.takeoutMessages(chatId, limit, options)
     }
     catch (error: any) {
       // If takeout is not available, fallback to normal API
       if (error.message === 'TAKEOUT_NOT_AVAILABLE' || error.message?.includes('TAKEOUT_INIT_DELAY')) {
         this.logger.warn('Takeout session not available, using normal message fetch')
-        yield* this.getNormalMessages(chatId, limit, options)
+        yield * this.getNormalMessages(chatId, limit, options)
       }
       else {
         throw error

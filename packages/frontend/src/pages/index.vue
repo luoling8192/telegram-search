@@ -1,7 +1,7 @@
 <!-- Chat list page -->
 <script setup lang="ts">
 import type { PublicChat } from '@tg-search/server/types'
-import { onMounted, ref, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '../composables/api'
 
@@ -48,7 +48,9 @@ onMounted(() => {
     <div v-else class="space-y-6">
       <!-- Private Chats -->
       <div v-if="privateChats.length > 0">
-        <h2 class="mb-2 text-xl font-semibold">Private Chats</h2>
+        <h2 class="mb-2 text-xl font-semibold">
+          Private Chats
+        </h2>
         <div class="space-y-2">
           <div
             v-for="chat in privateChats"
@@ -71,7 +73,9 @@ onMounted(() => {
 
       <!-- Group Chats -->
       <div v-if="groupChats.length > 0">
-        <h2 class="mb-2 text-xl font-semibold">Group Chats</h2>
+        <h2 class="mb-2 text-xl font-semibold">
+          Group Chats
+        </h2>
         <div class="space-y-2">
           <div
             v-for="chat in groupChats"
@@ -94,7 +98,9 @@ onMounted(() => {
 
       <!-- Channel Chats -->
       <div v-if="channelChats.length > 0">
-        <h2 class="mb-2 text-xl font-semibold">Channels</h2>
+        <h2 class="mb-2 text-xl font-semibold">
+          Channels
+        </h2>
         <div class="space-y-2">
           <div
             v-for="chat in channelChats"
