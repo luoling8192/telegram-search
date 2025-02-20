@@ -2,7 +2,7 @@
   "name": "telegram-search",
   "type": "module",
   "private": true,
-  "packageManager": "pnpm@9.15.4",
+  "packageManager": "pnpm@10.4.1",
   "scripts": {
     "build": "pnpm -r build",
     "stub": "pnpm -r stub",
