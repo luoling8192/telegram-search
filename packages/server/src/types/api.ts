@@ -1,4 +1,4 @@
-import type { PublicChat, PublicFolder, PublicMessage } from './models'
+import type { PublicMessage } from './models'
 
 /**
  * Search request parameters
@@ -28,13 +28,16 @@ export interface PaginatedResponse<T> {
 }
 
 /**
+ * Search result item with score
+ */
+export interface SearchResultItem extends PublicMessage {
+  score: number
+}
+
+/**
  * Search response structure
  */
-export type SearchResponse = PaginatedResponse<{
-  message: PublicMessage
-  chat: PublicChat
-  folder?: PublicFolder
-}>
+export type SearchResponse = PaginatedResponse<SearchResultItem>
 
 /**
  * API error response

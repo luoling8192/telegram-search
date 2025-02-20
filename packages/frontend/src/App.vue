@@ -1,5 +1,9 @@
+<script setup lang="ts">
+import DefaultLayout from './layouts/default.vue'
+</script>
+
 <template>
-  <main font-sans text="center gray-700 dark:gray-200">
-    <RouterView />
-  </main>
+  <DefaultLayout>
+    <router-view />
+  </DefaultLayout>
 </template>

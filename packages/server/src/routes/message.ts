@@ -4,6 +4,8 @@ import { useLogger } from '@tg-search/common'
 import { findMessagesByChatId } from '@tg-search/db'
 import { Elysia, t } from 'elysia'
 
+import { createResponse } from '../utils/response'
+
 const logger = useLogger()
 
 /**
@@ -43,16 +45,19 @@ export const messageRoutes = new Elysia({ prefix: '/messages' })
         offset: Number(offset),
       })
 
-      return {
+      return createResponse({
         items: items.map(toPublicMessage),
         total,
-        limit: Number(limit),
-        offset: Number(offset),
-      }
+      }, undefined, {
+        total,
+        page: Math.floor(Number(offset) / Number(limit)) + 1,
+        pageSize: Number(limit),
+        totalPages: Math.ceil(total / Number(limit)),
+      })
     }
     catch (error) {
       logger.withError(error).error('Failed to get messages')
-      throw error
+      return createResponse(undefined, error)
     }
   }, {
     params: t.Object({

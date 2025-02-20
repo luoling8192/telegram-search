@@ -26,21 +26,61 @@ async function initServices() {
   return logger
 }
 
+// Response type definitions
+interface BaseResponse {
+  success: boolean
+  timestamp: string
+  code?: string
+  message?: string
+}
+
+type SuccessResponse<T> = BaseResponse & {
+  success: true
+  data: T
+  pagination?: {
+    total: number
+    page: number
+    pageSize: number
+    totalPages: number
+  }
+}
+
+type ErrorResponse = BaseResponse & {
+  success: false
+  error: string
+  code: string
+  details?: Record<string, unknown>
+}
+
+type ApiResponse<T> = SuccessResponse<T> | ErrorResponse
+
 // Create standardized response
-function createResponse<T>(data?: T, error?: unknown) {
+function createResponse<T>(
+  data?: T,
+  error?: unknown,
+  pagination?: SuccessResponse<T>['pagination'],
+): ApiResponse<T> {
   if (error) {
-    return {
+    const errorResponse: ErrorResponse = {
       success: false,
       error: error instanceof Error ? error.message : 'Internal Server Error',
       code: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
       timestamp: new Date().toISOString(),
     }
+
+    // Add additional error details if available
+    if (error instanceof Error && (error as any).details) {
+      errorResponse.details = (error as any).details
+    }
+
+    return errorResponse
   }
 
   return {
     success: true,
-    data,
+    data: data as T,
     timestamp: new Date().toISOString(),
+    pagination,
   }
 }
 
@@ -56,24 +96,68 @@ function setupErrorHandlers(logger: ReturnType<typeof useLogger>) {
 }
 
 // Main server setup
-async function setupServer() {
+(async () => {
   const logger = await initServices()
   setupErrorHandlers(logger)
 
   const app = new Elysia({ adapter: node() })
     .use(cors({
-      origin: 'http://localhost:3333',
+      origin: '*',
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     }))
+    .onRequest(({ request }) => {
+      // Log request start
+      const path = new URL(request.url).pathname
+      logger.withFields({
+        method: request.method,
+        path,
+        userAgent: request.headers.get('user-agent'),
+      }).debug('Request started')
+    })
+    .onAfterHandle(({ request }) => {
+      // Log successful request
+      const path = new URL(request.url).pathname
+      logger.withFields({
+        method: request.method,
+        path,
+        status: 200,
+        userAgent: request.headers.get('user-agent'),
+      }).debug('Request completed')
+    })
+    .onError(({ request, error, code }) => {
+      // Log error request
+      const path = new URL(request.url).pathname
+      let status = 500
+
+      // Map error codes to status codes
+      switch (code) {
+        case 'NOT_FOUND':
+          status = 404
+          break
+        case 'VALIDATION':
+          status = 400
+          break
+        case 'PARSE':
+          status = 400
+          break
+      }
+
+      logger.withFields({
+        method: request.method,
+        path,
+        status,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        userAgent: request.headers.get('user-agent'),
+      }).error('Request failed')
+
+      // Return error response
+      return createResponse(undefined, error)
+    })
     .use(chatRoutes)
     .use(searchRoutes)
     .use(messageRoutes)
-    .onError(({ error }) => {
-      logger.withError(error).error('Application error')
-      return createResponse(undefined, error)
-    })
     .listen(3000, () => {
       logger.debug('Server listening on http://localhost:3000')
     })
@@ -86,9 +170,4 @@ async function setupServer() {
   process.on('SIGTERM', shutdown)
 
   return app
-}
-
-// Start server
-(async () => {
-  await setupServer()
 })()

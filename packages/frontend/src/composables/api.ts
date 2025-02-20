@@ -1,31 +1,111 @@
 import type { PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/types'
-import { ref } from 'vue'
-import { getChats as fetchChats, getFolders as fetchFolders, getMessages as fetchMessages, searchMessages } from '../api'
 
-// API response types
-export interface ApiResponse<T> {
-  data?: T
-  error?: string
+import { ofetch } from 'ofetch'
+import { ref } from 'vue'
+
+// API base URL with fallback
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000'
+
+/**
+ * API error class for handling error responses
+ */
+export class APIError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public status: number,
+  ) {
+    super(message)
+  }
+}
+
+// Create API client instance with default configuration
+const apiFetch = ofetch.create({
+  baseURL: API_BASE,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  // Add timeout
+  timeout: 30000,
+  // Add retry options
+  retry: 0,
+})
+
+// Standalone API functions for direct usage
+export const api = {
+  /**
+   * Search messages in the database
+   */
+  searchMessages: (params: SearchRequest): Promise<{ success: boolean, data: SearchResponse }> => {
+    return apiFetch<{ success: boolean, data: SearchResponse }>('/search', {
+      method: 'POST',
+      body: params,
+    })
+  },
+
+  /**
+   * Get all chats
+   */
+  getChats: (): Promise<{ success: boolean, data: PublicChat[] }> => {
+    return apiFetch<{ success: boolean, data: PublicChat[] }>('/chats')
+  },
+
+  /**
+   * Get messages in chat
+   */
+  getMessages: (chatId: number, params?: PaginationParams): Promise<{
+    success: boolean
+    data: {
+      items: PublicMessage[]
+      total: number
+      limit: number
+      offset: number
+    }
+  }> => {
+    return apiFetch(`/messages/${chatId}`, {
+      query: params,
+    })
+  },
 }
 
 /**
- * API composable for managing API state and requests
+ * Vue composable for managing API state and requests
  */
 export function useApi() {
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const abortController = ref<AbortController | null>(null)
 
   /**
-   * Generic API request wrapper
+   * Generic API request wrapper with state management
    */
   const request = async <T>(
-    fn: () => Promise<T>,
+    fn: () => Promise<{ success: boolean, data: T }>,
   ): Promise<T> => {
-    loading.value = true
-    error.value = null
+    // Cancel previous request if exists
+    if (abortController.value) {
+      abortController.value.abort()
+    }
+
+    // Create new abort controller
+    abortController.value = new AbortController()
 
     try {
-      return await fn()
+      loading.value = true
+      error.value = null
+
+      const response = await Promise.race([
+        fn(),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Request timeout')), 30000)
+        }),
+      ])
+
+      if (!response.success) {
+        throw new Error('Request failed')
+      }
+
+      return response.data
     }
     catch (e) {
       const message = e instanceof Error ? e.message : 'Unknown error'
@@ -35,23 +115,18 @@ export function useApi() {
     }
     finally {
       loading.value = false
+      abortController.value = null
     }
   }
 
-  // API methods
-  const search = (params: SearchRequest) => request(() => searchMessages(params))
-  const getChats = () => request(() => fetchChats())
-  const getFolders = () => request(() => fetchFolders())
-  const getMessages = (chatId: number, params?: PaginationParams) => request(() => fetchMessages(chatId, params))
-
+  // Composable methods with state management
   return {
     loading,
     error,
     // Methods
-    search,
-    getChats,
-    getFolders,
-    getMessages,
+    searchMessages: (params: SearchRequest) => request(() => api.searchMessages(params)),
+    getChats: () => request(() => api.getChats()),
+    getMessages: (chatId: number, params?: PaginationParams) => request(() => api.getMessages(chatId, params)),
   }
 }
 

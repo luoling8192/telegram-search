@@ -329,6 +329,9 @@ importers:
       '@tg-search/common':
         specifier: workspace:*
         version: link:../common
+      '@tg-search/core':
+        specifier: workspace:*
+        version: link:../core
       '@tg-search/db':
         specifier: workspace:*
         version: link:../db

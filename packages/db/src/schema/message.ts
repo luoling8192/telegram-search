@@ -12,6 +12,13 @@ const vector = customType<{ data: number[] }>({
   },
 })
 
+// tsvector type
+const tsvector = customType<{ data: string }>({
+  dataType() {
+    return 'tsvector'
+  },
+})
+
 // Message content table template
 export function createMessageContentTable(chatId: number | bigint) {
   // 使用 n 前缀表示负数，处理 BigInt
@@ -30,6 +37,8 @@ export function createMessageContentTable(chatId: number | bigint) {
     content: text('content'),
     // Message vector embedding (1536 dimensions)
     embedding: vector('embedding'),
+    // Full-text search vector
+    tsContent: tsvector('ts_content').notNull().$defaultFn(() => sql`to_tsvector('telegram_search', coalesce(content, ''))`),
     // Media file info
     mediaInfo: jsonb('media_info').$type<MediaInfo>(),
     // Creation time
@@ -68,6 +77,10 @@ export function createMessageContentTable(chatId: number | bigint) {
       ON ${table}
       USING ivfflat (embedding vector_cosine_ops)
       WITH (lists = 100)`,
+    // Index for full-text search
+    sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_ts_content_idx
+      ON ${table}
+      USING GIN (ts_content)`,
     // Index for created_at
     sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_created_at_idx ON ${table} (created_at DESC)`,
     // Index for type
@@ -83,6 +96,17 @@ export function createChatPartition(chatId: number | bigint) {
   const absId = chatId < 0 ? -chatId : chatId
   const tableName = `messages_${chatId < 0 ? 'n' : ''}${absId}`
   return sql`
+    -- Create text search configuration if not exists
+    DO $$ 
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_ts_config WHERE cfgname = 'telegram_search'
+      ) THEN
+        CREATE TEXT SEARCH CONFIGURATION telegram_search (COPY = simple);
+        ALTER TEXT SEARCH CONFIGURATION telegram_search ALTER MAPPING FOR word WITH simple;
+      END IF;
+    END $$;
+
     CREATE TABLE IF NOT EXISTS ${sql.raw(tableName)} (
       uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       id BIGINT NOT NULL,
@@ -103,20 +127,30 @@ export function createChatPartition(chatId: number | bigint) {
       forwards INTEGER,
       links JSONB,
       metadata JSONB,
+      -- Add full-text search column
+      ts_content tsvector GENERATED ALWAYS AS (to_tsvector('telegram_search', coalesce(content, ''))) STORED,
       UNIQUE (chat_id, id),
       UNIQUE (id)
     );
 
+    -- Create full-text search index
+    CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_ts_content_idx
+    ON ${sql.raw(tableName)} USING GIN (ts_content);
+
+    -- Create vector similarity index
     CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_embedding_idx
     ON ${sql.raw(tableName)}
     USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
+    -- Create timestamp index
     CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_created_at_idx
     ON ${sql.raw(tableName)} (created_at DESC);
 
+    -- Create type index
     CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_type_idx
     ON ${sql.raw(tableName)} (type);
 
+    -- Create unique ID index
     CREATE UNIQUE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_id_idx
     ON ${sql.raw(tableName)} (id);
 

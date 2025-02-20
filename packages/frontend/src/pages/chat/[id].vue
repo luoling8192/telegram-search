@@ -35,6 +35,14 @@ const messageContainer = ref<HTMLElement>()
 // Current user ID (TODO: Get from auth)
 const currentUserId = ref(123456789)
 
+// Navigate to search page
+function handleSearch() {
+  router.push({
+    path: '/search',
+    query: { chatId },
+  })
+}
+
 // Load chat info
 async function loadChatInfo() {
   const chats = await getChats()
@@ -179,65 +187,52 @@ onMounted(async () => {
 
 <template>
   <div class="h-screen flex flex-col">
-    <!-- Header -->
-    <div class="flex items-center border-b bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+    <!-- Chat header -->
+    <div class="flex items-center justify-between border-b bg-white px-4 py-2 dark:border-gray-800 dark:bg-gray-900">
+      <div class="flex items-center gap-2">
+        <button
+          class="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+          @click="router.back()"
+        >
+          <div class="i-carbon-arrow-left h-5 w-5 dark:text-white" />
+        </button>
+        <h1 class="text-lg font-semibold dark:text-white">
+          {{ chatTitle }}
+        </h1>
+      </div>
+
       <button
-        class="mr-2 rounded bg-gray-100 px-3 py-1 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
-        @click="router.back()"
+        class="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+        @click="handleSearch"
       >
-        Back
+        <div class="i-carbon-search h-5 w-5 dark:text-white" />
       </button>
-      <h1 class="text-2xl font-bold">
-        {{ chatTitle }} <span class="text-gray-500 dark:text-gray-400">({{ chatId }})</span>
-      </h1>
     </div>
 
-    <!-- Message list -->
+    <!-- Chat messages -->
     <div
       ref="messageContainer"
-      class="flex-1 overflow-y-auto p-4"
-      @scroll="onScroll"
+      class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4 dark:bg-gray-900"
     >
       <!-- Loading state -->
-      <div v-if="loading" class="h-full flex items-center justify-center text-gray-500">
-        Loading...
+      <div v-if="loading" class="text-center text-gray-500 dark:text-gray-400">
+        Loading messages...
       </div>
 
       <!-- Error state -->
-      <div v-else-if="error" class="h-full flex items-center justify-center text-red-500">
+      <div v-else-if="error" class="text-center text-red-500 dark:text-red-400">
         {{ error }}
       </div>
 
       <!-- Messages -->
-      <div v-else class="flex flex-col">
-        <!-- Load more indicator -->
-        <div
-          v-if="loadingMore"
-          class="flex justify-center py-4 text-sm text-gray-500"
-        >
-          Loading more messages...
-        </div>
-
-        <!-- Message bubbles -->
+      <template v-else>
         <MessageBubble
-          v-for="(message, index) in messages"
-          :id="`message-${message.id}`"
+          v-for="message in messages"
           :key="message.id"
           :message="message"
-          :current-user-id="currentUserId"
-          :previous-message="index > 0 ? messages[index - 1] : undefined"
-          :next-message="index < messages.length - 1 ? messages[index + 1] : undefined"
-          @jump-to-message="jumpToMessage"
+          :is-self="message.fromId === currentUserId"
         />
-
-        <!-- Empty state -->
-        <div
-          v-if="messages.length === 0"
-          class="h-full flex items-center justify-center text-gray-500"
-        >
-          No messages found
-        </div>
-      </div>
+      </template>
     </div>
   </div>
 </template>
