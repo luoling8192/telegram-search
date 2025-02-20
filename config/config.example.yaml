@@ -1,0 +1,46 @@
+# Database settings
+database:
+  # You can use url or separate fields
+  # url: postgres://postgres:postgres@localhost:5432/tg_search
+  host: localhost
+  port: 5432
+  user: postgres
+  password: postgres
+  database: tg_search
+
+# Message settings
+message:
+  # Export settings
+  export:
+    # Number of messages to fetch in each request
+    batchSize: 200
+    # Number of concurrent requests
+    concurrent: 3
+    # Number of retry attempts
+    retryTimes: 3
+  # Database batch settings
+  batch:
+    # Number of messages to save in each batch
+    size: 100
+
+# Path settings
+path:
+  # Session storage path
+  session: ~/.telegram-search/session
+  # Media storage path
+  media: ~/.telegram-search/media
+
+# API settings
+api:
+  # Telegram API settings
+  telegram:
+    # Get these values from https://my.telegram.org/apps
+    apiId: "your_api_id"
+    apiHash: "your_api_hash"
+    phoneNumber: "+1234567890"
+    botToken: "your_bot_token"
+  # OpenAI API settings
+  openai:
+    apiKey: "your_openai_api_key"
+    # Optional, for custom API providers
+    apiBase: "https://api.openai.com/v1" 

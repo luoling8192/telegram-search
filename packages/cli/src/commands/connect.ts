@@ -30,9 +30,9 @@ export class ConnectCommand implements Command {
         const config = getConfig()
         this.client = await createAdapter({
           type: 'client',
-          apiId: Number(config.apiId),
-          apiHash: config.apiHash,
-          phoneNumber: config.phoneNumber,
+          apiId: Number(config.api.telegram.apiId),
+          apiHash: config.api.telegram.apiHash,
+          phoneNumber: config.api.telegram.phoneNumber,
         })
       }
 

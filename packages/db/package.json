@@ -37,7 +37,6 @@
   "devDependencies": {
     "@types/node": "^22.13.4",
     "@types/pg": "^8.11.11",
-    "dotenv": "^16.4.7",
     "tsx": "^4.19.2",
     "unbuild": "^3.3.1",
     "vitest": "^3.0.5"

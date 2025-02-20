@@ -38,7 +38,7 @@ export class ClientAdapter implements ITelegramClientAdapter {
       ...config,
     }
     const appConfig = getConfig()
-    this.sessionManager = new SessionManager(appConfig.sessionPath)
+    this.sessionManager = new SessionManager(appConfig.path.session)
 
     // Create client with session
     this.client = new TelegramClient(

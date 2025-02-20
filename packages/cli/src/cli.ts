@@ -1,7 +1,7 @@
 import type { TelegramAdapter } from '@tg-search/core'
 
 import process from 'node:process'
-import { getConfig, useLogger } from '@tg-search/common'
+import { getConfig, initDB, useLogger } from '@tg-search/common'
 import { createAdapter } from '@tg-search/core'
 import { Command as Commander } from 'commander'
 
@@ -66,14 +66,19 @@ export function setupCli() {
       let client: TelegramAdapter | undefined
 
       try {
+        // Initialize database
+        logger.debug('正在初始化数据库...')
+        initDB()
+        logger.debug('数据库初始化完成')
+
         // Initialize Telegram client if needed
         if (command.meta.requiresConnection) {
           const config = getConfig()
           client = await createAdapter({
             type: 'client',
-            apiId: Number(config.apiId),
-            apiHash: config.apiHash,
-            phoneNumber: config.phoneNumber,
+            apiId: Number(config.api.telegram.apiId),
+            apiHash: config.api.telegram.apiHash,
+            phoneNumber: config.api.telegram.phoneNumber,
           })
 
           // Set client for command
@@ -87,8 +92,13 @@ export function setupCli() {
             await client.connect()
           }
           catch (error) {
-            // If connection failed, try to use connect command
-            if (error instanceof Error && (error.message === 'Code is required' || error.message === '2FA password is required')) {
+            // If connection failed due to authentication, use connect command
+            if (error instanceof Error && (
+              error.message === 'Code is required'
+              || error.message === '2FA password is required'
+              || error.message === 'Code is empty'
+            )) {
+              logger.debug('需要验证，使用 connect 命令...')
               connectCommand.setClient(client)
               await connectCommand.execute([], {})
             }

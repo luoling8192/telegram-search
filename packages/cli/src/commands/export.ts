@@ -175,7 +175,7 @@ export class ExportCommand extends TelegramCommand {
     })
 
     // Get batch size from config
-    const batchSize = options.batchSize || getConfig().messageBatchSize
+    const batchSize = options.batchSize || getConfig().message.export.batchSize
 
     // Export messages
     logger.log('正在导出消息...')

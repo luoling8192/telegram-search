@@ -14,7 +14,7 @@ export class MediaService {
   constructor(client: TelegramClient) {
     this.client = client
     const appConfig = getConfig()
-    this.mediaDir = appConfig.mediaPath
+    this.mediaDir = appConfig.path.media
   }
 
   /**

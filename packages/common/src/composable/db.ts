@@ -12,7 +12,10 @@ export function initDB() {
 
   // Database connection
   const config = getConfig()
-  const client = postgres(config.databaseUrl, {
+  if (!config.database.url) {
+    throw new Error('Database URL is required')
+  }
+  const client = postgres(config.database.url, {
     max: 1,
     onnotice: () => {},
   })

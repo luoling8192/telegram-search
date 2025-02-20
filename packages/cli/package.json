@@ -23,7 +23,6 @@
   "devDependencies": {
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.13.4",
-    "dotenv": "^16.4.7",
     "tsx": "^4.19.2"
   }
 }

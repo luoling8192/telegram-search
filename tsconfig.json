@@ -10,8 +10,9 @@
     "skipLibCheck": true
   },
   "include": [
-    "src/**/*",
-    "eslint.config.js"
+    "src/**/*.ts",
+    "eslint.config.js",
+    "**/*.d.ts"
   ],
   "exclude": [
     "node_modules",

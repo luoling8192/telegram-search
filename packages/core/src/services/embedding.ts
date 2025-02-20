@@ -26,8 +26,8 @@ export class EmbeddingService {
 
   constructor() {
     this.openai = createOpenAI({
-      apiKey: this.config.openaiApiKey,
-      baseURL: this.config.openaiApiBase || 'https://api.openai.com/v1',
+      apiKey: this.config.api.openai.apiKey,
+      baseURL: this.config.api.openai.apiBase || 'https://api.openai.com/v1',
     })
   }
 

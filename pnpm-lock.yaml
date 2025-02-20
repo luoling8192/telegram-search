@@ -76,9 +76,6 @@ importers:
       '@types/node':
         specifier: ^22.13.4
         version: 22.13.4
-      dotenv:
-        specifier: ^16.4.7
-        version: 16.4.7
       tsx:
         specifier: ^4.19.2
         version: 4.19.2
@@ -88,22 +85,28 @@ importers:
       '@guiiai/logg':
         specifier: ^1.0.7
         version: 1.0.7
-      dotenv:
-        specifier: ^16.4.7
-        version: 16.4.7
       drizzle-orm:
         specifier: ^0.39.3
         version: 0.39.3(@types/pg@8.11.11)(pg@8.13.3)(postgres@3.4.5)
+      lodash:
+        specifier: ^4.17.21
+        version: 4.17.21
       postgres:
         specifier: ^3.4.5
         version: 3.4.5
       superjson:
         specifier: ^2.2.2
         version: 2.2.2
+      yaml:
+        specifier: ^2.7.0
+        version: 2.7.0
       zod:
         specifier: ^3.24.2
         version: 3.24.2
     devDependencies:
+      '@types/lodash':
+        specifier: ^4.17.15
+        version: 4.17.15
       '@types/node':
         specifier: ^22.13.4
         version: 22.13.4
@@ -128,15 +131,15 @@ importers:
       '@xsai/providers':
         specifier: 0.1.0-beta.5
         version: 0.1.0-beta.5
-      dotenv:
-        specifier: ^16.4.7
-        version: 16.4.7
       drizzle-orm:
         specifier: ^0.39.3
         version: 0.39.3(@types/pg@8.11.11)(pg@8.13.3)(postgres@3.4.5)
       grammy:
         specifier: ^1.35.0
         version: 1.35.0
+      lodash:
+        specifier: ^4.17.21
+        version: 4.17.21
       postgres:
         specifier: ^3.4.5
         version: 3.4.5
@@ -146,10 +149,16 @@ importers:
       tiktoken:
         specifier: ^1.0.20
         version: 1.0.20
+      yaml:
+        specifier: ^2.7.0
+        version: 2.7.0
       zod:
         specifier: ^3.24.2
         version: 3.24.2
     devDependencies:
+      '@types/lodash':
+        specifier: ^4.17.15
+        version: 4.17.15
       '@types/node':
         specifier: ^22.13.4
         version: 22.13.4
@@ -190,9 +199,6 @@ importers:
       '@types/pg':
         specifier: ^8.11.11
         version: 8.11.11
-      dotenv:
-        specifier: ^16.4.7
-        version: 16.4.7
       tsx:
         specifier: ^4.19.2
         version: 4.19.2
@@ -1852,6 +1858,9 @@ packages:
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
+  '@types/lodash@4.17.15':
+    resolution: {integrity: sha512-w/P33JFeySuhN6JLkysYUK2gEmy9kHHFN7E8ro0tkfmlDOgxBDzWEZ/J8cWA+fHqFevpswDTFZnDx+R9lbL6xw==}
+
   '@types/mdast@4.0.4':
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
 
@@ -2806,10 +2815,6 @@ packages:
 
   domutils@3.2.2:
     resolution: {integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==}
-
-  dotenv@16.4.7:
-    resolution: {integrity: sha512-47qPchRCykZC03FhkYAhrvwU4xDBFIj1QPqaarj6mdM/hgUzfPHcpkHJOn3mJAufFeeAxAzeGsr5X0M4k6fLZQ==}
-    engines: {node: '>=12'}
 
   drizzle-kit@0.30.4:
     resolution: {integrity: sha512-B2oJN5UkvwwNHscPWXDG5KqAixu7AUzZ3qbe++KU9SsQ+cZWR4DXEPYcvWplyFAno0dhRJECNEhNxiDmFaPGyQ==}
@@ -6487,6 +6492,8 @@ snapshots:
 
   '@types/json-schema@7.0.15': {}
 
+  '@types/lodash@4.17.15': {}
+
   '@types/mdast@4.0.4':
     dependencies:
       '@types/unist': 3.0.3
@@ -7676,8 +7683,6 @@ snapshots:
       dom-serializer: 2.0.0
       domelementtype: 2.3.0
       domhandler: 5.0.3
-
-  dotenv@16.4.7: {}
 
   drizzle-kit@0.30.4:
     dependencies:

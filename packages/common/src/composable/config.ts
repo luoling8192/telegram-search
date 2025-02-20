@@ -1,96 +1,159 @@
+import type { Config } from '../types/config'
+
+import * as fs from 'node:fs'
 import * as os from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
+import { merge } from 'lodash'
+import * as yaml from 'yaml'
 
-import { loadEnv } from '../helper/env'
 import { useLogger } from '../helper/logger'
+import { findConfigDir, resolveHomeDir } from '../helper/path'
 
-interface Config {
-  botToken: string
-  databaseUrl: string
-  apiId: string
-  apiHash: string
-  phoneNumber: string
-  openaiApiKey: string
-  openaiApiBase?: string
-  sessionPath: string
-  mediaPath: string
-  // Batch size for message export notification
-  messageBatchSize: number
-}
+/**
+ * Default configuration with detailed comments
+ */
+const DEFAULT_CONFIG = {
+  // Database settings
+  database: {
+    // Default database connection settings
+    host: 'localhost',
+    port: 5432,
+    user: 'postgres',
+    password: 'postgres',
+    database: 'tg_search',
+  },
+
+  // Message settings
+  message: {
+    // Export settings
+    export: {
+      // Number of messages to fetch in each request
+      batchSize: 200,
+      // Number of concurrent requests
+      concurrent: 3,
+      // Number of retry attempts
+      retryTimes: 3,
+    },
+    // Database batch settings
+    batch: {
+      // Number of messages to save in each batch
+      size: 100,
+    },
+  },
+
+  // Path settings
+  path: {
+    // Session storage path
+    session: join(os.homedir(), '.telegram-search/session'),
+    // Media storage path
+    media: join(os.homedir(), '.telegram-search/media'),
+  },
+
+  // API settings
+  api: {
+    // Telegram API settings
+    telegram: {
+      // These values should be provided in config.yaml
+      apiId: '',
+      apiHash: '',
+      phoneNumber: '',
+      botToken: '',
+    },
+    // OpenAI API settings
+    openai: {
+      // API key should be provided in config.yaml
+      apiKey: '',
+      // Optional API base URL
+      apiBase: 'https://api.openai.com/v1',
+    },
+  },
+} as const satisfies Config
 
 let config: Config | null = null
 
 /**
- * Resolve home directory in path
+ * Load YAML configuration file
  */
-function resolveHomeDir(dir: string): string {
-  if (dir.startsWith('~/')) {
-    return join(os.homedir(), dir.slice(2))
+function loadYamlConfig(configPath: string): Partial<Config> {
+  try {
+    const content = fs.readFileSync(configPath, 'utf-8')
+    return yaml.parse(content)
   }
-  return dir
+  catch {
+    const logger = useLogger('config')
+    logger.debug(`Failed to load config file: ${configPath}`)
+    return {}
+  }
 }
 
 /**
- * Construct database URL from separate fields
+ * Validate required configuration fields
  */
-function constructDatabaseUrl({
-  host,
-  port,
-  user,
-  password,
-  database,
-}: {
-  host: string
-  port: string | number
-  user: string
-  password: string
-  database: string
-}): string {
-  return `postgres://${user}:${password}@${host}:${port}/${database}`
+function validateConfig(config: Config) {
+  const required = [
+    'api.telegram.apiId',
+    'api.telegram.apiHash',
+    'api.telegram.phoneNumber',
+    'api.telegram.botToken',
+    'api.openai.apiKey',
+  ] as const
+
+  for (const path of required) {
+    const value = path.split('.').reduce((obj, key) => obj?.[key], config as any)
+    if (!value) {
+      throw new Error(`Missing required configuration: ${path}`)
+    }
+  }
 }
 
 export function initConfig() {
   const logger = useLogger('config')
 
-  // Load environment variables
-  loadEnv({
-    required: ['BOT_TOKEN', 'API_ID', 'API_HASH', 'PHONE_NUMBER', 'OPENAI_API_KEY'],
-    throwIfMissing: true,
-  })
+  try {
+    // Find config directory
+    const configDir = process.env.CONFIG_DIR || findConfigDir()
+    logger.debug(`Using config directory: ${configDir}`)
 
-  // Get database URL from separate fields if not provided
-  let databaseUrl = process.env.DATABASE_URL
-  if (!databaseUrl) {
-    databaseUrl = constructDatabaseUrl({
-      host: process.env.DB_HOST || 'localhost',
-      port: process.env.DB_PORT || 5432,
-      user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres',
-      database: process.env.DB_NAME || 'tg_search',
-    })
+    // Load environment-specific config first (if exists)
+    const envConfig = process.env.NODE_ENV
+      ? loadYamlConfig(join(configDir, `config.${process.env.NODE_ENV}.yaml`))
+      : {}
+
+    // Load main config
+    const mainConfig = loadYamlConfig(join(configDir, 'config.yaml'))
+    if (Object.keys(mainConfig).length === 0) {
+      throw new Error('Main configuration file (config.yaml) not found or empty')
+    }
+
+    // Merge configurations with type assertion
+    const mergedConfig = merge({}, DEFAULT_CONFIG, envConfig, mainConfig) as Config
+
+    // Resolve paths
+    mergedConfig.path.session = resolveHomeDir(mergedConfig.path.session)
+    mergedConfig.path.media = resolveHomeDir(mergedConfig.path.media)
+
+    // Construct database URL if not provided
+    if (!mergedConfig.database.url) {
+      const { host, port, user, password, database } = mergedConfig.database
+      mergedConfig.database.url = `postgres://${user}:${password}@${host}:${port}/${database}`
+    }
+
+    // Log merged config
+    logger.withFields({ mergedConfig: JSON.stringify(mergedConfig, null, 2) }).debug('Config initialized successfully')
+
+    // Validate configuration
+    validateConfig(mergedConfig)
+
+    // Set global config
+    config = mergedConfig
+
+    logger.debug('Config initialized successfully')
   }
-
-  // Get session and media paths with home directory resolution
-  const defaultDir = join(os.homedir(), '.telegram-search')
-  const sessionPath = resolveHomeDir(process.env.SESSION_PATH || join(defaultDir, 'session'))
-  const mediaPath = resolveHomeDir(process.env.MEDIA_PATH || join(defaultDir, 'media'))
-
-  config = {
-    botToken: process.env.BOT_TOKEN!,
-    databaseUrl,
-    apiId: process.env.API_ID!,
-    apiHash: process.env.API_HASH!,
-    phoneNumber: process.env.PHONE_NUMBER!,
-    openaiApiKey: process.env.OPENAI_API_KEY!,
-    openaiApiBase: process.env.OPENAI_API_BASE,
-    sessionPath,
-    mediaPath,
-    // Default to 100 messages per batch
-    messageBatchSize: Number(process.env.MESSAGE_BATCH_SIZE) || 100,
+  catch (error) {
+    logger.withError(error).error('Failed to initialize config')
+    throw error
   }
-
-  logger.withFields({ config }).debug('Config initialized')
 }
 
 export function getConfig(): Config {
