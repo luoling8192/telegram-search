@@ -14,9 +14,12 @@ export interface TelegramChat {
   id: number
   type: 'user' | 'group' | 'channel' | 'saved'
   title: string
-  folderId?: number // 会话所属的文件夹 ID
+  uuid?: string
+  lastMessage?: string | null
+  lastMessageDate?: Date | null
   lastSyncTime?: Date
   messageCount?: number
+  folderId: number | null
 }
 
 /**
@@ -29,11 +32,43 @@ export interface TelegramMessage {
   content?: string
   createdAt: Date
   fromId?: number
+  fromName?: string
+  fromAvatar?: {
+    type: 'photo' | 'emoji'
+    value: string
+    color?: string
+  }
   replyToId?: number
   forwardFromChatId?: number
+  forwardFromChatName?: string
   forwardFromMessageId?: number
   views?: number
   forwards?: number
+  links?: string[]
+  mediaInfo?: {
+    type: string
+    fileName?: string
+    fileSize?: number
+    width?: number
+    height?: number
+    duration?: number
+    thumbnail?: {
+      url: string
+      width: number
+      height: number
+    }
+  }
+}
+
+/**
+ * Options for getting messages
+ */
+export interface GetMessagesOptions {
+  limit?: number
+  skipMedia?: boolean
+  startTime?: Date
+  endTime?: Date
+  messageTypes?: Array<'text' | 'photo' | 'video' | 'document' | 'sticker' | 'other'>
 }
 
 /**
@@ -57,4 +92,10 @@ export interface TelegramAdapter {
     }>
   }>
   onMessage: (callback: (message: TelegramMessage) => void) => void
+  /**
+   * Get messages from chat
+   * @param chatId - Chat ID
+   * @param options - Options for getting messages
+   */
+  getMessages: (chatId: number, options?: GetMessagesOptions) => AsyncGenerator<TelegramMessage>
 }

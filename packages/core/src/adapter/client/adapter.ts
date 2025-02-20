@@ -112,46 +112,58 @@ export class ClientAdapter implements ITelegramClientAdapter {
     let hasMore = true
     let processedCount = 0
 
-    while (hasMore) {
-      // Get a batch of messages
-      const messages = await this.client.getMessages(chatId, {
-        limit, // Get 100 messages at a time
-        offsetId, // Start from the last message of previous batch
-        minId: 0, // Start from earliest message
-      })
+    try {
+      // Get entity first and cache it
+      const entity = await this.client.getInputEntity(chatId)
+      if (!entity) {
+        throw new Error('Chat not found')
+      }
 
-      // If we got fewer messages than requested, there are no more
-      hasMore = messages.length === limit
+      while (hasMore) {
+        // Get a batch of messages
+        const messages = await this.client.getMessages(entity, {
+          limit, // Get 100 messages at a time
+          offsetId, // Start from the last message of previous batch
+          minId: 0, // Start from earliest message
+        })
 
-      for (const message of messages) {
-        // Check time range
-        const messageTime = new Date(message.date * 1000)
-        if (options?.startTime && messageTime < options.startTime) {
-          continue
-        }
-        if (options?.endTime && messageTime > options.endTime) {
-          continue
-        }
+        // If we got fewer messages than requested, there are no more
+        hasMore = messages.length === limit
 
-        // If it's a media message, only get basic info without downloading files
-        const converted = await this.messageConverter.convertMessage(message, options?.skipMedia)
+        for (const message of messages) {
+          // Check time range
+          const messageTime = new Date(message.date * 1000)
+          if (options?.startTime && messageTime < options.startTime) {
+            continue
+          }
+          if (options?.endTime && messageTime > options.endTime) {
+            continue
+          }
 
-        // Check message type
-        if (options?.messageTypes && !options.messageTypes.includes(converted.type)) {
-          continue
-        }
+          // If it's a media message, only get basic info without downloading files
+          const converted = await this.messageConverter.convertMessage(message, options?.skipMedia)
 
-        yield converted
-        processedCount++
+          // Check message type
+          if (options?.messageTypes && !options.messageTypes.includes(converted.type)) {
+            continue
+          }
 
-        // Update offsetId to current message ID
-        offsetId = message.id
+          yield converted
+          processedCount++
 
-        // Check if we've reached the limit
-        if (options?.limit && processedCount >= options.limit) {
-          return
+          // Update offsetId to current message ID
+          offsetId = message.id
+
+          // Check if we've reached the limit
+          if (options?.limit && processedCount >= options.limit) {
+            return
+          }
         }
       }
+    }
+    catch (error) {
+      this.logger.withError(error).error('获取消息失败')
+      throw error
     }
   }
 

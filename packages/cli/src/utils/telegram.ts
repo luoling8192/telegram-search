@@ -40,7 +40,7 @@ export class TelegramUtils {
   /**
    * Search and select a chat from available chats
    */
-  static async selectChat(client: TelegramAdapter): Promise<SelectedChat> {
+  static async selectChat(client: TelegramAdapter): Promise<TelegramChat> {
     const [chats, folders] = await Promise.all([
       getAllChats(),
       getAllFolders(),
@@ -54,129 +54,151 @@ export class TelegramUtils {
       return telegramChats[0]
     }
 
-    // Ask user to choose selection method
-    const method = await input.select({
-      message: '请选择会话选择方式：',
-      choices: [
-        { name: '按类型选择', value: 'type' },
-        { name: '按文件夹选择', value: 'folder' },
-        { name: '搜索会话', value: 'search' },
-      ],
-    })
-
-    if (method === 'type') {
-      // Group chats by type
-      const { users, groups, channels, saved } = groupChats(chats)
-
-      // Show grouped chats for selection
-      const chatId = await input.select({
-        message: '请选择会话：',
+    while (true) {
+      // Ask user to choose selection method
+      const method = await input.select({
+        message: '请选择会话选择方式：',
         choices: [
-          // Users
-          { name: '👤 用户', value: -1, disabled: true },
-          ...users.map(chat => ({
-            name: `  ${formatChatName(chat)}`,
-            value: chat.id,
-          })),
-          // Groups
-          { name: '👥 群组', value: -2, disabled: true },
-          ...groups.map(chat => ({
-            name: `  ${formatChatName(chat)}`,
-            value: chat.id,
-          })),
-          // Channels
-          { name: '📢 频道', value: -3, disabled: true },
-          ...channels.map(chat => ({
-            name: `  ${formatChatName(chat)}`,
-            value: chat.id,
-          })),
-          // Saved
-          ...(saved.length > 0
-            ? [
-                { name: '📌 收藏夹', value: -4, disabled: true },
-                ...saved.map(chat => ({
-                  name: `  ${formatChatName(chat)}`,
-                  value: chat.id,
-                })),
-              ]
-            : []),
+          { name: '按类型选择', value: 'type' },
+          { name: '按文件夹选择', value: 'folder' },
+          { name: '搜索会话', value: 'search' },
         ],
       })
 
-      const chat = chats.find(c => c.id === chatId)
-      if (!chat)
-        throw new Error('会话未找到')
-      return chat
-    }
+      if (method === 'type') {
+        // Group chats by type
+        const { users, groups, channels, saved } = groupChats(chats.map(chat => ({
+          ...chat,
+          folderId: chat.folderId === null ? undefined : chat.folderId,
+        })))
 
-    if (method === 'folder') {
-      // First select folder
-      const folderId = await input.select({
-        message: '请选择文件夹：',
-        choices: folders.map(folder => ({
-          name: `${folder.emoji || ''} ${folder.title}`,
-          value: folder.id,
-        })),
+        // Show grouped chats for selection
+        const chatId = await input.select({
+          message: '请选择会话：',
+          choices: [
+            // Users
+            { name: '👤 用户', value: -1, disabled: true },
+            ...users.map(chat => ({
+              name: `  ${formatChatName(chat)}`,
+              value: chat.id,
+            })),
+            // Groups
+            { name: '👥 群组', value: -2, disabled: true },
+            ...groups.map(chat => ({
+              name: `  ${formatChatName(chat)}`,
+              value: chat.id,
+            })),
+            // Channels
+            { name: '📢 频道', value: -3, disabled: true },
+            ...channels.map(chat => ({
+              name: `  ${formatChatName(chat)}`,
+              value: chat.id,
+            })),
+            // Saved
+            ...(saved.length > 0
+              ? [
+                  { name: '📌 收藏夹', value: -4, disabled: true },
+                  ...saved.map(chat => ({
+                    name: `  ${formatChatName(chat)}`,
+                    value: chat.id,
+                  })),
+                ]
+              : []),
+          ],
+        })
+
+        const chat = chats.find(c => c.id === chatId)
+        if (!chat)
+          throw new Error('会话未找到')
+        return {
+          ...chat,
+          folderId: chat.folderId === null ? undefined : chat.folderId,
+        }
+      }
+
+      if (method === 'folder') {
+        // First select folder
+        const folderId = await input.select({
+          message: '请选择文件夹：',
+          choices: folders.map(folder => ({
+            name: `${folder.emoji || ''} ${folder.title}`,
+            value: folder.id,
+          })),
+        })
+
+        // Then select chat from folder
+        const folderChats = chats.filter(chat => chat.folderId === folderId)
+        if (folderChats.length === 0) {
+          console.log('该文件夹中没有会话，请重新选择')
+          continue
+        }
+
+        const chatId = await input.select({
+          message: '请选择会话：',
+          choices: folderChats.map(chat => ({
+            name: `[${chat.type}] ${formatChatName(chat)}`,
+            value: chat.id,
+          })),
+        })
+
+        const chat = folderChats.find(c => c.id === chatId)
+        if (!chat)
+          throw new Error('会话未找到')
+        return {
+          ...chat,
+          folderId: chat.folderId === null ? undefined : chat.folderId,
+        }
+      }
+
+      // Search mode
+      const searchQuery = await input.input({
+        message: '请输入会话名称关键词：',
       })
 
-      // Then select chat from folder
-      const folderChats = chats.filter(chat => chat.folderId === folderId)
-      if (folderChats.length === 0)
-        throw new Error('文件夹中没有会话')
+      // Filter chats by search query
+      const filteredChats = chats.filter(chat =>
+        chat.title.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
 
+      if (filteredChats.length === 0) {
+        console.log('未找到匹配的会话，请重新选择')
+        continue
+      }
+
+      // If only one chat found, ask for confirmation
+      if (filteredChats.length === 1) {
+        const confirmed = await input.confirm({
+          message: `找到会话"${filteredChats[0].title}"，是否使用？`,
+          default: true,
+        })
+        if (!confirmed) {
+          console.log('已取消选择，请重新选择')
+          continue
+        }
+        return {
+          ...filteredChats[0],
+          folderId: filteredChats[0].folderId === null ? undefined : filteredChats[0].folderId,
+        }
+      }
+
+      // If multiple chats found, let user select
       const chatId = await input.select({
-        message: '请选择会话：',
-        choices: folderChats.map(chat => ({
+        message: `找到 ${filteredChats.length} 个会话，请选择：`,
+        choices: filteredChats.map(chat => ({
           name: `[${chat.type}] ${formatChatName(chat)}`,
           value: chat.id,
         })),
       })
 
-      const chat = folderChats.find(c => c.id === chatId)
+      const chat = filteredChats.find(c => c.id === chatId)
       if (!chat)
         throw new Error('会话未找到')
-      return chat
+
+      return {
+        ...chat,
+        folderId: chat.folderId === null ? undefined : chat.folderId,
+      }
     }
-
-    // Search mode
-    const searchQuery = await input.input({
-      message: '请输入会话名称关键词：',
-    })
-
-    // Filter chats by search query
-    const filteredChats = chats.filter(chat =>
-      chat.title.toLowerCase().includes(searchQuery.toLowerCase()),
-    )
-
-    if (filteredChats.length === 0) {
-      throw new Error('未找到匹配的会话')
-    }
-
-    // If only one chat found, ask for confirmation
-    if (filteredChats.length === 1) {
-      const confirmed = await input.confirm({
-        message: `找到会话"${filteredChats[0].title}"，是否使用？`,
-        default: true,
-      })
-      if (!confirmed)
-        throw new Error('用户取消选择')
-      return filteredChats[0]
-    }
-
-    // If multiple chats found, let user select
-    const chatId = await input.select({
-      message: `找到 ${filteredChats.length} 个会话，请选择：`,
-      choices: filteredChats.map(chat => ({
-        name: `[${chat.type}] ${formatChatName(chat)}`,
-        value: chat.id,
-      })),
-    })
-
-    const chat = filteredChats.find(c => c.id === chatId)
-    if (!chat)
-      throw new Error('会话未找到')
-
-    return chat
   }
 
   /**

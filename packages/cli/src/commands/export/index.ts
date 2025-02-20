@@ -1,9 +1,11 @@
 import type { ExportOptions } from './types'
+import type { TelegramAdapter } from '../../types/telegram'
 
 import { mkdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
+import { findMessagesByChatId, getAllChats } from '@tg-search/db'
 
 import { createLoggingMiddleware } from '../../middleware/logging'
 import { CommandError, TelegramCommand } from '../../types/command'
@@ -84,10 +86,14 @@ export class ExportCommand extends TelegramCommand<ExportOptions> {
       })
 
       // Export messages
-      const messages = await exportMessages(targetChatId)
+      const exportedMessages = await exportMessages(targetChatId, this.getClient() as unknown as TelegramAdapter)
+      if (exportedMessages.length === 0) {
+        logger.log('没有可导出的消息')
+        return
+      }
 
       if (exportFormat === 'db') {
-        logger.log(`已导出 ${messages.length} 条消息到数据库`)
+        logger.log(`已导出 ${exportedMessages.length} 条消息到数据库`)
         return
       }
 
@@ -103,11 +109,11 @@ export class ExportCommand extends TelegramCommand<ExportOptions> {
       // Generate output file
       const outputFile = join(outputDir, `messages.${exportFormat}`)
       if (exportFormat === 'html')
-        await exportToHtml(messages, outputFile)
+        await exportToHtml(exportedMessages, outputFile)
       else
-        await exportToJson(messages, outputFile)
+        await exportToJson(exportedMessages, outputFile)
 
-      logger.log(`已导出 ${messages.length} 条消息到 ${outputFile}`)
+      logger.log(`已导出 ${exportedMessages.length} 条消息到 ${outputFile}`)
 
       // TODO: Handle media files
       if (includeMedia) {

@@ -206,28 +206,37 @@ export async function findMessagesByChatId(chatId: number, options?: {
   limit?: number
   offset?: number
 }) {
-  const contentTable = createMessageContentTable(chatId)
-  const query = useDB()
-    .select()
-    .from(contentTable)
-    .orderBy(sql`${contentTable.createdAt} DESC`)
+  try {
+    // Create partition table if not exists
+    await useDB().execute(createChatPartition(chatId))
 
-  // Get total count first
-  const [{ count }] = await useDB()
-    .select({ count: sql<number>`count(*)` })
-    .from(contentTable)
+    const contentTable = createMessageContentTable(chatId)
+    const query = useDB()
+      .select()
+      .from(contentTable)
+      .orderBy(sql`${contentTable.createdAt} DESC`)
 
-  // Apply pagination if options provided
-  if (options?.limit)
-    query.limit(options.limit)
-  if (options?.offset)
-    query.offset(options.offset)
+    // Get total count first
+    const [{ count }] = await useDB()
+      .select({ count: sql<number>`count(*)` })
+      .from(contentTable)
 
-  const messages = await query
+    // Apply pagination if options provided
+    if (options?.limit)
+      query.limit(options.limit)
+    if (options?.offset)
+      query.offset(options.offset)
 
-  return {
-    items: messages,
-    total: Number(count),
+    const messages = await query
+
+    return {
+      items: messages,
+      total: Number(count),
+    }
+  }
+  catch (error) {
+    logger.withError(error).error('查询消息失败')
+    throw error
   }
 }
 
