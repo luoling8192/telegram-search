@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Toaster } from 'vue-sonner'
-import { isDark } from './composables/dark'
 import DefaultLayout from './layouts/default.vue'
 </script>
 
