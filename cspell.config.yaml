@@ -11,6 +11,7 @@ words:
   - ofetch
   - onnotice
   - pgvector
+  - sonner
   - taze
   - tiktoken
   - trpc
