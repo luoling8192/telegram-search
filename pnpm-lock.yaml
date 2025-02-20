@@ -134,6 +134,9 @@ importers:
       '@xsai/providers':
         specifier: 0.1.0-beta.5
         version: 0.1.0-beta.5
+      big-integer:
+        specifier: ^1.6.52
+        version: 1.6.52
       drizzle-orm:
         specifier: ^0.39.3
         version: 0.39.3(@types/pg@8.11.11)(pg@8.13.3)(postgres@3.4.5)

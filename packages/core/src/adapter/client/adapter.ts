@@ -3,6 +3,8 @@ import type { ConnectOptions, DialogsResult, Folder, ITelegramClientAdapter, Mes
 
 import { getConfig, useLogger } from '@tg-search/common'
 import { TelegramClient } from 'telegram'
+import { Api } from 'telegram/tl'
+import bigInt from 'big-integer'
 
 import { MediaService } from '../../services/media'
 import { DialogManager } from './dialog-manager'
@@ -31,6 +33,7 @@ export class ClientAdapter implements ITelegramClientAdapter {
   private folderManager: FolderManager
   private logger = useLogger()
   private config: ClientAdapterConfig
+  private takeoutSession?: Api.account.Takeout
 
   constructor(config: ClientAdapterConfig) {
     this.config = {
@@ -116,23 +119,242 @@ export class ClientAdapter implements ITelegramClientAdapter {
     return this.dialogManager.getDialogs(offset, limit)
   }
 
-  async *getMessages(chatId: number, limit = 100, options?: MessageOptions): AsyncGenerator<TelegramMessage> {
+  /**
+   * Initialize takeout session for data export
+   * @returns Takeout session ID
+   */
+  private async initTakeout(): Promise<Api.account.Takeout | null> {
+    if (this.takeoutSession) {
+      return this.takeoutSession
+    }
+
+    try {
+      // Create new takeout session
+      this.takeoutSession = await this.client.invoke(new Api.account.InitTakeoutSession({
+        contacts: true,
+        messageUsers: true,
+        messageChats: true,
+        messageMegagroups: true,
+        messageChannels: true,
+        files: true,
+        fileMaxSize: bigInt(1024 * 1024 * 1024), // 1GB
+      }))
+
+      return this.takeoutSession
+    }
+    catch (error: any) {
+      // Check if we need to wait
+      if (error?.message?.includes('TAKEOUT_INIT_DELAY')) {
+        this.logger.warn('Takeout session not available, using normal message fetch')
+        return null
+      }
+      throw error
+    }
+  }
+
+  /**
+   * Finish takeout session
+   */
+  private async finishTakeout(): Promise<void> {
+    if (!this.takeoutSession) {
+      return
+    }
+
+    const maxRetries = 3
+    let retryCount = 0
+    let lastError: Error | null = null
+
+    while (retryCount < maxRetries) {
+      try {
+        await this.client.invoke(new Api.account.FinishTakeoutSession({
+          success: true,
+        }))
+        this.takeoutSession = undefined
+        return
+      } catch (error: any) {
+        lastError = error
+        // Check if we need to wait for takeout
+        if (error?.message?.includes('TAKEOUT_REQUIRED')) {
+          this.logger.warn('等待 takeout 会话完成...')
+          // Wait for 30 seconds before retrying
+          await new Promise(resolve => setTimeout(resolve, 30 * 1000))
+          retryCount++
+          continue
+        }
+        // For other errors, throw immediately
+        throw error
+      }
+    }
+
+    // If we've exhausted all retries, throw the last error
+    if (lastError) {
+      this.logger.error(`结束 takeout 会话失败，已重试 ${maxRetries} 次`)
+      throw lastError
+    }
+  }
+
+  /**
+   * Convert raw message to custom message type
+   * @param message Raw message from Telegram API
+   * @returns Custom message type
+   */
+  private convertToCustomMessage(message: any): Api.Message {
+    // Basic message properties
+    const baseProps = {
+      id: message.id,
+      date: message.date,
+      message: message.message || '',
+    }
+
+    // Boolean flags with default false
+    const booleanFlags = [
+      'out', 'mentioned', 'mediaUnread', 'silent', 'post',
+      'fromScheduled', 'legacy', 'editHide', 'pinned', 'noforwards',
+    ].reduce((acc, key) => ({
+      ...acc,
+      [key]: message[key] || false,
+    }), {})
+
+    // Direct property mappings
+    const directProps = [
+      'peerId', 'fwdFrom', 'viaBotId', 'replyTo', 'media',
+      'replyMarkup', 'entities', 'views', 'forwards', 'replies',
+      'editDate', 'postAuthor', 'groupedId', 'reactions',
+      'restrictionReason', 'ttlPeriod',
+    ].reduce((acc, key) => ({
+      ...acc,
+      [key]: message[key],
+    }), {})
+
+    return new Api.Message({
+      ...baseProps,
+      ...booleanFlags,
+      ...directProps,
+    })
+  }
+
+  /**
+   * Get messages using takeout API
+   */
+  private async *takeoutMessages(
+    chatId: number,
+    limit: number,
+    options?: MessageOptions,
+  ): AsyncGenerator<TelegramMessage> {
+    let offsetId = 0
+    let hasMore = true
+    let processedCount = 0
+
+    try {
+      // Initialize takeout session
+      const takeoutSession = await this.initTakeout()
+      if (!takeoutSession) {
+        throw new Error('TAKEOUT_NOT_AVAILABLE')
+      }
+
+      while (hasMore) {
+        // Get messages using takeout
+        const query = new Api.messages.GetHistory({
+          peer: await this.client.getInputEntity(chatId),
+          offsetId,
+          addOffset: 0,
+          limit,
+          maxId: 0,
+          minId: 0,
+          hash: bigInt(0),
+        })
+
+        const result = await this.client.invoke(
+          new Api.InvokeWithTakeout({
+            takeoutId: takeoutSession.id,
+            query,
+          })
+        ) as Api.messages.MessagesSlice | Api.messages.Messages | Api.messages.ChannelMessages
+
+        // Check if we have messages
+        if (!('messages' in result)) {
+          break
+        }
+
+        const messages = result.messages as Api.Message[]
+
+        // If we got fewer messages than requested, there are no more
+        hasMore = messages.length === limit
+
+        for (const message of messages) {
+          // Skip empty messages
+          if (message instanceof Api.MessageEmpty) {
+            continue
+          }
+
+          // Check time range
+          const messageTime = new Date(message.date * 1000)
+          if (options?.startTime && messageTime < options.startTime) {
+            continue
+          }
+          if (options?.endTime && messageTime > options.endTime) {
+            continue
+          }
+
+          // Convert message to custom message type
+          const customMessage = this.convertToCustomMessage(message)
+
+          // If it's a media message, only get basic info without downloading files
+          const converted = await this.messageConverter.convertMessage(customMessage, options?.skipMedia)
+
+          // Check message type
+          if (options?.messageTypes && !options.messageTypes.includes(converted.type)) {
+            continue
+          }
+
+          yield converted
+          processedCount++
+
+          // Update offsetId to current message ID
+          offsetId = message.id
+
+          // Check if we've reached the limit
+          if (options?.limit && processedCount >= options.limit) {
+            return
+          }
+        }
+      }
+    }
+    finally {
+      // Always finish takeout session
+      await this.finishTakeout()
+    }
+  }
+
+  /**
+   * Get messages using normal API
+   */
+  private async *getNormalMessages(
+    chatId: number,
+    limit?: number,
+    options?: MessageOptions,
+  ): AsyncGenerator<TelegramMessage> {
     let offsetId = 0
     let hasMore = true
     let processedCount = 0
 
     while (hasMore) {
-      // Get a batch of messages
+      // Get messages using normal API
       const messages = await this.client.getMessages(chatId, {
-        limit, // Get 100 messages at a time
-        offsetId, // Start from the last message of previous batch
-        minId: 0, // Start from earliest message
+        limit: limit || 100,
+        offsetId,
+        minId: 0,
       })
 
       // If we got fewer messages than requested, there are no more
-      hasMore = messages.length === limit
+      hasMore = messages.length === (limit || 100)
 
       for (const message of messages) {
+        // Skip empty messages
+        if (message instanceof Api.MessageEmpty) {
+          continue
+        }
+
         // Check time range
         const messageTime = new Date(message.date * 1000)
         if (options?.startTime && messageTime < options.startTime) {
@@ -142,8 +364,16 @@ export class ClientAdapter implements ITelegramClientAdapter {
           continue
         }
 
+        // Convert message to custom message type
+        const customMessage = new Api.Message({
+          ...message,
+          id: message.id,
+          date: message.date,
+          message: message.message || '',
+        })
+
         // If it's a media message, only get basic info without downloading files
-        const converted = await this.messageConverter.convertMessage(message, options?.skipMedia)
+        const converted = await this.messageConverter.convertMessage(customMessage, options?.skipMedia)
 
         // Check message type
         if (options?.messageTypes && !options.messageTypes.includes(converted.type)) {
@@ -160,6 +390,23 @@ export class ClientAdapter implements ITelegramClientAdapter {
         if (options?.limit && processedCount >= options.limit) {
           return
         }
+      }
+    }
+  }
+
+  async *getMessages(chatId: number, limit = 100, options?: MessageOptions): AsyncGenerator<TelegramMessage> {
+    try {
+      // Try to use takeout first
+      yield* this.takeoutMessages(chatId, limit, options)
+    }
+    catch (error: any) {
+      // If takeout is not available, fallback to normal API
+      if (error.message === 'TAKEOUT_NOT_AVAILABLE' || error.message?.includes('TAKEOUT_INIT_DELAY')) {
+        this.logger.warn('Takeout session not available, using normal message fetch')
+        yield* this.getNormalMessages(chatId, limit, options)
+      }
+      else {
+        throw error
       }
     }
   }

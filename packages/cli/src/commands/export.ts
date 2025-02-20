@@ -181,44 +181,112 @@ export class ExportCommand extends TelegramCommand {
     logger.log('正在导出消息...')
     let count = 0
     let failedCount = 0
-    const messages = []
+    const messages: TelegramMessage[] = []
 
-    // Export messages
-    for await (const message of this.getClient().getMessages(Number(chatId), undefined, {
-      skipMedia: !messageTypes.includes('photo') && !messageTypes.includes('document') && !messageTypes.includes('video') && !messageTypes.includes('sticker'),
-      startTime,
-      endTime,
-      limit: Number(limit) || undefined,
-      messageTypes,
-    })) {
-      messages.push(message)
-      count++
-      if (count % Number(batchSize) === 0) {
-        logger.debug(`已处理 ${count} 条消息`)
+    /**
+     * Process messages in batch
+     */
+    async function processBatch(startIndex: number): Promise<void> {
+      if (format !== 'database') {
+        return
+      }
 
-        // Save current batch to database if format is database
-        if (format === 'database') {
-          const batch = messages.slice(count - Number(batchSize), count)
-          const messageInputs: TelegramMessage[] = batch.map((message: TelegramMessage) => ({
-            id: message.id,
-            chatId: message.chatId,
-            type: message.type,
-            content: message.content,
-            fromId: message.fromId,
-            fromName: message.fromName,
-            replyToId: message.replyToId,
-            forwardFromChatId: message.forwardFromChatId,
-            forwardFromChatName: message.forwardFromChatName,
-            forwardFromMessageId: message.forwardFromMessageId,
-            views: message.views,
-            forwards: message.forwards,
-            links: message.links || undefined,
-            metadata: message.metadata,
-            createdAt: message.createdAt,
-          }))
+      const batch = messages.slice(startIndex - Number(batchSize), startIndex)
+      const messageInputs: TelegramMessage[] = batch.map((message: TelegramMessage) => ({
+        id: message.id,
+        chatId: message.chatId,
+        type: message.type,
+        content: message.content,
+        fromId: message.fromId,
+        fromName: message.fromName,
+        replyToId: message.replyToId,
+        forwardFromChatId: message.forwardFromChatId,
+        forwardFromChatName: message.forwardFromChatName,
+        forwardFromMessageId: message.forwardFromMessageId,
+        views: message.views,
+        forwards: message.forwards,
+        links: message.links || undefined,
+        metadata: message.metadata,
+        createdAt: message.createdAt,
+      }))
 
-          const result = await processDatabaseBatch(messageInputs, count - Number(batchSize))
-          failedCount += result.failedCount
+      const result = await processDatabaseBatch(messageInputs, startIndex - Number(batchSize))
+      failedCount += result.failedCount
+    }
+
+    try {
+      // Try to export messages
+      for await (const message of this.getClient().getMessages(Number(chatId), undefined, {
+        skipMedia: !messageTypes.includes('photo') && !messageTypes.includes('document') && !messageTypes.includes('video') && !messageTypes.includes('sticker'),
+        startTime,
+        endTime,
+        limit: Number(limit) || undefined,
+        messageTypes,
+      })) {
+        messages.push(message)
+        count++
+
+        // Process batch if needed
+        if (count % Number(batchSize) === 0) {
+          logger.debug(`已处理 ${count} 条消息`)
+          await processBatch(count)
+        }
+      }
+    }
+    catch (error: any) {
+      // Check if we need to wait for takeout
+      if (error?.message?.includes('TAKEOUT_INIT_DELAY')) {
+        const waitSeconds = Number(error.message.match(/TAKEOUT_INIT_DELAY_(\d+)/)?.[1])
+        if (waitSeconds) {
+          const waitHours = Math.ceil(waitSeconds / 3600)
+          logger.warn(`需要等待 ${waitHours} 小时才能使用 takeout 导出，是否使用普通方式导出？`)
+          const useNormal = await input.confirm({
+            message: '是否继续？',
+            default: true,
+          })
+          if (!useNormal) {
+            throw error
+          }
+        }
+      }
+      else if (error?.message?.includes('FLOOD_WAIT')) {
+        const waitSeconds = Number(error.message.match(/FLOOD_WAIT_(\d+)/)?.[1])
+        if (waitSeconds) {
+          logger.warn(`需要等待 ${waitSeconds} 秒才能继续导出，是否等待？`)
+          const shouldWait = await input.confirm({
+            message: '是否等待？',
+            default: true,
+          })
+          if (!shouldWait) {
+            throw error
+          }
+          logger.log(`等待 ${waitSeconds} 秒...`)
+          await new Promise(resolve => setTimeout(resolve, waitSeconds * 1000))
+          logger.log('继续导出...')
+        }
+      }
+      else {
+        throw error
+      }
+
+      // Continue with remaining messages
+      const lastId = messages[messages.length - 1]?.id
+      for await (const message of this.getClient().getMessages(Number(chatId), undefined, {
+        skipMedia: !messageTypes.includes('photo') && !messageTypes.includes('document') && !messageTypes.includes('video') && !messageTypes.includes('sticker'),
+        startTime,
+        endTime,
+        limit: Number(limit) ? Number(limit) - count : undefined,
+        messageTypes,
+        // @ts-ignore offsetId is supported by the client
+        offsetId: lastId,
+      })) {
+        messages.push(message)
+        count++
+
+        // Process batch if needed
+        if (count % Number(batchSize) === 0) {
+          logger.debug(`已处理 ${count} 条消息`)
+          await processBatch(count)
         }
       }
     }
@@ -243,27 +311,7 @@ export class ExportCommand extends TelegramCommand {
         // Save remaining messages
         const remainingCount = count % Number(batchSize)
         if (remainingCount > 0) {
-          const batch = messages.slice(-remainingCount)
-          const messageInputs: TelegramMessage[] = batch.map((message: TelegramMessage) => ({
-            id: message.id,
-            chatId: message.chatId,
-            type: message.type,
-            content: message.content,
-            fromId: message.fromId,
-            fromName: message.fromName,
-            replyToId: message.replyToId,
-            forwardFromChatId: message.forwardFromChatId,
-            forwardFromChatName: message.forwardFromChatName,
-            forwardFromMessageId: message.forwardFromMessageId,
-            views: message.views,
-            forwards: message.forwards,
-            links: message.links || undefined,
-            metadata: message.metadata,
-            createdAt: message.createdAt,
-          }))
-
-          const result = await processDatabaseBatch(messageInputs, count - remainingCount)
-          failedCount += result.failedCount
+          await processBatch(count)
         }
 
         if (failedCount === 0) {
