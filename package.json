@@ -29,5 +29,9 @@
     "eslint-plugin-format": "^1.0.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
+  },
+  "resolutions": {
+    "unplugin": "^2.1.2",
+    "vite": "^6.0.7"
   }
 }

@@ -46,9 +46,5 @@
     "vite": "^6.0.7",
     "vitest": "^2.1.8",
     "vue-tsc": "^2.2.0"
-  },
-  "resolutions": {
-    "unplugin": "^2.1.2",
-    "vite": "^6.0.7"
   }
 }
