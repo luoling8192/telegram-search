@@ -15,14 +15,14 @@ async function main() {
   const __dirname = dirname(__filename)
 
   // Initialize config
-  initConfig()
+  const config = initConfig()
   initDB()
   logger.log('正在运行数据库迁移...')
 
   try {
     // Run Drizzle migrations
     logger.log('正在运行 Drizzle 迁移...')
-    const migrationClient = postgres(process.env.DATABASE_URL!, { max: 1 })
+    const migrationClient = postgres(config.database.url!, { max: 1 })
     const db = drizzle(migrationClient)
     await migrate(db, { migrationsFolder: './drizzle' })
     await migrationClient.end()

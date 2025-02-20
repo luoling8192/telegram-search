@@ -154,6 +154,8 @@ export function initConfig() {
     logger.withError(error).error('Failed to initialize config')
     throw error
   }
+
+  return config
 }
 
 export function getConfig(): Config {
