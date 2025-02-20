@@ -4,7 +4,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
-import { merge } from 'lodash'
+import { merge } from 'lodash-es'
 import * as yaml from 'yaml'
 
 import { useLogger } from '../helper/logger'
