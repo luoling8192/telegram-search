@@ -2,6 +2,7 @@ import type { SearchRequest, SearchResultItem } from '@tg-search/server/types'
 import type { ApiResponse } from '@tg-search/server/utils/response'
 
 import { ref } from 'vue'
+import { toast } from 'vue-sonner'
 
 // API base URL with fallback
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000'
@@ -179,6 +180,9 @@ export function useSearch() {
     searchProgress.value = []
     streamController.value = new AbortController()
 
+    // Show loading toast
+    const toastId = toast.loading('正在搜索...')
+
     try {
       await searchAPI({
         query: params?.query || query.value,
@@ -193,25 +197,42 @@ export function useSearch() {
         onPartial: (items, newTotal) => {
           results.value = items
           total.value = newTotal
+          // Update loading toast
+          toast.loading(`找到 ${newTotal} 条结果，继续搜索中...`, {
+            id: toastId,
+          })
         },
         onFinal: (items, newTotal) => {
           results.value = items
           total.value = newTotal
           isStreaming.value = false
+          // Show success toast
+          toast.success(`搜索完成，共找到 ${newTotal} 条结果`, {
+            id: toastId,
+          })
         },
         onError: (err) => {
           error.value = err
           isStreaming.value = false
+          // Show error toast
+          toast.error(`搜索失败: ${err.message}`, {
+            id: toastId,
+          })
         },
       })
     }
     catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         // 忽略取消的请求
+        toast.dismiss(toastId)
         return
       }
       error.value = err as Error
       console.error('Search failed:', err)
+      // Show error toast
+      toast.error(`搜索失败: ${err instanceof Error ? err.message : '未知错误'}`, {
+        id: toastId,
+      })
     }
     finally {
       isLoading.value = false
