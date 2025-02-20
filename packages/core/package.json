@@ -30,7 +30,6 @@
     "big-integer": "^1.6.52",
     "drizzle-orm": "^0.39.3",
     "grammy": "^1.35.0",
-    "lodash": "^4.17.21",
     "postgres": "^3.4.5",
     "telegram": "^2.26.22",
     "tiktoken": "^1.0.20",
@@ -38,7 +37,6 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@types/lodash": "^4.17.15",
     "@types/node": "^22.13.4",
     "unbuild": "^3.3.1",
     "vitest": "^3.0.5"

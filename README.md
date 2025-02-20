@@ -31,7 +31,7 @@
   - 完整的消息元数据（回复、转发、查看次数等）
   - 支持媒体文件本地存储
   - 支持消息统计和分析
- 
+
 ## 👀 预览
 
 <img src="https://github.com/user-attachments/assets/407a3980-e8fe-4aa6-a23c-81082d9f7b52" width="60%" />
@@ -59,6 +59,7 @@ cd telegram-search
 
 ```bash
 pnpm install
+pnpm run build
 ```
 
 3. 配置环境：
@@ -70,7 +71,7 @@ cp config/config.example.yaml config/config.yaml
 4. 初始化数据库：
 
 ```bash
-pnpm -F @tg-search/cli db:migrate
+pnpm run db:migrate
 ```
 
 ## 📖 使用指南
