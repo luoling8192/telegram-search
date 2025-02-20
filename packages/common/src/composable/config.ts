@@ -11,6 +11,14 @@ import { useLogger } from '../helper/logger'
 import { findConfigDir, resolveHomeDir } from '../helper/path'
 
 /**
+ * Get database connection string from config
+ */
+export function getDatabaseDSN(config: Config): string {
+  const { database } = config
+  return database.url || `postgres://${database.user}:${database.password}@${database.host}:${database.port}/${database.database}`
+}
+
+/**
  * Default configuration with detailed comments
  */
 const DEFAULT_CONFIG = {
@@ -108,6 +116,10 @@ function validateConfig(config: Config) {
 }
 
 export function initConfig() {
+  if (config) {
+    return
+  }
+
   const logger = useLogger()
 
   try {
@@ -158,7 +170,8 @@ export function initConfig() {
 
 export function getConfig(): Config {
   if (!config) {
-    throw new Error('Config not initialized')
+    initConfig()
   }
-  return config
+
+  return config as Config
 }

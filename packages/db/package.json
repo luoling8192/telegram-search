@@ -23,7 +23,7 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:migrate": "tsx src/migrate.ts",
+    "db:migrate": "tsx src/migrate/index.ts",
     "test": "vitest"
   },
   "dependencies": {

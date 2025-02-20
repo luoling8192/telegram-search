@@ -1,16 +1,15 @@
-import process from 'node:process'
-import { getConfig, initConfig } from '@tg-search/common'
+import { getConfig, getDatabaseDSN, initConfig, initLogger } from '@tg-search/common'
 import { defineConfig } from 'drizzle-kit'
 
-// Initialize config
+initLogger()
 initConfig()
 const config = getConfig()
 
 export default defineConfig({
-  dialect: 'postgresql',
   schema: './src/schema/*',
   out: './drizzle',
+  dialect: 'postgresql',
   dbCredentials: {
-    url: config.database.url!,
+    url: getDatabaseDSN(config),
   },
 })
