@@ -6,8 +6,8 @@
   "scripts": {
     "build": "pnpm -r build",
     "stub": "pnpm -r stub",
-    "dev:cli": "pnpm run stub && pnpm run db:migrate && pnpm -F @tg-search/cli dev",
-    "dev:server": "pnpm run stub && pnpm run db:migrate && pnpm -F @tg-search/server serve",
+    "dev:cli": "pnpm -F @tg-search/cli dev",
+    "dev:server": "pnpm -F @tg-search/server serve",
     "dev:frontend": "pnpm -F @tg-search/frontend dev",
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",

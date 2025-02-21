@@ -1,52 +1,104 @@
-import type { ApiResponse } from '../utils/response'
+import type { Command } from '../types/command'
+import type { SSEEventEmitter } from '../utils/sse'
 
-import { getConfig, useLogger } from '@tg-search/common'
-import { ExportService } from '@tg-search/core'
+import { useLogger } from '@tg-search/common'
 import { Elysia, t } from 'elysia'
 
-import { getTelegramClient } from '../services/telegram'
+import { InMemoryCommandStore } from '../services/command-store'
+import { ExportCommandHandler } from '../services/commands/export'
 import { createResponse } from '../utils/response'
+import { broadcastSSEEvent, createSSEMessage, createSSEResponse } from '../utils/sse'
 
 const logger = useLogger()
 
-// Command types
-export const commandTypes = ['export', 'import', 'sync', 'watch'] as const
-export type CommandType = typeof commandTypes[number]
-
-// Command status
-export const commandStatus = ['idle', 'running', 'success', 'error'] as const
-export type CommandStatus = typeof commandStatus[number]
-
-// Message type
-export const messageTypes = ['text', 'photo', 'video', 'document', 'sticker', 'other'] as const
-export type MessageType = typeof messageTypes[number]
-
-// Command interface
-export interface Command {
-  id: string
-  type: CommandType
-  status: CommandStatus
-  progress: number
-  message: string
-  createdAt: Date
-  updatedAt: Date
-}
-
-// In-memory command store
-const commands = new Map<string, Command>()
-
-// Command event emitter
-const eventEmitter = new Map<string, (data: string) => void>()
-
 /**
- * Send SSE event to all connected clients
+ * Manages command execution and event broadcasting
  */
-function broadcastEvent(event: string, data: ApiResponse<any>) {
-  const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
-  for (const send of eventEmitter.values()) {
-    send(message)
+class CommandManager {
+  private readonly store: InMemoryCommandStore
+  private readonly eventEmitter: SSEEventEmitter
+
+  constructor() {
+    this.store = new InMemoryCommandStore()
+    this.eventEmitter = new Map()
+  }
+
+  /**
+   * Create handler options with event callbacks
+   */
+  private createHandlerOptions() {
+    return {
+      store: this.store,
+      onProgress: (command: Command) => {
+        this.broadcastUpdate(command)
+      },
+      onComplete: (command: Command) => {
+        this.broadcastUpdate(command)
+      },
+      onError: (_command: Command, error: Error) => {
+        this.broadcastError(error)
+      },
+    }
+  }
+
+  /**
+   * Broadcast command update event
+   */
+  private broadcastUpdate(command: Command) {
+    broadcastSSEEvent(this.eventEmitter, 'update', createResponse(command))
+  }
+
+  /**
+   * Broadcast error event
+   */
+  private broadcastError(error: Error) {
+    broadcastSSEEvent(this.eventEmitter, 'error', createResponse(undefined, error))
+  }
+
+  /**
+   * Get all commands
+   */
+  getAllCommands() {
+    return this.store.getAll()
+  }
+
+  /**
+   * Handle SSE connection
+   */
+  handleSSE() {
+    return createSSEResponse(async (controller) => {
+      const initialData = createResponse(this.store.getAll())
+      controller.enqueue(createSSEMessage('init', initialData))
+    }, this.eventEmitter)
+  }
+
+  /**
+   * Execute export command
+   */
+  async executeExport(params: {
+    chatId: number
+    format?: 'database' | 'html' | 'json'
+    messageTypes?: Array<'text' | 'photo' | 'video' | 'document' | 'sticker' | 'other'>
+    startTime?: string
+    endTime?: string
+    limit?: number
+    method?: 'getMessage' | 'takeout'
+  }) {
+    const command = this.store.create('export')
+    const handler = new ExportCommandHandler(this.createHandlerOptions())
+
+    try {
+      await handler.execute(params)
+      return createResponse(this.store.get(command.id))
+    }
+    catch (error) {
+      return createResponse(undefined, error)
+    }
   }
 }
+
+// Initialize command manager
+const commandManager = new CommandManager()
 
 // Command routes
 export const commandRoute = new Elysia({ prefix: '/commands' })
@@ -55,105 +107,13 @@ export const commandRoute = new Elysia({ prefix: '/commands' })
     return createResponse(undefined, error)
   })
   .get('/', () => {
-    return createResponse(Array.from(commands.values()))
+    return createResponse(commandManager.getAllCommands())
   })
   .get('/events', () => {
-    const headers = {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    }
-
-    // Create a new ReadableStream for SSE
-    const stream = new ReadableStream({
-      start(controller) {
-        // Generate unique client ID
-        const clientId = Math.random().toString(36).substring(7)
-
-        // Send initial commands
-        const initialData = createResponse(Array.from(commands.values()))
-        controller.enqueue(`event: init\ndata: ${JSON.stringify(initialData)}\n\n`)
-
-        // Store event emitter
-        eventEmitter.set(clientId, (data: string) => {
-          controller.enqueue(data)
-        })
-
-        // Cleanup on close
-        return () => {
-          eventEmitter.delete(clientId)
-        }
-      },
-    })
-
-    return new Response(stream, { headers })
+    return commandManager.handleSSE()
   })
   .post('/export', async ({ body }) => {
-    const config = getConfig()
-    const client = await getTelegramClient()
-    const exportService = new ExportService(client)
-
-    // Create command record
-    const id = Math.random().toString(36).substring(7)
-    const record: Command = {
-      id,
-      type: 'export',
-      status: 'running',
-      progress: 0,
-      message: 'Starting export...',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
-    commands.set(id, record)
-
-    // Broadcast command creation
-    broadcastEvent('update', createResponse(record))
-
-    // Execute command
-    try {
-      await exportService.exportMessages({
-        chatId: body.chatId,
-        format: body.format,
-        messageTypes: body.messageTypes,
-        startTime: body.startTime ? new Date(body.startTime) : undefined,
-        endTime: body.endTime ? new Date(body.endTime) : undefined,
-        limit: body.limit,
-        batchSize: config.message.export.batchSize,
-        onProgress: (progress: number, message: string) => {
-          record.progress = progress
-          record.message = message
-          record.updatedAt = new Date()
-          commands.set(id, record)
-
-          // Broadcast progress update
-          broadcastEvent('update', createResponse(record))
-        },
-      })
-
-      // Update command status
-      record.status = 'success'
-      record.progress = 100
-      record.message = 'Export completed'
-      record.updatedAt = new Date()
-      commands.set(id, record)
-
-      // Broadcast completion
-      broadcastEvent('update', createResponse(record))
-
-      return createResponse(record)
-    }
-    catch (error) {
-      // Update command status
-      record.status = 'error'
-      record.message = error instanceof Error ? error.message : 'Unknown error'
-      record.updatedAt = new Date()
-      commands.set(id, record)
-
-      // Broadcast error
-      broadcastEvent('error', createResponse(undefined, error))
-
-      return createResponse(undefined, error)
-    }
+    return commandManager.executeExport(body)
   }, {
     body: t.Object({
       chatId: t.Number(),
@@ -173,6 +133,10 @@ export const commandRoute = new Elysia({ prefix: '/commands' })
       startTime: t.Optional(t.String()),
       endTime: t.Optional(t.String()),
       limit: t.Optional(t.Number()),
+      method: t.Optional(t.Union([
+        t.Literal('getMessage'),
+        t.Literal('takeout'),
+      ])),
     }),
   })
 

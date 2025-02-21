@@ -425,19 +425,24 @@ export class ClientAdapter implements ITelegramClientAdapter {
   }
 
   async *getMessages(chatId: number, limit = 100, options?: MessageOptions): AsyncGenerator<TelegramMessage> {
-    try {
+    if (options?.method === 'takeout') {
+      try {
       // Try to use takeout first
-      yield * this.takeoutMessages(chatId, limit, options)
-    }
-    catch (error: any) {
+        yield * this.takeoutMessages(chatId, limit, options)
+      }
+      catch (error: any) {
       // If takeout is not available, fallback to normal API
-      if (error.message === 'TAKEOUT_NOT_AVAILABLE' || error.message?.includes('TAKEOUT_INIT_DELAY')) {
-        this.logger.warn('Takeout session not available, using normal message fetch')
-        yield * this.getNormalMessages(chatId, limit, options)
+        if (error.message === 'TAKEOUT_NOT_AVAILABLE' || error.message?.includes('TAKEOUT_INIT_DELAY')) {
+          this.logger.warn('Takeout session not available, using normal message fetch')
+          yield * this.getNormalMessages(chatId, limit, options)
+        }
+        else {
+          throw error
+        }
       }
-      else {
-        throw error
-      }
+    }
+    else {
+      yield * this.getNormalMessages(chatId, limit, options)
     }
   }
 

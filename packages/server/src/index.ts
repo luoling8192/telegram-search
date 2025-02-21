@@ -4,90 +4,44 @@ import { node } from '@elysiajs/node'
 import { initConfig, initDB, initLogger, useLogger } from '@tg-search/common'
 import { Elysia } from 'elysia'
 
+import { authRoutes } from './routes/auth'
 import { chatRoutes } from './routes/chat'
 import { commandRoutes } from './routes/commands'
 import { configRoutes } from './routes/config'
 import { messageRoutes } from './routes/message'
 import { searchRoutes } from './routes/search'
+import { getTelegramClient } from './services/telegram'
+import { createResponse } from './utils/response'
 
-// Initialize core services
-async function initServices() {
+// Core initialization
+async function initCore(): Promise<ReturnType<typeof useLogger>> {
   initLogger()
   const logger = useLogger()
   initConfig()
 
   try {
-    initDB()
+    await initDB()
     logger.debug('Database initialized successfully')
+
+    const client = await getTelegramClient()
+    try {
+      await client.connect()
+      logger.debug('Telegram client connected successfully')
+    }
+    catch (error) {
+      logger.withError(error).warn('Failed to connect to Telegram, authentication required')
+    }
   }
   catch (error) {
-    logger.withError(error).error('Failed to initialize database')
+    logger.withError(error).error('Failed to initialize services')
     process.exit(1)
   }
 
   return logger
 }
 
-// Response type definitions
-interface BaseResponse {
-  success: boolean
-  timestamp: string
-  code?: string
-  message?: string
-}
-
-type SuccessResponse<T> = BaseResponse & {
-  success: true
-  data: T
-  pagination?: {
-    total: number
-    page: number
-    pageSize: number
-    totalPages: number
-  }
-}
-
-type ErrorResponse = BaseResponse & {
-  success: false
-  error: string
-  code: string
-  details?: Record<string, unknown>
-}
-
-type ApiResponse<T> = SuccessResponse<T> | ErrorResponse
-
-// Create standardized response
-function createResponse<T>(
-  data?: T,
-  error?: unknown,
-  pagination?: SuccessResponse<T>['pagination'],
-): ApiResponse<T> {
-  if (error) {
-    const errorResponse: ErrorResponse = {
-      success: false,
-      error: error instanceof Error ? error.message : 'Internal Server Error',
-      code: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
-      timestamp: new Date().toISOString(),
-    }
-
-    // Add additional error details if available
-    if (error instanceof Error && (error as any).details) {
-      errorResponse.details = (error as any).details
-    }
-
-    return errorResponse
-  }
-
-  return {
-    success: true,
-    data: data as T,
-    timestamp: new Date().toISOString(),
-    pagination,
-  }
-}
-
-// Setup process error handlers
-function setupErrorHandlers(logger: ReturnType<typeof useLogger>) {
+// Error handling setup
+function setupErrorHandlers(logger: ReturnType<typeof useLogger>): void {
   const handleFatalError = (error: unknown, type: string) => {
     logger.withError(error).error(type)
     process.exit(1)
@@ -97,12 +51,9 @@ function setupErrorHandlers(logger: ReturnType<typeof useLogger>) {
   process.on('unhandledRejection', error => handleFatalError(error, 'Unhandled rejection'))
 }
 
-// Main server setup
-(async () => {
-  const logger = await initServices()
-  setupErrorHandlers(logger)
-
-  const app = new Elysia({ adapter: node() })
+// Server configuration
+function configureServer(logger: ReturnType<typeof useLogger>): Elysia {
+  return new Elysia({ adapter: node() })
     .use(cors({
       origin: '*',
       credentials: true,
@@ -110,7 +61,6 @@ function setupErrorHandlers(logger: ReturnType<typeof useLogger>) {
       allowedHeaders: ['Content-Type', 'Authorization'],
     }))
     .onRequest(({ request }) => {
-      // Log request start
       const path = new URL(request.url).pathname
       logger.withFields({
         method: request.method,
@@ -119,7 +69,6 @@ function setupErrorHandlers(logger: ReturnType<typeof useLogger>) {
       }).debug('Request started')
     })
     .onAfterHandle(({ request }) => {
-      // Log successful request
       const path = new URL(request.url).pathname
       logger.withFields({
         method: request.method,
@@ -129,22 +78,8 @@ function setupErrorHandlers(logger: ReturnType<typeof useLogger>) {
       }).debug('Request completed')
     })
     .onError(({ request, error, code }) => {
-      // Log error request
       const path = new URL(request.url).pathname
-      let status = 500
-
-      // Map error codes to status codes
-      switch (code) {
-        case 'NOT_FOUND':
-          status = 404
-          break
-        case 'VALIDATION':
-          status = 400
-          break
-        case 'PARSE':
-          status = 400
-          break
-      }
+      const status = getErrorStatus(code as string)
 
       logger.withFields({
         method: request.method,
@@ -154,22 +89,37 @@ function setupErrorHandlers(logger: ReturnType<typeof useLogger>) {
         userAgent: request.headers.get('user-agent'),
       }).error('Request failed')
 
-      // Return error response
       return createResponse(undefined, error)
     })
+    .use(authRoutes)
     .use(chatRoutes)
     .use(searchRoutes)
     .use(messageRoutes)
     .use(configRoutes)
     .use(commandRoutes)
+}
+
+// Helper function to map error codes to status codes
+function getErrorStatus(code: string): number {
+  const statusMap: Record<string, number> = {
+    NOT_FOUND: 404,
+    VALIDATION: 400,
+    PARSE: 400,
+  }
+  return statusMap[code] || 500
+}
+
+// Main application bootstrap
+(async () => {
+  const logger = await initCore()
+  setupErrorHandlers(logger)
+
+  const app = configureServer(logger)
     .listen(3000, () => {
       logger.debug('Server listening on http://localhost:3000')
     })
 
-  // Graceful shutdown handler
-  const shutdown = () => {
-    process.exit(0)
-  }
+  const shutdown = () => process.exit(0)
   process.on('SIGINT', shutdown)
   process.on('SIGTERM', shutdown)
 

@@ -1,7 +1,7 @@
 import type { ITelegramClientAdapter, TelegramMessage, TelegramMessageType } from '../adapter/types'
 
 import { getConfig, useLogger } from '@tg-search/common'
-import { createMessageBatch, updateChat } from '@tg-search/db'
+import { createMessage, updateChat } from '@tg-search/db'
 
 const logger = useLogger()
 
@@ -9,6 +9,11 @@ const logger = useLogger()
  * Export format type
  */
 export type ExportFormat = 'database' | 'html' | 'json'
+
+/**
+ * Export method type
+ */
+export type ExportMethod = 'getMessage' | 'takeout'
 
 /**
  * Export service options
@@ -21,6 +26,7 @@ export interface ExportOptions {
   endTime?: Date
   limit?: number
   batchSize?: number
+  method?: ExportMethod
   onProgress?: (progress: number, message: string) => void
 }
 
@@ -48,6 +54,13 @@ export class ExportService {
         fromId: msg.fromId,
         fromName: msg.fromName,
         replyToId: msg.replyToId,
+        forwardFromChatId: msg.forwardFromChatId,
+        forwardFromChatName: msg.forwardFromChatName,
+        forwardFromMessageId: msg.forwardFromMessageId,
+        views: msg.views,
+        forwards: msg.forwards,
+        links: msg.links || undefined,
+        metadata: msg.metadata,
         createdAt: msg.createdAt,
         // Only include media info if exists
         ...(msg.mediaInfo && {
@@ -59,7 +72,7 @@ export class ExportService {
       }))
 
       // Create messages in batch
-      await createMessageBatch(messagesToCreate)
+      await createMessage(messagesToCreate)
       logger.debug(
         `Saved messages ${startIndex + 1} - ${startIndex + messages.length} `
         + `(ID: ${messages[0].id} - ${messages[messages.length - 1].id})`,
@@ -82,6 +95,7 @@ export class ExportService {
       endTime,
       limit,
       batchSize = getConfig().message.export.batchSize,
+      method = 'takeout',
       onProgress,
     } = options
 
@@ -109,6 +123,7 @@ export class ExportService {
         endTime,
         limit,
         messageTypes,
+        method,
       })) {
         messages.push(message)
         count++

@@ -1,6 +1,6 @@
 import type { Config } from '@tg-search/common'
-import type { Command } from '@tg-search/server/routes/commands'
-import type { PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/types'
+import type { PaginationParams, PublicChat, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/types'
+import type { Command } from '@tg-search/server/types/command'
 
 import { ofetch } from 'ofetch'
 import { ref } from 'vue'
@@ -81,12 +81,12 @@ export const api = {
    */
   startExport: (params: {
     chatId: number
-    format?: string
-    path?: string
+    format?: 'database' | 'html' | 'json'
     messageTypes?: string[]
     startTime?: string
     endTime?: string
     limit?: number
+    method?: 'getMessage' | 'takeout'
   }): Promise<{ success: boolean, data: Command }> => {
     return apiFetch<{ success: boolean, data: Command }>('/commands/export', {
       method: 'POST',
@@ -206,4 +206,4 @@ export function useApi() {
 }
 
 // Re-export types
-export type { PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse }
+export type { PaginationParams, PublicChat, PublicMessage, SearchRequest, SearchResponse }

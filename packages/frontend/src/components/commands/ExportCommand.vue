@@ -5,13 +5,13 @@ import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { useCommands } from '../../composables/useCommands'
 
-const { executeExport } = useCommands()
-
 // Props
 const props = defineProps<{
   chats: PublicChat[]
   loading: boolean
 }>()
+
+const { executeExport } = useCommands()
 
 // Selected chat type
 const selectedChatType = ref<'user' | 'group' | 'channel'>('user')
@@ -19,6 +19,8 @@ const selectedChatType = ref<'user' | 'group' | 'channel'>('user')
 const selectedChatId = ref<number>()
 // Selected message types
 const selectedMessageTypes = ref<string[]>(['text'])
+// Selected export method
+const selectedMethod = ref<'getMessage' | 'takeout'>('takeout')
 
 // Chat type options
 const chatTypeOptions = [
@@ -35,6 +37,12 @@ const messageTypeOptions = [
   { label: '文档', value: 'document' },
   { label: '贴纸', value: 'sticker' },
   { label: '其他', value: 'other' },
+]
+
+// Export method options
+const exportMethodOptions = [
+  { label: 'Takeout (推荐，可能需要等待)', value: 'takeout' },
+  { label: 'GetMessage (立即导出，可能不完整)', value: 'getMessage' },
 ]
 
 // Filtered chats based on selected type
@@ -57,6 +65,7 @@ async function handleExport() {
   await executeExport({
     chatId: selectedChatId.value,
     messageTypes: selectedMessageTypes.value,
+    method: selectedMethod.value,
   })
 }
 </script>
@@ -69,12 +78,12 @@ async function handleExport() {
 
     <!-- Chat type selection -->
     <div class="mb-4">
-      <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+      <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
         会话类型
       </label>
       <select
         v-model="selectedChatType"
-        class="w-full rounded border border-gray-300 bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+        class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
         :disabled="loading"
       >
         <option
@@ -89,15 +98,17 @@ async function handleExport() {
 
     <!-- Chat selection -->
     <div class="mb-4">
-      <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+      <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
         选择会话
       </label>
       <select
         v-model="selectedChatId"
-        class="w-full rounded border border-gray-300 bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+        class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
         :disabled="loading"
       >
-        <option value="">请选择会话</option>
+        <option value="">
+          请选择会话
+        </option>
         <option
           v-for="chat in filteredChats"
           :key="chat.id"
@@ -110,7 +121,7 @@ async function handleExport() {
 
     <!-- Message type selection -->
     <div class="mb-4">
-      <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+      <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
         消息类型
       </label>
       <div class="space-y-2">
@@ -123,7 +134,7 @@ async function handleExport() {
             v-model="selectedMessageTypes"
             type="checkbox"
             :value="option.value"
-            class="rounded border-gray-300 text-blue-600 dark:border-gray-600 dark:bg-gray-700"
+            class="border-gray-300 rounded text-blue-600 dark:border-gray-600 dark:bg-gray-700"
             :disabled="loading"
           >
           <span class="ml-2">{{ option.label }}</span>
@@ -131,9 +142,29 @@ async function handleExport() {
       </div>
     </div>
 
+    <!-- Export method selection -->
+    <div class="mb-4">
+      <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
+        导出方式
+      </label>
+      <select
+        v-model="selectedMethod"
+        class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+        :disabled="loading"
+      >
+        <option
+          v-for="option in exportMethodOptions"
+          :key="option.value"
+          :value="option.value"
+        >
+          {{ option.label }}
+        </option>
+      </select>
+    </div>
+
     <!-- Export button -->
     <button
-      class="w-full rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-700"
+      class="w-full rounded bg-blue-500 px-4 py-2 text-white dark:bg-blue-600 hover:bg-blue-600 disabled:opacity-50 dark:hover:bg-blue-700"
       :disabled="loading || !selectedChatId || selectedMessageTypes.length === 0"
       @click="handleExport"
     >

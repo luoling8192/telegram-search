@@ -6,7 +6,7 @@ import type { MediaInfo, NewChat, NewFolder } from '@tg-search/db'
 export type TelegramAdapterType = 'bot' | 'client'
 
 /**
- * Message type from Telegram
+ * Message type
  */
 export type TelegramMessageType = 'text' | 'photo' | 'video' | 'document' | 'sticker' | 'other'
 
@@ -37,21 +37,51 @@ export interface TelegramMessage {
   createdAt: Date
 }
 
+/**
+ * Message options for getting messages
+ */
 export interface MessageOptions {
   skipMedia?: boolean
   startTime?: Date
   endTime?: Date
   limit?: number
-  batchSize?: number
   messageTypes?: TelegramMessageType[]
+  method?: 'getMessage' | 'takeout'
 }
 
 /**
- * Connect options for Telegram
+ * Connect options for client adapter
  */
 export interface ConnectOptions {
-  code?: string | (() => Promise<string>)
-  password?: string | (() => Promise<string>)
+  code?: () => Promise<string>
+  password?: () => Promise<string>
+}
+
+/**
+ * Dialog result from Telegram
+ */
+export interface Dialog {
+  id: number
+  name: string
+  type: 'user' | 'group' | 'channel'
+  unreadCount: number
+}
+
+/**
+ * Dialogs result from Telegram
+ */
+export interface DialogsResult {
+  dialogs: Dialog[]
+  total: number
+}
+
+/**
+ * Folder from Telegram
+ */
+export interface Folder {
+  id: number
+  title: string
+  emoticon?: string
 }
 
 /**
@@ -122,24 +152,3 @@ export interface ITelegramClientAdapter extends BaseTelegramAdapter {
  * Combined Telegram adapter type
  */
 export type TelegramAdapter = ITelegramBotAdapter | ITelegramClientAdapter
-
-export interface Dialog {
-  id: number
-  name: string
-  type: 'user' | 'group' | 'channel' | 'saved'
-  unreadCount: number
-  lastMessage?: string
-  lastMessageDate?: Date
-}
-
-export interface DialogsResult {
-  dialogs: Dialog[]
-  total: number
-}
-
-export interface Folder {
-  id: number
-  title: string
-  // Custom folder ID from Telegram
-  customId?: number
-}

@@ -1,4 +1,4 @@
-import type { Command } from '@tg-search/server/routes/commands'
+import type { Command } from '@tg-search/server/types/command'
 import type { ApiResponse } from '@tg-search/server/utils/response'
 
 import { ref } from 'vue'
@@ -14,6 +14,10 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000'
  */
 function parseSSEData<T>(data: string): ApiResponse<T> {
   try {
+    // Handle undefined or null data
+    if (!data) {
+      throw new Error('No data received')
+    }
     const trimmedData = data.trim()
     if (!trimmedData) {
       throw new Error('Empty data')
@@ -22,9 +26,11 @@ function parseSSEData<T>(data: string): ApiResponse<T> {
   }
   catch (error) {
     console.error('SSE data parsing error:', error, 'Data:', data)
+    // Return a proper error response instead of trying to handle invalid data
     return {
-      success: true,
-      data: data as T,
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to parse SSE data',
+      code: error instanceof Error ? error.name : 'PARSE_ERROR',
       timestamp: new Date().toISOString(),
     }
   }
@@ -59,9 +65,14 @@ export function useCommands() {
         if (response.success) {
           commands.value = response.data
         }
+        else {
+          console.error('Failed to initialize commands:', response.error)
+          toast.error('初始化命令列表失败')
+        }
       }
       catch (err) {
         console.error('Failed to parse init event:', err)
+        toast.error('初始化命令列表失败')
       }
     })
 
@@ -69,13 +80,16 @@ export function useCommands() {
       try {
         const response = parseSSEData<Command>(event.data)
         if (response.success) {
-          const index = commands.value.findIndex(c => c.id === response.data.id)
+          const index = commands.value.findIndex((c: Command) => c.id === response.data.id)
           if (index !== -1) {
             commands.value[index] = response.data
           }
           else {
             commands.value.unshift(response.data)
           }
+        }
+        else {
+          console.error('Failed to update command:', response.error)
         }
       }
       catch (err) {
@@ -87,17 +101,20 @@ export function useCommands() {
       try {
         const response = parseSSEData<never>(event.data)
         if (!response.success) {
-          toast.error(response.error)
+          toast.error(response.error || '命令执行失败')
         }
       }
       catch (err) {
         console.error('Failed to parse error event:', err)
+        toast.error('命令执行失败')
       }
     })
 
-    eventSource.value.onerror = () => {
-      console.error('SSE connection error')
+    eventSource.value.onerror = (event) => {
+      console.error('SSE connection error', event)
       eventSource.value?.close()
+      error.value = new Error('命令服务连接失败')
+      toast.error('命令服务连接失败，正在重试...')
       // Try to reconnect after 5 seconds
       setTimeout(connectSSE, 5000)
     }
@@ -109,6 +126,11 @@ export function useCommands() {
   async function executeExport(params: {
     chatId: number
     messageTypes: string[]
+    format?: 'database' | 'html' | 'json'
+    startTime?: string
+    endTime?: string
+    limit?: number
+    method?: 'getMessage' | 'takeout'
   }) {
     isLoading.value = true
     error.value = null

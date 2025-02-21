@@ -1,18 +1,60 @@
 import type { PublicMessage } from './models'
 
 /**
- * Search request parameters
+ * Base response interface for all API responses
  */
-export interface SearchRequest {
-  query: string
-  folderId?: number
-  chatId?: number
-  limit?: number
-  offset?: number
+interface BaseResponse {
+  success: boolean
+  timestamp: string
+  code?: string
+  message?: string
 }
 
 /**
- * Pagination parameters
+ * Success response with generic data type and optional pagination
+ */
+type SuccessResponse<T> = BaseResponse & {
+  success: true
+  data: T
+  pagination?: PaginationInfo
+}
+
+/**
+ * Pagination information structure
+ */
+interface PaginationInfo {
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+/**
+ * Error response with error details
+ */
+type ErrorResponse = BaseResponse & {
+  success: false
+  error: string
+  code: string
+  details?: Record<string, unknown>
+}
+
+/**
+ * Union type for all API responses
+ */
+export type ApiResponse<T> = SuccessResponse<T> | ErrorResponse
+
+/**
+ * Search request parameters
+ */
+export interface SearchRequest extends PaginationParams {
+  query: string
+  folderId?: number
+  chatId?: number
+}
+
+/**
+ * Common pagination parameters
  */
 export interface PaginationParams {
   limit?: number
@@ -20,7 +62,7 @@ export interface PaginationParams {
 }
 
 /**
- * Paginated response
+ * Generic paginated response structure
  */
 export interface PaginatedResponse<T> {
   total: number
@@ -28,22 +70,13 @@ export interface PaginatedResponse<T> {
 }
 
 /**
- * Search result item with score
+ * Search result item with relevance score
  */
 export interface SearchResultItem extends PublicMessage {
   score: number
 }
 
 /**
- * Search response structure
+ * Search response type alias
  */
 export type SearchResponse = PaginatedResponse<SearchResultItem>
-
-/**
- * API error response
- */
-export interface ErrorResponse {
-  error: string
-  code: string
-  status: number
-}
