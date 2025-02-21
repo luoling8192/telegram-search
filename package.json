@@ -27,7 +27,7 @@
     "@antfu/eslint-config": "^4.2.1",
     "eslint": "^9.20.1",
     "eslint-plugin-format": "^1.0.1",
-    "husky": "^8.0.0",
+    "husky": "^9.1.7",
     "lint-staged": "^15.4.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
