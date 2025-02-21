@@ -1,17 +1,12 @@
-import type { MessageType } from '../schema/types'
+import type { MessageType } from '../../schema/types'
 
 import { useDB } from '@tg-search/common'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { setupTest } from '../test/setup'
-import {
-  createMessage,
-  findMessagesByChatId,
-  findSimilarMessages,
-  getMessageStats,
-  refreshMessageStats,
-} from './message'
-import { getMessagesWithoutEmbedding } from './message-content'
+import { setupTest } from '../../test/setup'
+import { createMessage } from './message'
+import { findMessagesByChatId, findSimilarMessages } from './search'
+import { getMessageStats, refreshMessageStats } from './stats'
 
 // Mock the database
 vi.mock('../../db', () => ({
@@ -79,14 +74,6 @@ describe('message Model', () => {
     it('should handle empty message array', async () => {
       await createMessage([])
       expect(useDB().insert).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('getMessagesWithoutEmbedding', () => {
-    it('should get messages without embedding', async () => {
-      const result = await getMessagesWithoutEmbedding(1, 10)
-      expect(result).toHaveLength(1)
-      expect(useDB().select).toHaveBeenCalled()
     })
   })
 
