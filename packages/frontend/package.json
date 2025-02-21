@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@iconify/vue": "^4.3.0",
-    "@tanstack/vue-query": "^5.66.3",
+    "@tanstack/vue-query": "^5.66.4",
     "@tanstack/vue-table": "^8.21.2",
     "@tg-search/common": "workspace:*",
     "@tg-search/db": "workspace:*",
