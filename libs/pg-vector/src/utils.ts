@@ -13,15 +13,6 @@ export const vector = customType<{ data: number[] }>({
 })
 
 /**
- * Create a tsvector column definition
- */
-export const tsvector = customType<{ data: string }>({
-  dataType() {
-    return 'tsvector'
-  },
-})
-
-/**
  * Convert array to vector
  */
 export function arrayToVector(array: number[]): SQL {

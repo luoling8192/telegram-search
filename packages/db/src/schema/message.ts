@@ -1,89 +1,125 @@
+import type { ColumnBaseConfig, ColumnDataType } from 'drizzle-orm'
+import type { PgColumn, PgColumnBuilderBase } from 'drizzle-orm/pg-core'
 import type { MediaInfo } from './types'
 
-import { tsvector, vector } from '@tg-search/pg-vector'
+import { vector } from '@tg-search/pg-vector'
 import { sql } from 'drizzle-orm'
-import { bigint, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigint, customType, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 
 import { messageTypeEnum } from './types'
 
-// Message content table template
-export function createMessageContentTable(chatId: number | bigint) {
-  // 使用 n 前缀表示负数，处理 BigInt
+/**
+ * Creates a table name for a chat partition
+ */
+function getTableName(chatId: number | bigint): string {
   const absId = chatId < 0 ? -chatId : chatId
-  const tableName = `messages_${chatId < 0 ? 'n' : ''}${absId}`
-  return pgTable(tableName, {
-    // UUID for external reference
-    uuid: uuid('uuid').defaultRandom().primaryKey(),
-    // Message ID from Telegram
-    id: bigint('id', { mode: 'number' }).notNull(),
-    // Chat ID from Telegram
-    chatId: bigint('chat_id', { mode: 'number' }).notNull(),
-    // Message type
-    type: messageTypeEnum('type').notNull().default('text'),
-    // Message content
-    content: text('content'),
-    // Message vector embedding (1536 dimensions)
-    embedding: vector('embedding'),
-    // Full-text search vector
-    tsContent: tsvector('ts_content').notNull().$defaultFn(() => sql`to_tsvector('telegram_search', coalesce(content, ''))`),
-    // Media file info
-    mediaInfo: jsonb('media_info').$type<MediaInfo>(),
-    // Creation time
-    createdAt: timestamp('created_at').notNull().defaultNow(),
-    // From user ID
-    fromId: bigint('from_id', { mode: 'number' }),
-    // From user name
-    fromName: text('from_name'),
-    // From user avatar
-    fromAvatar: jsonb('from_avatar').$type<{
-      type: 'photo' | 'emoji'
-      value: string // 如果是 photo 则是 URL，如果是 emoji 则是表情符号
-      color?: string // emoji 背景色
-    }>(),
-    // Reply to message ID
-    replyToId: bigint('reply_to_id', { mode: 'number' }),
-    // Forward from chat ID
-    forwardFromChatId: bigint('forward_from_chat_id', { mode: 'number' }),
-    // Forward from chat name
-    forwardFromChatName: text('forward_from_chat_name'),
-    // Forward from message ID
-    forwardFromMessageId: bigint('forward_from_message_id', { mode: 'number' }),
-    // Views count
-    views: integer('views'),
-    // Forwards count
-    forwards: integer('forwards'),
-    // Links in message
-    links: jsonb('links').$type<string[]>(),
-    // Message metadata
-    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
-  }, table => [
-    // Unique constraint for chat_id and id
-    sql`UNIQUE (chat_id, id)`,
-    // Index for vector similarity search
-    sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_embedding_idx
-      ON ${table}
-      USING ivfflat (embedding vector_cosine_ops)
-      WITH (lists = 100)`,
-    // Index for full-text search
-    sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_ts_content_idx
-      ON ${table}
-      USING GIN (ts_content)`,
-    // Index for created_at
-    sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_created_at_idx ON ${table} (created_at DESC)`,
-    // Index for type
-    sql`CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_type_idx ON ${table} (type)`,
-    // Index for id
-    sql`CREATE UNIQUE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_id_idx ON ${table} (id)`,
-  ])
+  return `messages_${chatId < 0 ? 'n' : ''}${absId}`
 }
 
-// Function to create partition table for a chat
+// TSVector column data
+export interface TSVectorColumnData extends PgColumn<ColumnBaseConfig<ColumnDataType, string>, object, object> {
+  dataType: ColumnDataType
+  baseType: string
+}
+
+// TSVector column builder
+export type TSVectorColumnBuilder = PgColumnBuilderBase<{
+  name: string
+  dataType: ColumnDataType
+  enumValues: string[]
+  data: TSVectorColumnData
+  driverParam: string
+  columnType: 'tsvector'
+}>
+
+/**
+ * Creates a tsvector column for full text search
+ * @param name Column name
+ * @returns TSVector column builder
+ */
+export function tsvector(name: string) {
+  return customType<{ data: string }>({
+    dataType: () => 'tsvector',
+  })(name)
+}
+
+/**
+ * Common table schema for message content
+ */
+const messageTableSchema = {
+  uuid: uuid('uuid').defaultRandom().primaryKey(),
+  id: bigint('id', { mode: 'number' }).notNull(),
+  chatId: bigint('chat_id', { mode: 'number' }).notNull(),
+  type: messageTypeEnum('type').notNull().default('text'),
+  content: text('content'),
+  embedding: vector('embedding'),
+  // Note: tsContent still needs sql template since there's no direct drizzle equivalent
+  tsContent: tsvector('ts_content').notNull().$defaultFn(() =>
+    sql`to_tsvector('telegram_search', coalesce(content, ''))`,
+  ),
+  mediaInfo: jsonb('media_info').$type<MediaInfo>(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  fromId: bigint('from_id', { mode: 'number' }),
+  fromName: text('from_name'),
+  fromAvatar: jsonb('from_avatar').$type<{
+    type: 'photo' | 'emoji'
+    value: string
+    color?: string
+  }>(),
+  replyToId: bigint('reply_to_id', { mode: 'number' }),
+  forwardFromChatId: bigint('forward_from_chat_id', { mode: 'number' }),
+  forwardFromChatName: text('forward_from_chat_name'),
+  forwardFromMessageId: bigint('forward_from_message_id', { mode: 'number' }),
+  views: integer('views'),
+  forwards: integer('forwards'),
+  links: jsonb('links').$type<string[]>(),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+}
+
+/**
+ * Creates table indexes
+ * Note: Some indexes still need raw SQL due to specialized PostgreSQL features
+ */
+function createTableIndexes(tableName: string, table: any) {
+  return [
+    // Composite unique constraint
+    { name: `${tableName}_chat_id_id_unique`, columns: ['chat_id', 'id'], unique: true },
+
+    // Vector similarity search index - needs raw SQL
+    sql`CREATE INDEX IF NOT EXISTS ${sql.raw(tableName)}_embedding_idx 
+      ON ${table} 
+      USING ivfflat (embedding vector_cosine_ops)
+      WITH (lists = 100)`,
+
+    // Full text search index - needs raw SQL
+    sql`CREATE INDEX IF NOT EXISTS ${sql.raw(tableName)}_ts_content_idx
+      ON ${table}
+      USING GIN (ts_content)`,
+
+    // Regular indexes
+    { name: `${tableName}_created_at_idx`, columns: ['created_at'], desc: true },
+    { name: `${tableName}_type_idx`, columns: ['type'] },
+    { name: `${tableName}_id_idx`, columns: ['id'], unique: true },
+  ]
+}
+
+/**
+ * Creates a message content table for a specific chat
+ */
+export function createMessageContentTable(chatId: number | bigint) {
+  const tableName = getTableName(chatId)
+  return pgTable(tableName, messageTableSchema, table => createTableIndexes(tableName, table))
+}
+
+/**
+ * Creates a partition table and materialized view for a chat
+ * Note: This still needs raw SQL due to materialized view functionality
+ */
 export function createChatPartition(chatId: number | bigint) {
-  // 使用 n 前缀表示负数，处理 BigInt
-  const absId = chatId < 0 ? -chatId : chatId
-  const tableName = `messages_${chatId < 0 ? 'n' : ''}${absId}`
+  const tableName = getTableName(chatId)
+
   return sql`
-    -- Create text search configuration if not exists
+    -- Create text search configuration
     DO $$ 
     BEGIN
       IF NOT EXISTS (
@@ -94,54 +130,7 @@ export function createChatPartition(chatId: number | bigint) {
       END IF;
     END $$;
 
-    CREATE TABLE IF NOT EXISTS ${sql.raw(tableName)} (
-      uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      id BIGINT NOT NULL,
-      chat_id BIGINT NOT NULL,
-      type message_type NOT NULL DEFAULT 'text',
-      content TEXT,
-      embedding vector(1536),
-      media_info JSONB,
-      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-      from_id BIGINT,
-      from_name TEXT,
-      from_avatar JSONB,
-      reply_to_id BIGINT,
-      forward_from_chat_id BIGINT,
-      forward_from_chat_name TEXT,
-      forward_from_message_id BIGINT,
-      views INTEGER,
-      forwards INTEGER,
-      links JSONB,
-      metadata JSONB,
-      -- Add full-text search column
-      ts_content tsvector GENERATED ALWAYS AS (to_tsvector('telegram_search', coalesce(content, ''))) STORED,
-      UNIQUE (chat_id, id),
-      UNIQUE (id)
-    );
-
-    -- Create full-text search index
-    CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_ts_content_idx
-    ON ${sql.raw(tableName)} USING GIN (ts_content);
-
-    -- Create vector similarity index
-    CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_embedding_idx
-    ON ${sql.raw(tableName)}
-    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-
-    -- Create timestamp index
-    CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_created_at_idx
-    ON ${sql.raw(tableName)} (created_at DESC);
-
-    -- Create type index
-    CREATE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_type_idx
-    ON ${sql.raw(tableName)} (type);
-
-    -- Create unique ID index
-    CREATE UNIQUE INDEX IF NOT EXISTS messages_${sql.raw(chatId < 0 ? 'n' : '')}${sql.raw(String(absId))}_id_idx
-    ON ${sql.raw(tableName)} (id);
-
-    -- Create materialized view for message stats
+    -- Create materialized view
     CREATE MATERIALIZED VIEW IF NOT EXISTS message_stats_${sql.raw(tableName)} AS
     SELECT 
       chat_id,
@@ -157,7 +146,6 @@ export function createChatPartition(chatId: number | bigint) {
     FROM ${sql.raw(tableName)}
     GROUP BY chat_id;
 
-    -- Create index on materialized view
     CREATE UNIQUE INDEX IF NOT EXISTS message_stats_${sql.raw(tableName)}_chat_id_idx
     ON message_stats_${sql.raw(tableName)} (chat_id);
   `

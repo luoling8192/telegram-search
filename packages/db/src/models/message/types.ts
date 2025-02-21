@@ -1,33 +1,60 @@
-import type { MessageType } from '../../schema'
+import type { tsvector } from '@tg-search/pg-vector'
+import type { MediaInfo, MessageType } from '../../schema'
 
 /**
- * Message input interface
+ * Base message fields shared across interfaces
  */
-export interface MessageCreateInput {
+interface BaseMessage {
   id: number
   chatId: number
-  type?: MessageType
-  content?: string
-  fromId?: number
-  fromName?: string
+  type: MessageType
+  content?: string | null
+  createdAt: Date
+  tsContent?: typeof tsvector // Added for full-text search support
+}
+
+/**
+ * Message sender information
+ */
+interface MessageSender {
+  fromId?: number | null
+  fromName?: string | null
   fromAvatar?: {
     type: 'photo' | 'emoji'
     value: string
     color?: string
-  }
-  replyToId?: number
-  forwardFromChatId?: number
-  forwardFromChatName?: string
-  forwardFromMessageId?: number
-  views?: number
-  forwards?: number
-  links?: string[]
-  metadata?: Record<string, unknown>
-  createdAt: Date
+  } | null
 }
 
 /**
- * Search options interface
+ * Message forwarding information
+ */
+interface MessageForward {
+  forwardFromChatId?: number | null
+  forwardFromChatName?: string | null
+  forwardFromMessageId?: number | null
+}
+
+/**
+ * Message metadata and stats
+ */
+interface MessageMeta {
+  views?: number | null
+  forwards?: number | null
+  links?: string[] | null
+  metadata?: Record<string, unknown> | null
+  mediaInfo?: MediaInfo | null
+}
+
+/**
+ * Input for creating new messages
+ */
+export interface MessageCreateInput extends BaseMessage, MessageSender, MessageForward, MessageMeta {
+  replyToId?: number | null
+}
+
+/**
+ * Options for searching messages
  */
 export interface SearchOptions {
   chatId: number // Required for partition table lookup
@@ -36,17 +63,13 @@ export interface SearchOptions {
   endTime?: Date
   limit?: number
   offset?: number
+  query?: string // Added for full-text search support
 }
 
 /**
- * Message with similarity score interface
+ * Message with vector similarity score
  */
-export interface MessageWithSimilarity {
-  id: number
-  chatId: number
-  type: MessageType
-  content: string | null
-  createdAt: Date
+export interface MessageWithSimilarity extends Pick<BaseMessage, 'id' | 'chatId' | 'type' | 'content' | 'createdAt'> {
   fromId: number | null
   similarity: number
 }

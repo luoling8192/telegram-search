@@ -35,7 +35,7 @@ export async function createMessage(data: MessageCreateInput | MessageCreateInpu
             type: msg.type || 'text',
             content: msg.content || null,
             embedding: null,
-            mediaInfo: null,
+            mediaInfo: msg.mediaInfo || null,
             createdAt: msg.createdAt,
             fromId: msg.fromId || null,
             fromName: msg.fromName || null,
@@ -50,7 +50,7 @@ export async function createMessage(data: MessageCreateInput | MessageCreateInpu
             links: msg.links || null,
           })),
         ).onConflictDoNothing({
-          target: [contentTable.id],
+          target: [contentTable.id, contentTable.chatId],
         })
 
         // Refresh materialized view
