@@ -11,7 +11,7 @@ import { useCommands } from '../composables/useCommands'
 // API composable
 const { error: apiError, getChats } = useApi()
 // Commands composable
-const { commands, isLoading, error: commandError, connectSSE, cleanup } = useCommands()
+const { commands, error: commandError, cleanup } = useCommands()
 
 // Chat list
 const chats = ref<PublicChat[]>([])
@@ -38,7 +38,6 @@ async function loadChats() {
 
 // Lifecycle hooks
 onMounted(() => {
-  connectSSE()
   loadChats()
 })
 
@@ -77,7 +76,6 @@ onUnmounted(() => {
       <ExportCommand
         v-if="activeCommandType === 'export'"
         :chats="chats"
-        :loading="isLoading"
       />
     </div>
 

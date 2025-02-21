@@ -1,5 +1,6 @@
+import type { ExportOptions } from '@tg-search/core'
 import type { Command } from '../types/command'
-import type { SSEEventEmitter } from '../utils/sse'
+import type { SSEController, SSEEventEmitter } from '../utils/sse'
 
 import { useLogger } from '@tg-search/common'
 import { Elysia, t } from 'elysia'
@@ -7,7 +8,7 @@ import { Elysia, t } from 'elysia'
 import { InMemoryCommandStore } from '../services/command-store'
 import { ExportCommandHandler } from '../services/commands/export'
 import { createResponse } from '../utils/response'
-import { broadcastSSEEvent, createSSEMessage, createSSEResponse } from '../utils/sse'
+import { createSSEMessage, createSSEResponse } from '../utils/sse'
 
 const logger = useLogger()
 
@@ -26,33 +27,31 @@ class CommandManager {
   /**
    * Create handler options with event callbacks
    */
-  private createHandlerOptions() {
+  private createHandlerOptions(controller: SSEController) {
     return {
       store: this.store,
       onProgress: (command: Command) => {
-        this.broadcastUpdate(command)
+        // Send progress update
+        const response = createResponse(command)
+        controller.enqueue(createSSEMessage('update', response))
       },
       onComplete: (command: Command) => {
-        this.broadcastUpdate(command)
+        // Send completion update
+        const response = createResponse(command)
+        controller.enqueue(createSSEMessage('update', response))
+        controller.enqueue(createSSEMessage('info', 'Export completed'))
+        controller.enqueue(createSSEMessage('complete', createResponse(null)))
+        controller.close()
       },
       onError: (_command: Command, error: Error) => {
-        this.broadcastError(error)
+        // Send error update
+        const response = createResponse(undefined, error)
+        controller.enqueue(createSSEMessage('error', response))
+        controller.enqueue(createSSEMessage('info', 'Export failed'))
+        controller.enqueue(createSSEMessage('complete', createResponse(null)))
+        controller.close()
       },
     }
-  }
-
-  /**
-   * Broadcast command update event
-   */
-  private broadcastUpdate(command: Command) {
-    broadcastSSEEvent(this.eventEmitter, 'update', createResponse(command))
-  }
-
-  /**
-   * Broadcast error event
-   */
-  private broadcastError(error: Error) {
-    broadcastSSEEvent(this.eventEmitter, 'error', createResponse(undefined, error))
   }
 
   /**
@@ -63,44 +62,48 @@ class CommandManager {
   }
 
   /**
-   * Handle SSE connection
+   * Execute export command with SSE
    */
-  handleSSE() {
+  async executeExportWithSSE(params: Omit<ExportOptions, 'chatMetadata'>) {
     return createSSEResponse(async (controller) => {
-      const initialData = createResponse(this.store.getAll())
+      const startTime = Date.now()
+
+      // Send initial info
+      controller.enqueue(createSSEMessage('info', 'Starting export...'))
+
+      // Create export command
+      const command = this.store.create('export')
+
+      // Send initial data with the new command
+      const initialData = createResponse([command])
       controller.enqueue(createSSEMessage('init', initialData))
-    }, this.eventEmitter)
-  }
 
-  /**
-   * Execute export command
-   */
-  async executeExport(params: {
-    chatId: number
-    format?: 'database' | 'html' | 'json'
-    messageTypes?: Array<'text' | 'photo' | 'video' | 'document' | 'sticker' | 'other'>
-    startTime?: string
-    endTime?: string
-    limit?: number
-    method?: 'getMessage' | 'takeout'
-  }) {
-    const command = this.store.create('export')
-    const handler = new ExportCommandHandler(this.createHandlerOptions())
+      // Execute export command
+      const handler = new ExportCommandHandler(this.createHandlerOptions(controller))
 
-    try {
-      await handler.execute(params)
-      return createResponse(this.store.get(command.id))
-    }
-    catch (error) {
-      return createResponse(undefined, error)
-    }
+      try {
+        await handler.execute(params)
+
+        // Log completion
+        const duration = Date.now() - startTime
+        logger.withFields({
+          duration: `${duration}ms`,
+        }).debug('Export completed')
+      }
+      catch (error) {
+        // Log error
+        logger.withError(error as Error).error('Export failed')
+      }
+    })
   }
 }
 
 // Initialize command manager
 const commandManager = new CommandManager()
 
-// Command routes
+/**
+ * Command routes
+ */
 export const commandRoute = new Elysia({ prefix: '/commands' })
   .onError(({ code, error }) => {
     logger.withError(error).error(`Error handling request: ${code}`)
@@ -109,11 +112,18 @@ export const commandRoute = new Elysia({ prefix: '/commands' })
   .get('/', () => {
     return createResponse(commandManager.getAllCommands())
   })
-  .get('/events', () => {
-    return commandManager.handleSSE()
-  })
   .post('/export', async ({ body }) => {
-    return commandManager.executeExport(body)
+    logger.withFields(body).debug('Export request received')
+
+    // Parse params
+    const params = {
+      ...body,
+      startTime: body.startTime ? new Date(body.startTime) : undefined,
+      endTime: body.endTime ? new Date(body.endTime) : undefined,
+    }
+
+    // Execute export with SSE
+    return commandManager.executeExportWithSSE(params)
   }, {
     body: t.Object({
       chatId: t.Number(),

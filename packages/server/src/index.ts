@@ -55,10 +55,9 @@ function setupErrorHandlers(logger: ReturnType<typeof useLogger>): void {
 function configureServer(logger: ReturnType<typeof useLogger>): Elysia {
   return new Elysia({ adapter: node() })
     .use(cors({
-      origin: '*',
+      origin: 'http://localhost:3333',
+      methods: ['GET', 'POST', 'OPTIONS'],
       credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
     }))
     .onRequest(({ request }) => {
       const path = new URL(request.url).pathname

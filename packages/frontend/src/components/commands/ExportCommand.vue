@@ -1,17 +1,28 @@
 <!-- Export command component -->
 <script setup lang="ts">
 import type { PublicChat } from '@tg-search/server/types'
-import { computed, ref } from 'vue'
+import type { Command, ExportDetails } from '../../types/command'
+import { computed, onUnmounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { useCommands } from '../../composables/useCommands'
 
 // Props
 const props = defineProps<{
   chats: PublicChat[]
-  loading: boolean
 }>()
 
-const { executeExport } = useCommands()
+const {
+  executeExport,
+  currentCommand,
+  isLoading,
+  isConnected,
+  cleanup,
+} = useCommands()
+
+// Cleanup when component is unmounted
+onUnmounted(() => {
+  cleanup()
+})
 
 // Selected chat type
 const selectedChatType = ref<'user' | 'group' | 'channel'>('user')
@@ -68,107 +79,229 @@ async function handleExport() {
     method: selectedMethod.value,
   })
 }
+
+// Computed properties for progress display
+const isExporting = computed(() => currentCommand.value?.status === 'running')
+const exportProgress = computed(() => currentCommand.value?.progress || 0)
+const exportStatus = computed(() => {
+  if (!currentCommand.value)
+    return ''
+  switch (currentCommand.value.status) {
+    case 'running':
+      return '导出中'
+    case 'success':
+      return '导出完成'
+    case 'error':
+      return '导出失败'
+    default:
+      return '准备导出'
+  }
+})
+
+const exportDetails = computed(() => {
+  if (!currentCommand.value?.details)
+    return null
+  return currentCommand.value.details as ExportDetails
+})
 </script>
 
 <template>
-  <div class="rounded bg-white p-4 shadow dark:bg-gray-800 dark:text-gray-100">
-    <h2 class="mb-2 text-lg font-semibold">
-      导出设置
-    </h2>
-
-    <!-- Chat type selection -->
-    <div class="mb-4">
-      <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
-        会话类型
-      </label>
-      <select
-        v-model="selectedChatType"
-        class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-        :disabled="loading"
-      >
-        <option
-          v-for="option in chatTypeOptions"
-          :key="option.value"
-          :value="option.value"
-        >
-          {{ option.label }}
-        </option>
-      </select>
+  <div class="space-y-4">
+    <!-- Connection status -->
+    <div
+      v-if="!isConnected && isExporting"
+      class="rounded bg-yellow-100 p-4 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
+    >
+      正在连接命令服务...
     </div>
 
-    <!-- Chat selection -->
-    <div class="mb-4">
-      <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
-        选择会话
-      </label>
-      <select
-        v-model="selectedChatId"
-        class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-        :disabled="loading"
-      >
-        <option value="">
-          请选择会话
-        </option>
-        <option
-          v-for="chat in filteredChats"
-          :key="chat.id"
-          :value="chat.id"
-        >
-          {{ chat.title }}
-        </option>
-      </select>
-    </div>
+    <!-- Export settings -->
+    <div class="rounded bg-white p-4 shadow dark:bg-gray-800 dark:text-gray-100">
+      <h2 class="mb-2 text-lg font-semibold">
+        导出设置
+      </h2>
 
-    <!-- Message type selection -->
-    <div class="mb-4">
-      <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
-        消息类型
-      </label>
-      <div class="space-y-2">
-        <label
-          v-for="option in messageTypeOptions"
-          :key="option.value"
-          class="flex items-center"
-        >
-          <input
-            v-model="selectedMessageTypes"
-            type="checkbox"
-            :value="option.value"
-            class="border-gray-300 rounded text-blue-600 dark:border-gray-600 dark:bg-gray-700"
-            :disabled="loading"
-          >
-          <span class="ml-2">{{ option.label }}</span>
+      <!-- Chat type selection -->
+      <div class="mb-4">
+        <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
+          会话类型
         </label>
+        <select
+          v-model="selectedChatType"
+          class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+          :disabled="isLoading || isExporting"
+        >
+          <option
+            v-for="option in chatTypeOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Chat selection -->
+      <div class="mb-4">
+        <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
+          选择会话
+        </label>
+        <select
+          v-model="selectedChatId"
+          class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+          :disabled="isLoading || isExporting"
+        >
+          <option value="">
+            请选择会话
+          </option>
+          <option
+            v-for="chat in filteredChats"
+            :key="chat.id"
+            :value="chat.id"
+          >
+            {{ chat.title }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Message type selection -->
+      <div class="mb-4">
+        <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
+          消息类型
+        </label>
+        <div class="space-y-2">
+          <label
+            v-for="option in messageTypeOptions"
+            :key="option.value"
+            class="flex items-center"
+          >
+            <input
+              v-model="selectedMessageTypes"
+              type="checkbox"
+              :value="option.value"
+              class="border-gray-300 rounded text-blue-600 dark:border-gray-600 dark:bg-gray-700"
+              :disabled="isLoading || isExporting"
+            >
+            <span class="ml-2">{{ option.label }}</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Export method selection -->
+      <div class="mb-4">
+        <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
+          导出方式
+        </label>
+        <select
+          v-model="selectedMethod"
+          class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+          :disabled="isLoading || isExporting"
+        >
+          <option
+            v-for="option in exportMethodOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Export button -->
+      <button
+        class="w-full rounded bg-blue-500 px-4 py-2 text-white dark:bg-blue-600 hover:bg-blue-600 disabled:opacity-50 dark:hover:bg-blue-700"
+        :disabled="isLoading || isExporting || !selectedChatId || selectedMessageTypes.length === 0"
+        @click="handleExport"
+      >
+        {{ isExporting ? '导出中...' : '开始导出' }}
+      </button>
+    </div>
+
+    <!-- Export progress -->
+    <div
+      v-if="currentCommand"
+      class="rounded bg-white p-4 shadow dark:bg-gray-800 dark:text-gray-100"
+    >
+      <div class="mb-2 flex items-center justify-between">
+        <h2 class="text-lg font-semibold">
+          导出进度
+        </h2>
+        <span
+          class="rounded px-2 py-1 text-sm"
+          :class="{
+            'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100': currentCommand.status === 'running',
+            'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100': currentCommand.status === 'success',
+            'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100': currentCommand.status === 'error',
+            'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100': currentCommand.status === 'idle',
+          }"
+        >
+          {{ exportStatus }}
+        </span>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="mb-4">
+        <div class="h-2 w-full rounded bg-gray-200 dark:bg-gray-700">
+          <div
+            class="h-full rounded transition-all duration-300"
+            :class="{
+              'bg-blue-500 dark:bg-blue-600': currentCommand.status === 'running',
+              'bg-green-500 dark:bg-green-600': currentCommand.status === 'success',
+              'bg-red-500 dark:bg-red-600': currentCommand.status === 'error',
+            }"
+            :style="{ width: `${exportProgress}%` }"
+          />
+        </div>
+        <div class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          {{ exportProgress }}%
+        </div>
+      </div>
+
+      <!-- Status message -->
+      <div class="mb-4 text-sm">
+        {{ currentCommand.message }}
+      </div>
+
+      <!-- Export details -->
+      <div v-if="exportDetails" class="text-sm space-y-2">
+        <div v-if="exportDetails.totalMessages" class="flex justify-between">
+          <span>总消息数：</span>
+          <span>{{ exportDetails.totalMessages }}</span>
+        </div>
+        <div v-if="exportDetails.processedMessages" class="flex justify-between">
+          <span>已处理消息：</span>
+          <span>{{ exportDetails.processedMessages }}</span>
+        </div>
+        <div v-if="exportDetails.failedMessages" class="flex justify-between text-red-600">
+          <span>失败消息：</span>
+          <span>{{ exportDetails.failedMessages }}</span>
+        </div>
+        <div v-if="exportDetails.currentBatch && exportDetails.totalBatches" class="flex justify-between">
+          <span>当前批次：</span>
+          <span>{{ exportDetails.currentBatch }} / {{ exportDetails.totalBatches }}</span>
+        </div>
+        <div v-if="exportDetails.currentSpeed" class="flex justify-between">
+          <span>当前速度：</span>
+          <span>{{ exportDetails.currentSpeed }}</span>
+        </div>
+        <div v-if="exportDetails.estimatedTimeRemaining" class="flex justify-between">
+          <span>预计剩余时间：</span>
+          <span>{{ exportDetails.estimatedTimeRemaining }}</span>
+        </div>
+        <div v-if="exportDetails.totalDuration" class="flex justify-between">
+          <span>总耗时：</span>
+          <span>{{ exportDetails.totalDuration }}</span>
+        </div>
+        <div v-if="exportDetails.error" class="mt-4 rounded bg-red-100 p-2 text-red-800 dark:bg-red-900 dark:text-red-100">
+          <div v-if="typeof exportDetails.error === 'string'">
+            {{ exportDetails.error }}
+          </div>
+          <div v-else>
+            <div>{{ exportDetails.error.name }}: {{ exportDetails.error.message }}</div>
+            <pre v-if="exportDetails.error.stack" class="mt-2 overflow-auto text-xs">{{ exportDetails.error.stack }}</pre>
+          </div>
+        </div>
       </div>
     </div>
-
-    <!-- Export method selection -->
-    <div class="mb-4">
-      <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
-        导出方式
-      </label>
-      <select
-        v-model="selectedMethod"
-        class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-        :disabled="loading"
-      >
-        <option
-          v-for="option in exportMethodOptions"
-          :key="option.value"
-          :value="option.value"
-        >
-          {{ option.label }}
-        </option>
-      </select>
-    </div>
-
-    <!-- Export button -->
-    <button
-      class="w-full rounded bg-blue-500 px-4 py-2 text-white dark:bg-blue-600 hover:bg-blue-600 disabled:opacity-50 dark:hover:bg-blue-700"
-      :disabled="loading || !selectedChatId || selectedMessageTypes.length === 0"
-      @click="handleExport"
-    >
-      开始导出
-    </button>
   </div>
 </template>
