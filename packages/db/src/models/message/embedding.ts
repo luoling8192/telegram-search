@@ -3,7 +3,7 @@ import type { MessageWithSimilarity, SearchOptions } from './types'
 import { useDB } from '@tg-search/common'
 import { sql } from 'drizzle-orm'
 
-import { createMessageContentTable } from '../../schema'
+import { useMessageTable } from '../../schema'
 
 /**
  * Update message embedding in partition table
@@ -36,7 +36,7 @@ export async function findSimilarMessages(embedding: number[], options: SearchOp
     offset = 0,
   } = options
 
-  const contentTable = createMessageContentTable(chatId)
+  const contentTable = useMessageTable(chatId)
   const embeddingStr = `'[${embedding.join(',')}]'`
 
   return useDB()

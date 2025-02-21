@@ -2,7 +2,7 @@ import type { TelegramMessage } from '../../../core/src/adapter/types'
 
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
-import { createMessage } from '@tg-search/db'
+import { createMessages } from '@tg-search/db'
 
 import { TelegramCommand } from '../command'
 
@@ -50,7 +50,7 @@ export class WatchCommand extends TelegramCommand {
       }
 
       try {
-        await createMessage({
+        await createMessages({
           id: message.id,
           chatId: message.chatId,
           type: message.type,

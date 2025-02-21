@@ -1,10 +1,9 @@
-import type { SQL } from 'drizzle-orm'
 import type { MediaInfo } from './types'
 
 import { useDB } from '@tg-search/common'
 import { vector } from '@tg-search/pg-vector'
 import { sql } from 'drizzle-orm'
-import { bigint, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigint, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
 import { tsvector } from './tsvector'
 import { messageTypeEnum } from './types'
@@ -51,95 +50,88 @@ const messageTableSchema = {
 }
 
 /**
- * Index configuration type
+ * Get message table definition for a specific chat
  */
-interface TableIndex {
-  name: string
-  columns: string[]
-  unique?: boolean
-  desc?: boolean
-}
+export function getMessageTable(chatId: number | bigint) {
+  const tableName = getTableName(chatId)
 
-/**
- * Generate table indexes including specialized PostgreSQL features
- */
-function createTableIndexes(tableName: string, table: any): Array<TableIndex | SQL> {
-  return [
-    {
-      name: `${tableName}_chat_id_id_unique`,
-      columns: ['chat_id', 'id'],
-      unique: true,
-    },
-    sql`CREATE INDEX IF NOT EXISTS ${sql.raw(tableName)}_embedding_idx 
-      ON ${table} 
-      USING ivfflat (embedding vector_cosine_ops)
-      WITH (lists = 100)`,
-    sql`CREATE INDEX IF NOT EXISTS ${sql.raw(tableName)}_ts_content_idx
-      ON ${table}
-      USING GIN (ts_content)`,
-    {
-      name: `${tableName}_created_at_idx`,
-      columns: ['created_at'],
-      desc: true,
-    },
-    {
-      name: `${tableName}_type_idx`,
-      columns: ['type'],
-    },
-    {
-      name: `${tableName}_id_idx`,
-      columns: ['id'],
-      unique: true,
-    },
-  ]
+  // Create base table with schema and indexes
+  return pgTable(tableName, messageTableSchema, table => [
+    // Composite unique index for chat_id and id
+    uniqueIndex(`${tableName}_chat_id_id_unique`)
+      .on(table.chatId, table.id),
+
+    // Index for message type
+    index(`${tableName}_type_idx`)
+      .on(table.type),
+
+    // Unique index for id
+    uniqueIndex(`${tableName}_id_idx`)
+      .on(table.id),
+  ])
 }
 
 /**
  * Create message table for a specific chat with all required columns and indexes
  */
-export function createMessageContentTable(chatId: number | bigint) {
+export async function useMessageTable(chatId: number | bigint) {
   const tableName = getTableName(chatId)
-  const table = pgTable(tableName, messageTableSchema)
+  const table = getMessageTable(chatId)
 
-  // Create base table with generated tsvector column
-  useDB().execute(sql`
-    CREATE TABLE IF NOT EXISTS ${table} (
-      uuid UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-      id BIGINT NOT NULL,
-      chat_id BIGINT NOT NULL,
-      type message_type NOT NULL DEFAULT 'text',
-      content TEXT,
-      embedding VECTOR(1536),
-      ts_content TSVECTOR GENERATED ALWAYS AS (to_tsvector('telegram_search', coalesce(content, ''))) STORED,
-      media_info JSONB,
-      created_at TIMESTAMP NOT NULL DEFAULT now(),
-      from_id BIGINT,
-      from_name TEXT,
-      from_avatar JSONB,
-      reply_to_id BIGINT,
-      forward_from_chat_id BIGINT,
-      forward_from_chat_name TEXT,
-      forward_from_message_id BIGINT,
-      views INTEGER,
-      forwards INTEGER,
-      links JSONB,
-      metadata JSONB
-    )
+  // Create table and all indexes atomically
+  await useDB().execute(sql`
+    DO $$ 
+    BEGIN
+      -- Create text search configuration if not exists
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_ts_config WHERE cfgname = 'telegram_search'
+      ) THEN
+        CREATE TEXT SEARCH CONFIGURATION telegram_search (COPY = simple);
+        ALTER TEXT SEARCH CONFIGURATION telegram_search ALTER MAPPING FOR word WITH simple;
+      END IF;
+
+      -- Create base table with generated tsvector column
+      CREATE TABLE IF NOT EXISTS ${sql.identifier(tableName)} (
+        uuid UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        id BIGINT NOT NULL,
+        chat_id BIGINT NOT NULL,
+        type message_type NOT NULL DEFAULT 'text',
+        content TEXT,
+        embedding VECTOR(1536),
+        ts_content TSVECTOR GENERATED ALWAYS AS (to_tsvector('telegram_search', coalesce(content, ''))) STORED,
+        media_info JSONB,
+        created_at TIMESTAMP NOT NULL DEFAULT now(),
+        from_id BIGINT,
+        from_name TEXT,
+        from_avatar JSONB,
+        reply_to_id BIGINT,
+        forward_from_chat_id BIGINT,
+        forward_from_chat_name TEXT,
+        forward_from_message_id BIGINT,
+        views INTEGER,
+        forwards INTEGER,
+        links JSONB,
+        metadata JSONB
+      );
+
+      -- Create all indexes
+      CREATE UNIQUE INDEX IF NOT EXISTS ${sql.identifier(`${tableName}_chat_id_id_unique`)}
+        ON ${sql.identifier(tableName)} (chat_id, id);
+      CREATE INDEX IF NOT EXISTS ${sql.identifier(`${tableName}_type_idx`)}
+        ON ${sql.identifier(tableName)} (type);
+      CREATE UNIQUE INDEX IF NOT EXISTS ${sql.identifier(`${tableName}_id_idx`)}
+        ON ${sql.identifier(tableName)} (id);
+      CREATE INDEX IF NOT EXISTS ${sql.identifier(`${tableName}_created_at_idx`)}
+        ON ${sql.identifier(tableName)} (created_at DESC);
+      CREATE INDEX IF NOT EXISTS ${sql.identifier(`${tableName}_embedding_idx`)}
+        ON ${sql.identifier(tableName)}
+        USING ivfflat (embedding vector_cosine_ops)
+        WITH (lists = 100);
+      CREATE INDEX IF NOT EXISTS ${sql.identifier(`${tableName}_ts_content_idx`)}
+        ON ${sql.identifier(tableName)}
+        USING GIN (ts_content);
+    END $$;
   `)
-
-  // Create all indexes
-  createTableIndexes(tableName, table).forEach((index) => {
-    if ('name' in index) {
-      useDB().execute(sql`
-        CREATE ${index.unique ? sql`UNIQUE` : sql``} INDEX IF NOT EXISTS ${sql.raw(index.name)}
-        ON ${table} (${sql.raw(index.columns.join(', '))})
-        ${index.desc ? sql`DESC` : sql``}
-      `)
-    }
-    else {
-      useDB().execute(index)
-    }
-  })
 
   return table
 }
@@ -147,11 +139,16 @@ export function createMessageContentTable(chatId: number | bigint) {
 /**
  * Create partition table and materialized view for message statistics
  */
-export function createChatPartition(chatId: number | bigint) {
+export async function createMessageStatsView(chatId: number | bigint) {
   const tableName = getTableName(chatId)
+  const viewName = `message_stats_${tableName}`
+  const messageTable = getMessageTable(chatId)
 
-  return sql`
-    -- Create text search configuration if not exists
+  // Ensure table exists
+  await useMessageTable(chatId)
+
+  // Create text search configuration
+  await useDB().execute(sql`
     DO $$ 
     BEGIN
       IF NOT EXISTS (
@@ -161,25 +158,26 @@ export function createChatPartition(chatId: number | bigint) {
         ALTER TEXT SEARCH CONFIGURATION telegram_search ALTER MAPPING FOR word WITH simple;
       END IF;
     END $$;
+  `)
 
-    -- Create materialized view for message statistics
-    CREATE MATERIALIZED VIEW IF NOT EXISTS message_stats_${sql.raw(tableName)} AS
+  // Create view and index
+  return await useDB().execute(sql`
+    DROP MATERIALIZED VIEW IF EXISTS ${sql.identifier(viewName)};
+    CREATE MATERIALIZED VIEW ${sql.identifier(viewName)} AS 
     SELECT 
       chat_id,
-      COUNT(*) as message_count,
-      COUNT(*) FILTER (WHERE type = 'text') as text_count,
-      COUNT(*) FILTER (WHERE type = 'photo') as photo_count,
-      COUNT(*) FILTER (WHERE type = 'video') as video_count,
-      COUNT(*) FILTER (WHERE type = 'document') as document_count,
-      COUNT(*) FILTER (WHERE type = 'sticker') as sticker_count,
-      COUNT(*) FILTER (WHERE type = 'other') as other_count,
-      MAX(created_at) as last_message_date,
-      (array_agg(content ORDER BY created_at DESC))[1] as last_message
-    FROM ${sql.raw(tableName)}
+      count(*) as message_count,
+      count(*) filter (where type = 'text') as text_count,
+      count(*) filter (where type = 'photo') as photo_count,
+      count(*) filter (where type = 'video') as video_count,
+      count(*) filter (where type = 'document') as document_count,
+      count(*) filter (where type = 'sticker') as sticker_count,
+      count(*) filter (where type = 'other') as other_count,
+      max(created_at) as last_message_date,
+      (array_agg(content order by created_at desc))[1] as last_message
+    FROM ${messageTable}
     GROUP BY chat_id;
-
-    -- Create unique index on chat_id for the materialized view
-    CREATE UNIQUE INDEX IF NOT EXISTS message_stats_${sql.raw(tableName)}_chat_id_idx
-    ON message_stats_${sql.raw(tableName)} (chat_id);
-  `
+    CREATE UNIQUE INDEX ${sql.identifier(`${viewName}_chat_id_idx`)}
+    ON ${sql.identifier(viewName)} (chat_id);
+  `)
 }

@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path'
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
 import { EmbeddingService } from '@tg-search/core'
-import { createMessage, getAllChats, refreshMessageStats, updateChat } from '@tg-search/db'
+import { createMessages, getAllChats, refreshMessageStats, updateChat } from '@tg-search/db'
 import { glob } from 'glob'
 import { JSDOM } from 'jsdom'
 
@@ -487,7 +487,7 @@ async function saveMessagesBatch(messages: MessageData[], embedding: EmbeddingSe
     }))
 
     // Save messages in batch
-    await createMessage(dbMessages)
+    await createMessages(dbMessages)
 
     // Refresh message stats
     if (messages.length > 0) {

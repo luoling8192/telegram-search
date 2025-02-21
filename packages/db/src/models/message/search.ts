@@ -3,7 +3,7 @@ import type { MessageWithSimilarity } from './types'
 import { useDB } from '@tg-search/common'
 import { sql } from 'drizzle-orm'
 
-import { createMessageContentTable } from '../../schema'
+import { useMessageTable } from '../../schema'
 
 /**
  * Find messages by chat ID with pagination
@@ -12,7 +12,7 @@ export async function findMessagesByChatId(chatId: number, options?: {
   limit?: number
   offset?: number
 }) {
-  const contentTable = createMessageContentTable(chatId)
+  const contentTable = useMessageTable(chatId)
   const query = useDB()
     .select()
     .from(contentTable)
@@ -56,7 +56,7 @@ export async function findMessagesByText(query: string, options: {
 
   if (chatId) {
     // Search in specific chat
-    const contentTable = createMessageContentTable(chatId)
+    const contentTable = useMessageTable(chatId)
     const [{ count }] = await useDB()
       .select({ count: sql<number>`count(*)` })
       .from(contentTable)
@@ -98,7 +98,7 @@ export async function findMessagesByText(query: string, options: {
     // Search in each chat
     const results = await Promise.all(
       chats.map(async ({ id }) => {
-        const contentTable = createMessageContentTable(id)
+        const contentTable = useMessageTable(id)
         return useDB()
           .select({
             id: contentTable.id,

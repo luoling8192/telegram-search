@@ -1,17 +1,18 @@
-import type { Dialog, TelegramMessage } from '@tg-search/core'
+import type { Dialog, MessageOptions, TelegramMessage } from '@tg-search/core'
 import type { MessageType, NewChat } from '@tg-search/db'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as input from '@inquirer/prompts'
 import { getConfig, useLogger } from '@tg-search/common'
-import { createMessage, updateChat } from '@tg-search/db'
+import { createMessages, updateChat } from '@tg-search/db'
 
 import { TelegramCommand } from '../command'
 
 const logger = useLogger()
 
 interface ExportOptions {
+  chatMetadata?: NewChat
   chatId?: number
   format?: 'database' | 'html' | 'json'
   path?: string
@@ -23,12 +24,9 @@ interface ExportOptions {
   method?: 'getMessage' | 'takeout'
 }
 
-interface MessageExportOptions {
-  skipMedia: boolean
-  startTime?: Date
-  endTime?: Date
-  limit?: number
-  messageTypes: MessageType[]
+interface ExportResult {
+  count: number
+  failedCount: number
 }
 
 /**
@@ -40,7 +38,7 @@ async function processDatabaseBatch(
 ): Promise<{ failedCount: number }> {
   try {
     // Create messages in batch
-    await createMessage(messages)
+    await createMessages(messages)
     const firstMessage = messages[0]
     const lastMessage = messages[messages.length - 1]
 
@@ -89,6 +87,74 @@ async function updateChatMetadata(chat: Dialog): Promise<void> {
 }
 
 /**
+ * Handle message export process including batching and error handling
+ */
+async function handleMessageExport(
+  messageIterator: AsyncIterable<TelegramMessage>,
+  batchSize: number,
+  format: string,
+  chatId: number,
+  exportPath?: string,
+): Promise<ExportResult> {
+  const messages: TelegramMessage[] = []
+  let count = 0
+  let failedCount = 0
+
+  const processBatch = async (startIndex: number): Promise<void> => {
+    if (format !== 'database')
+      return
+
+    const batch = messages.slice(startIndex - batchSize, startIndex)
+    const messageInputs = batch.map((message: TelegramMessage) => ({
+      id: message.id,
+      chatId: message.chatId,
+      type: message.type,
+      content: message.content,
+      fromId: message.fromId,
+      fromName: message.fromName,
+      replyToId: message.replyToId,
+      forwardFromChatId: message.forwardFromChatId,
+      forwardFromChatName: message.forwardFromChatName,
+      forwardFromMessageId: message.forwardFromMessageId,
+      views: message.views,
+      forwards: message.forwards,
+      links: message.links || undefined,
+      metadata: message.metadata,
+      createdAt: message.createdAt,
+    }))
+
+    const result = await processDatabaseBatch(messageInputs, startIndex - batchSize)
+    failedCount += result.failedCount
+  }
+
+  for await (const message of messageIterator) {
+    messages.push(message)
+    count++
+
+    if (count % batchSize === 0) {
+      logger.debug(`已处理 ${count} 条消息`)
+      await processBatch(count)
+    }
+  }
+
+  // Handle remaining messages
+  const remainingCount = count % batchSize
+  if (remainingCount > 0 && format === 'database') {
+    await processBatch(count)
+  }
+
+  // Save to file if needed
+  if (format === 'json' && exportPath) {
+    const success = await saveToJsonFile(messages, chatId, exportPath)
+    if (!success) {
+      failedCount = count
+    }
+  }
+
+  return { count, failedCount }
+}
+
+/**
  * Export command to export messages from Telegram
  */
 export class ExportCommand extends TelegramCommand {
@@ -99,28 +165,23 @@ export class ExportCommand extends TelegramCommand {
     requiresConnection: true,
   }
 
-  async execute(_args: string[], options: ExportOptions): Promise<void> {
-    // Get all chats
+  private async promptForOptions(options: ExportOptions): Promise<Required<ExportOptions>> {
     const chats = await this.getClient().getChats()
     logger.debug(`获取到 ${chats.length} 个会话`)
+
     const chatChoices = chats.map((chat: NewChat) => ({
       name: `[${chat.type}] ${chat.title} (${chat.messageCount} 条消息)`,
       value: chat.id,
     }))
 
-    // Let user select chat
     const chatId = options.chatId || await input.select({
       message: '请选择要导出的会话：',
       choices: chatChoices,
     })
-    const selectedChat = chats.find((c: NewChat) => c.id === chatId)
-    if (!selectedChat) {
-      throw new Error(`找不到会话: ${chatId}`)
-    }
-    logger.debug(`已选择会话: ${selectedChat.title} (ID: ${chatId})`)
 
-    // Get export method
-    const _method = options.method || await input.select({
+    const chatMetadata = chats.find((c: NewChat) => c.id === chatId)
+
+    const method = options.method || await input.select({
       message: '请选择导出方式：',
       choices: [
         { name: 'Takeout (推荐，可能需要等待)', value: 'takeout' },
@@ -128,7 +189,6 @@ export class ExportCommand extends TelegramCommand {
       ],
     })
 
-    // Get export format
     const format = options.format || await input.select({
       message: '请选择导出格式：',
       choices: [
@@ -136,20 +196,15 @@ export class ExportCommand extends TelegramCommand {
       ],
     })
 
-    // Get export path if not exporting to database
     let exportPath = options.path
     if (format !== 'database') {
       exportPath = exportPath || await input.input({
         message: '请输入导出路径：',
         default: './export',
       })
-
-      // Create export directory
       await fs.mkdir(exportPath, { recursive: true })
-      logger.debug(`已创建导出目录: ${exportPath}`)
     }
 
-    // Get message types
     const messageTypes = options.messageTypes || await input.checkbox({
       message: '请选择要导出的消息类型：',
       choices: [
@@ -162,9 +217,7 @@ export class ExportCommand extends TelegramCommand {
       ],
     })
 
-    // Get time range
-    let startTime = options.startTime
-    let endTime = options.endTime
+    let { startTime, endTime } = options
     if (!startTime || !endTime) {
       const useTimeRange = await input.confirm({
         message: '是否设置时间范围？',
@@ -186,170 +239,114 @@ export class ExportCommand extends TelegramCommand {
       }
     }
 
-    // Get message limit
-    const limit = options.limit || await input.input({
+    const limit = options.limit || Number(await input.input({
       message: '请输入要导出的消息数量（0 表示全部）：',
       default: '0',
-    })
+    }))
 
-    // Get batch size from config
     const batchSize = options.batchSize || getConfig().message.export.batchSize
-
-    // Export messages
-    logger.log('正在导出消息...')
-    let count = 0
-    let failedCount = 0
-    const messages: TelegramMessage[] = []
-
-    /**
-     * Process messages in batch
-     */
-    async function processBatch(startIndex: number): Promise<void> {
-      if (format !== 'database') {
-        return
-      }
-
-      const batch = messages.slice(startIndex - Number(batchSize), startIndex)
-      const messageInputs: TelegramMessage[] = batch.map((message: TelegramMessage) => ({
-        id: message.id,
-        chatId: message.chatId,
-        type: message.type,
-        content: message.content,
-        fromId: message.fromId,
-        fromName: message.fromName,
-        replyToId: message.replyToId,
-        forwardFromChatId: message.forwardFromChatId,
-        forwardFromChatName: message.forwardFromChatName,
-        forwardFromMessageId: message.forwardFromMessageId,
-        views: message.views,
-        forwards: message.forwards,
-        links: message.links || undefined,
-        metadata: message.metadata,
-        createdAt: message.createdAt,
-      }))
-
-      const result = await processDatabaseBatch(messageInputs, startIndex - Number(batchSize))
-      failedCount += result.failedCount
-    }
-
-    // Try to export messages using selected method
-    const baseOptions: MessageExportOptions = {
-      skipMedia: !messageTypes.includes('photo') && !messageTypes.includes('document') && !messageTypes.includes('video') && !messageTypes.includes('sticker'),
-      startTime,
-      endTime,
-      limit: Number(limit) || undefined,
+    return {
+      chatMetadata: chatMetadata!,
+      chatId,
+      method,
+      format,
+      path: exportPath || '',
       messageTypes,
+      startTime: startTime || new Date(0),
+      endTime: endTime || new Date(),
+      limit,
+      batchSize,
     }
+  }
 
-    let messageIterator: AsyncIterable<TelegramMessage>
+  async execute(_args: string[], options: ExportOptions): Promise<void> {
+    const baseOptions = await this.promptForOptions(options)
+
+    logger.withFields({
+      baseOptions,
+    }).debug('Export options')
+
+    const {
+      chatId,
+      format,
+      path: exportPath,
+      limit,
+      batchSize,
+      chatMetadata,
+    } = baseOptions
+
+    logger.log('正在导出消息...')
 
     try {
-      // Try to get messages
-      messageIterator = this.getClient().getMessages(
+      function isSkipMedia(type: MessageType) {
+        return !baseOptions.messageTypes.includes(type)
+      }
+
+      const messageOptions: MessageOptions = {
+        skipMedia: isSkipMedia('photo') || isSkipMedia('video') || isSkipMedia('document'), // TODO: 支持更多类型
+        startTime: baseOptions.startTime,
+        endTime: baseOptions.endTime,
+        messageTypes: baseOptions.messageTypes,
+        method: baseOptions.method,
+        limit: baseOptions.limit,
+      }
+
+      const messageIterator = this.getClient().getMessages(
         Number(chatId),
-        Number(limit) || 100,
-        baseOptions,
+        limit || 100,
+        messageOptions,
       )
 
-      // Process messages
-      for await (const message of messageIterator) {
-        messages.push(message)
-        count++
+      const { count, failedCount } = await handleMessageExport(
+        messageIterator,
+        Number(batchSize),
+        format,
+        chatId,
+        exportPath,
+      )
 
-        // Process batch if needed
-        if (count % Number(batchSize) === 0) {
-          logger.debug(`已处理 ${count} 条消息`)
-          await processBatch(count)
-        }
-      }
-    }
-    catch (error: any) {
-      // Handle flood wait error
-      if (error?.message?.includes('FLOOD_WAIT')) {
-        const waitSeconds = Number(error.message.match(/FLOOD_WAIT_(\d+)/)?.[1])
-        if (waitSeconds) {
-          logger.warn(`需要等待 ${waitSeconds} 秒才能继续导出，是否等待？`)
-          const shouldWait = await input.confirm({
-            message: '是否等待？',
-            default: true,
-          })
-          if (!shouldWait) {
-            throw error
-          }
-          logger.log(`等待 ${waitSeconds} 秒...`)
-          await new Promise(resolve => setTimeout(resolve, waitSeconds * 1000))
-          logger.log('继续导出...')
-        }
-      }
-      else {
-        throw error
-      }
-
-      // Continue with remaining messages
-      const lastId = messages[messages.length - 1]?.id
-      const remainingOptions = {
-        ...baseOptions,
-        // @ts-ignore offsetId is supported by the client
-        offsetId: lastId,
-      }
-      for await (const message of this.getClient().getMessages(
-        Number(chatId),
-        Number(limit) || 100,
-        remainingOptions,
-      )) {
-        messages.push(message)
-        count++
-
-        // Process batch if needed
-        if (count % Number(batchSize) === 0) {
-          logger.debug(`已处理 ${count} 条消息`)
-          await processBatch(count)
-        }
-      }
-    }
-
-    // Save to file or database
-    try {
-      if (format === 'json') {
-        const success = await saveToJsonFile(messages, chatId, exportPath!)
-        if (!success) {
-          failedCount = count
-        }
-      }
-      else if (format === 'database') {
-        // Update chat metadata
+      if (format === 'database') {
         await updateChatMetadata({
-          id: selectedChat.id,
-          name: selectedChat.title,
-          type: selectedChat.type,
+          id: chatMetadata.id,
+          name: chatMetadata.title,
+          type: chatMetadata.type as 'user' | 'group' | 'channel',
           unreadCount: 0,
         })
-
-        // Save remaining messages
-        const remainingCount = count % Number(batchSize)
-        if (remainingCount > 0) {
-          await processBatch(count)
-        }
 
         if (failedCount === 0) {
           logger.log('已导出到数据库')
         }
       }
-      else {
-        // TODO: 实现 HTML 导出
+      else if (format === 'html') {
         logger.warn('HTML 导出暂未实现')
-        failedCount = count
+      }
+
+      const summary = failedCount > 0
+        ? `导出完成，共导出 ${count} 条消息，${failedCount} 条消息失败`
+        : `导出完成，共导出 ${count} 条消息`
+      logger.log(summary)
+    }
+    catch (error: any) {
+      if (error?.message?.includes('FLOOD_WAIT')) {
+        const waitSeconds = Number(error.message.match(/FLOOD_WAIT_(\d+)/)?.[1])
+        if (waitSeconds) {
+          const shouldWait = await input.confirm({
+            message: `需要等待 ${waitSeconds} 秒才能继续导出，是否等待？`,
+            default: true,
+          })
+          if (!shouldWait)
+            throw error
+
+          logger.log(`等待 ${waitSeconds} 秒...`)
+          await new Promise(resolve => setTimeout(resolve, waitSeconds * 1000))
+          logger.log('继续导出...')
+          await this.execute(_args, baseOptions)
+        }
+      }
+      else {
+        throw error
       }
     }
-    catch (error) {
-      failedCount = count
-      logger.withError(error).error(`保存失败`)
-    }
-
-    const summary = failedCount > 0
-      ? `导出完成，共导出 ${count} 条消息，${failedCount} 条消息失败`
-      : `导出完成，共导出 ${count} 条消息`
-    logger.log(summary)
   }
 }
 

@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { setupTest } from '../../test/setup'
 import { findSimilarMessages } from './embedding'
-import { createMessage } from './message'
+import { createMessages } from './message'
 import { findMessagesByChatId } from './search'
 import { getMessageStats, refreshMessageStats } from './stats'
 
@@ -47,7 +47,7 @@ describe('message Model', () => {
         content: 'test',
         createdAt: new Date(),
       }
-      await createMessage(message)
+      await createMessages(message)
       expect(useDB().insert).toHaveBeenCalled()
     })
 
@@ -68,12 +68,12 @@ describe('message Model', () => {
           createdAt: new Date(),
         },
       ]
-      await createMessage(messages)
+      await createMessages(messages)
       expect(useDB().insert).toHaveBeenCalled()
     })
 
     it('should handle empty message array', async () => {
-      await createMessage([])
+      await createMessages([])
       expect(useDB().insert).not.toHaveBeenCalled()
     })
   })

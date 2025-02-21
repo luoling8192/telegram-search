@@ -1,40 +1,34 @@
-import { basename, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { useLogger } from '@tg-search/common'
-import { glob } from 'glob'
+
+import { createExtensions } from './01-extensions'
+import { createMessageIndexes } from './02-indexes'
+import { migrateMessageTables } from './03-message-tables'
+import { createFunctions } from './04-functions'
 
 /**
  * Run all migrations in order
  */
 export async function runMigrations() {
   const logger = useLogger()
-  const __filename = fileURLToPath(import.meta.url)
-  const __dirname = dirname(__filename)
 
-  // Find all migration files
-  const migrationFiles = await glob('*.ts', {
-    cwd: __dirname,
-    ignore: ['index.ts'],
-  })
+  try {
+    // Run migrations in order
+    logger.log('正在运行扩展迁移...')
+    await createExtensions()
 
-  // Sort files to ensure order
-  migrationFiles.sort()
+    logger.log('正在运行索引迁移...')
+    await createMessageIndexes()
 
-  for (const file of migrationFiles) {
-    try {
-      const name = basename(file, '.ts')
-      logger.log(`正在运行迁移: ${name}...`)
+    logger.log('正在运行消息表迁移...')
+    await migrateMessageTables()
 
-      // Dynamically import and run migration
-      const migration = await import(`./${name}`)
-      const run = Object.values(migration)[0] as () => Promise<void>
-      await run()
+    logger.log('正在运行函数迁移...')
+    await createFunctions()
 
-      logger.log(`迁移 ${name} 完成`)
-    }
-    catch (error) {
-      logger.withError(error).error(`迁移失败: ${file}`)
-      throw error
-    }
+    logger.log('所有迁移完成')
+  }
+  catch (error) {
+    logger.withError(error).error('迁移失败')
+    throw error
   }
 }

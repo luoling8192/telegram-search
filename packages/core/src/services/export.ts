@@ -1,7 +1,7 @@
 import type { ITelegramClientAdapter, TelegramMessage, TelegramMessageType } from '../adapter/types'
 
 import { getConfig, useLogger } from '@tg-search/common'
-import { createMessage, updateChat } from '@tg-search/db'
+import { createMessages, updateChat } from '@tg-search/db'
 
 const logger = useLogger()
 
@@ -72,7 +72,7 @@ export class ExportService {
       }))
 
       // Create messages in batch
-      await createMessage(messagesToCreate)
+      await createMessages(messagesToCreate)
       logger.debug(
         `Saved messages ${startIndex + 1} - ${startIndex + messages.length} `
         + `(ID: ${messages[0].id} - ${messages[messages.length - 1].id})`,
@@ -117,8 +117,7 @@ export class ExportService {
     try {
       // Try to export messages
       for await (const message of this.client.getMessages(chatId, undefined, {
-        skipMedia: !messageTypes.includes('photo') && !messageTypes.includes('document')
-          && !messageTypes.includes('video') && !messageTypes.includes('sticker'),
+        skipMedia: messageTypes.length === 1 && messageTypes[0] === 'text',
         startTime,
         endTime,
         limit,
