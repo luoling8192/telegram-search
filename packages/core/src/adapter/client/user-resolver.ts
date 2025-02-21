@@ -9,6 +9,12 @@ import { Api } from 'telegram'
  */
 export class UserResolver {
   private logger = useLogger()
+  // In-memory cache for user info
+  private memoryCache = new Map<number, {
+    username?: string
+    displayName: string
+    updatedAt: Date
+  }>()
 
   constructor(
     private readonly client: TelegramClient,
@@ -38,17 +44,26 @@ export class UserResolver {
           lastName: sender.lastName,
         }).debug('Got user info from Telegram API')
 
-        // Cache user information
+        const userInfo = {
+          username: sender.username || undefined,
+          displayName,
+          updatedAt: new Date(),
+        }
+
+        // Cache in memory
+        this.memoryCache.set(userId, userInfo)
+
+        // Cache in database
         await upsertUser({
           id: userId,
           username: sender.username || undefined,
           displayName,
-          updatedAt: new Date(),
+          updatedAt: userInfo.updatedAt,
         })
 
         return {
-          username: sender.username || undefined,
-          displayName,
+          username: userInfo.username,
+          displayName: userInfo.displayName,
         }
       }
       else {
@@ -70,8 +85,8 @@ export class UserResolver {
   }
 
   /**
-   * Get user information from cache or API
-   * If not found in cache, fetch from API and update cache
+   * Get user information from memory cache, database cache or API
+   * If not found in cache, fetch from API and update caches
    * If cache is older than 7 days, refresh from API
    */
   async resolveUser(userId: number): Promise<{
@@ -79,36 +94,69 @@ export class UserResolver {
     displayName: string
   } | null> {
     try {
-      // Try to get from cache first
-      const user = await getUser(userId)
-      if (user) {
-        // Check if cache is older than 7 days
-        const cacheAge = Date.now() - user.updatedAt.getTime()
+      // Check memory cache first
+      const memCached = this.memoryCache.get(userId)
+      if (memCached) {
+        const cacheAge = Date.now() - memCached.updatedAt.getTime()
         const cacheExpired = cacheAge > 7 * 24 * 60 * 60 * 1000 // 7 days
 
         if (!cacheExpired) {
-          this.logger.withFields({
-            userId,
-            displayName: user.displayName,
-            cacheAge: Math.floor(cacheAge / (24 * 60 * 60 * 1000)), // days
-          }).debug('Got user info from cache')
+          // this.logger.withFields({
+          //   userId,
+          //   displayName: memCached.displayName,
+          //   cacheAge: Math.floor(cacheAge / (24 * 60 * 60 * 1000)), // days
+          //   source: 'memory'
+          // }).debug('Got user info from memory cache')
 
           return {
-            username: user.username || undefined,
-            displayName: user.displayName,
+            username: memCached.username,
+            displayName: memCached.displayName,
           }
         }
 
         this.logger.withFields({
           userId,
           cacheAge: Math.floor(cacheAge / (24 * 60 * 60 * 1000)), // days
-        }).debug('Cache expired, refreshing from API')
-      }
-      else {
-        this.logger.debug(`User ${userId} not found in cache`)
+        }).debug('Memory cache expired, refreshing from API')
       }
 
-      // If not in cache or cache expired, fetch from API and update cache
+      // Try database cache if not in memory
+      const dbUser = await getUser(userId)
+      if (dbUser) {
+        const cacheAge = Date.now() - dbUser.updatedAt.getTime()
+        const cacheExpired = cacheAge > 7 * 24 * 60 * 60 * 1000 // 7 days
+
+        if (!cacheExpired) {
+          // Update memory cache
+          this.memoryCache.set(userId, {
+            username: dbUser.username || undefined,
+            displayName: dbUser.displayName,
+            updatedAt: dbUser.updatedAt,
+          })
+
+          this.logger.withFields({
+            userId,
+            displayName: dbUser.displayName,
+            cacheAge: Math.floor(cacheAge / (24 * 60 * 60 * 1000)), // days
+            source: 'database',
+          }).debug('Got user info from database cache')
+
+          return {
+            username: dbUser.username || undefined,
+            displayName: dbUser.displayName,
+          }
+        }
+
+        this.logger.withFields({
+          userId,
+          cacheAge: Math.floor(cacheAge / (24 * 60 * 60 * 1000)), // days
+        }).debug('Database cache expired, refreshing from API')
+      }
+      else {
+        this.logger.debug(`User ${userId} not found in any cache`)
+      }
+
+      // If not in cache or cache expired, fetch from API and update caches
       return await this.getUserInfo(userId)
     }
     catch (error) {
