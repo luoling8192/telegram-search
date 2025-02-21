@@ -4,8 +4,9 @@ import { useDB } from '@tg-search/common'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { setupTest } from '../../test/setup'
+import { findSimilarMessages } from './embedding'
 import { createMessage } from './message'
-import { findMessagesByChatId, findSimilarMessages } from './search'
+import { findMessagesByChatId } from './search'
 import { getMessageStats, refreshMessageStats } from './stats'
 
 // Mock the database

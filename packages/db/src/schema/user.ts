@@ -20,15 +20,11 @@ export const userTable = pgTable('users', {
   }>(),
   // Last update time
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-}, table => ({
+}, table => [
   // Index on user ID for faster lookups
-  idIdx: index('user_id_idx').on(table.id),
+  index('user_id_idx').on(table.id),
   // Index on username for faster lookups
-  usernameIdx: index('user_username_idx').on(table.username),
+  index('user_username_idx').on(table.username),
   // Index on update time for cleanup
-  updatedAtIdx: index('user_updated_at_idx').on(table.updatedAt),
-}))
-
-// Export types
-export type User = typeof userTable.$inferSelect
-export type NewUser = typeof userTable.$inferInsert
+  index('user_updated_at_idx').on(table.updatedAt),
+])

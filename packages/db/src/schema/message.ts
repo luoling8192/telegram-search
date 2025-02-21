@@ -1,23 +1,10 @@
 import type { MediaInfo } from './types'
 
+import { tsvector, vector } from '@tg-search/pg-vector'
 import { sql } from 'drizzle-orm'
-import { bigint, customType, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigint, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 
 import { messageTypeEnum } from './types'
-
-// Vector type
-const vector = customType<{ data: number[] }>({
-  dataType() {
-    return 'vector(1536)'
-  },
-})
-
-// tsvector type
-const tsvector = customType<{ data: string }>({
-  dataType() {
-    return 'tsvector'
-  },
-})
 
 // Message content table template
 export function createMessageContentTable(chatId: number | bigint) {

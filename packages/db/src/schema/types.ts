@@ -1,38 +1,59 @@
 import { pgEnum } from 'drizzle-orm/pg-core'
 
-// Message type enum
+/**
+ * Enum for message types in the database
+ * Used to categorize different kinds of messages for filtering and statistics
+ */
 export const messageTypeEnum = pgEnum('message_type', [
-  'text',
-  'photo',
-  'video',
-  'document',
-  'sticker',
-  'other',
-])
+  'text', // Plain text messages
+  'photo', // Photo messages
+  'video', // Video messages
+  'document', // Document/file messages
+  'sticker', // Sticker messages
+  'other', // Other message types
+] as const)
+
 export type MessageType = (typeof messageTypeEnum.enumValues)[number]
 
-// Chat type enum
+/**
+ * Enum for chat types in the database
+ * Used to distinguish between different chat contexts
+ */
 export const chatTypeEnum = pgEnum('chat_type', [
-  'user',
-  'group',
-  'channel',
-  'saved',
-])
+  'user', // Direct messages with users
+  'group', // Group chats
+  'channel', // Broadcast channels
+  'saved', // Saved messages
+] as const)
 
-// Media file info type
+export type ChatType = (typeof chatTypeEnum.enumValues)[number]
+
+/**
+ * Type definition for media file metadata
+ * Stores information about media files attached to messages
+ */
 export interface MediaInfo {
-  fileId: string
-  type: string
-  mimeType?: string
-  fileName?: string
-  fileSize?: number
-  width?: number
-  height?: number
-  duration?: number
+  // Required fields
+  fileId: string // Unique identifier for the file
+  type: MessageType // Type of media, aligned with MessageType
+
+  // Optional metadata
+  mimeType?: string // MIME type of the file
+  fileName?: string // Original filename
+  fileSize?: number // Size in bytes
+
+  // Media dimensions
+  width?: number // Width in pixels
+  height?: number // Height in pixels
+  duration?: number // Duration in seconds for video/audio
+
+  // Thumbnail information
   thumbnail?: {
-    fileId: string
-    width: number
-    height: number
+    fileId: string // Thumbnail file ID
+    width: number // Thumbnail width
+    height: number // Thumbnail height
   }
-  localPath?: string
+
+  // Local storage
+  localPath?: string // Path to cached file on disk
 }

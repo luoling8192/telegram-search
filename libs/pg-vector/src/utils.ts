@@ -1,14 +1,25 @@
 import type { SQL } from 'drizzle-orm'
-import type { PgTable } from 'drizzle-orm/pg-core'
 
 import { sql } from 'drizzle-orm'
+import { customType } from 'drizzle-orm/pg-core'
 
 /**
  * Create a vector column definition
  */
-export function vector(dimensions: number): SQL {
-  return sql`vector(${dimensions})`
-}
+export const vector = customType<{ data: number[] }>({
+  dataType() {
+    return 'vector(1536)'
+  },
+})
+
+/**
+ * Create a tsvector column definition
+ */
+export const tsvector = customType<{ data: string }>({
+  dataType() {
+    return 'tsvector'
+  },
+})
 
 /**
  * Convert array to vector

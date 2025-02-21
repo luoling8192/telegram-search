@@ -5,7 +5,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as input from '@inquirer/prompts'
 import { getConfig, useLogger } from '@tg-search/common'
-import { createMessageBatch, updateChat } from '@tg-search/db'
+import { createMessage, updateChat } from '@tg-search/db'
 
 import { TelegramCommand } from '../command'
 
@@ -31,7 +31,7 @@ async function processDatabaseBatch(
 ): Promise<{ failedCount: number }> {
   try {
     // Create messages in batch
-    await createMessageBatch(messages)
+    await createMessage(messages)
     const firstMessage = messages[0]
     const lastMessage = messages[messages.length - 1]
 

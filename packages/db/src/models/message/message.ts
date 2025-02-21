@@ -65,21 +65,3 @@ export async function createMessage(data: MessageCreateInput | MessageCreateInpu
     throw error
   }
 }
-
-/**
- * Create messages in batch
- */
-export async function createMessageBatch(messages: MessageCreateInput[]): Promise<void> {
-  if (messages.length === 0) {
-    return
-  }
-
-  try {
-    // Create messages
-    await createMessage(messages)
-  }
-  catch (error) {
-    logger.withError(error).error('保存消息批次失败')
-    throw error
-  }
-}
