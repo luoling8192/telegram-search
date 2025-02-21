@@ -20,6 +20,15 @@ interface ExportOptions {
   endTime?: Date
   limit?: number
   batchSize?: number
+  method?: 'getMessage' | 'takeout'
+}
+
+interface MessageExportOptions {
+  skipMedia: boolean
+  startTime?: Date
+  endTime?: Date
+  limit?: number
+  messageTypes: MessageType[]
 }
 
 /**
@@ -109,6 +118,15 @@ export class ExportCommand extends TelegramCommand {
       throw new Error(`找不到会话: ${chatId}`)
     }
     logger.debug(`已选择会话: ${selectedChat.title} (ID: ${chatId})`)
+
+    // Get export method
+    const _method = options.method || await input.select({
+      message: '请选择导出方式：',
+      choices: [
+        { name: 'Takeout (推荐，可能需要等待)', value: 'takeout' },
+        { name: 'GetMessage (立即导出，可能不完整)', value: 'getMessage' },
+      ],
+    })
 
     // Get export format
     const format = options.format || await input.select({
@@ -214,15 +232,27 @@ export class ExportCommand extends TelegramCommand {
       failedCount += result.failedCount
     }
 
+    // Try to export messages using selected method
+    const baseOptions: MessageExportOptions = {
+      skipMedia: !messageTypes.includes('photo') && !messageTypes.includes('document') && !messageTypes.includes('video') && !messageTypes.includes('sticker'),
+      startTime,
+      endTime,
+      limit: Number(limit) || undefined,
+      messageTypes,
+    }
+
+    let messageIterator: AsyncIterable<TelegramMessage>
+
     try {
-      // Try to export messages
-      for await (const message of this.getClient().getMessages(Number(chatId), undefined, {
-        skipMedia: !messageTypes.includes('photo') && !messageTypes.includes('document') && !messageTypes.includes('video') && !messageTypes.includes('sticker'),
-        startTime,
-        endTime,
-        limit: Number(limit) || undefined,
-        messageTypes,
-      })) {
+      // Try to get messages
+      messageIterator = this.getClient().getMessages(
+        Number(chatId),
+        Number(limit) || 100,
+        baseOptions,
+      )
+
+      // Process messages
+      for await (const message of messageIterator) {
         messages.push(message)
         count++
 
@@ -234,22 +264,8 @@ export class ExportCommand extends TelegramCommand {
       }
     }
     catch (error: any) {
-      // Check if we need to wait for takeout
-      if (error?.message?.includes('TAKEOUT_INIT_DELAY')) {
-        const waitSeconds = Number(error.message.match(/TAKEOUT_INIT_DELAY_(\d+)/)?.[1])
-        if (waitSeconds) {
-          const waitHours = Math.ceil(waitSeconds / 3600)
-          logger.warn(`需要等待 ${waitHours} 小时才能使用 takeout 导出，是否使用普通方式导出？`)
-          const useNormal = await input.confirm({
-            message: '是否继续？',
-            default: true,
-          })
-          if (!useNormal) {
-            throw error
-          }
-        }
-      }
-      else if (error?.message?.includes('FLOOD_WAIT')) {
+      // Handle flood wait error
+      if (error?.message?.includes('FLOOD_WAIT')) {
         const waitSeconds = Number(error.message.match(/FLOOD_WAIT_(\d+)/)?.[1])
         if (waitSeconds) {
           logger.warn(`需要等待 ${waitSeconds} 秒才能继续导出，是否等待？`)
@@ -271,15 +287,16 @@ export class ExportCommand extends TelegramCommand {
 
       // Continue with remaining messages
       const lastId = messages[messages.length - 1]?.id
-      for await (const message of this.getClient().getMessages(Number(chatId), undefined, {
-        skipMedia: !messageTypes.includes('photo') && !messageTypes.includes('document') && !messageTypes.includes('video') && !messageTypes.includes('sticker'),
-        startTime,
-        endTime,
-        limit: Number(limit) ? Number(limit) - count : undefined,
-        messageTypes,
+      const remainingOptions = {
+        ...baseOptions,
         // @ts-ignore offsetId is supported by the client
         offsetId: lastId,
-      })) {
+      }
+      for await (const message of this.getClient().getMessages(
+        Number(chatId),
+        Number(limit) || 100,
+        remainingOptions,
+      )) {
         messages.push(message)
         count++
 

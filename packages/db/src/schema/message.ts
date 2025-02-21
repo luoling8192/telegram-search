@@ -1,50 +1,27 @@
-import type { ColumnBaseConfig, ColumnDataType } from 'drizzle-orm'
-import type { PgColumn, PgColumnBuilderBase } from 'drizzle-orm/pg-core'
+import type { SQL } from 'drizzle-orm'
 import type { MediaInfo } from './types'
 
+import { useDB } from '@tg-search/common'
 import { vector } from '@tg-search/pg-vector'
 import { sql } from 'drizzle-orm'
-import { bigint, customType, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigint, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 
+import { tsvector } from './tsvector'
 import { messageTypeEnum } from './types'
 
 /**
- * Creates a table name for a chat partition
+ * Get table name for a chat partition
+ * Handles negative chat IDs by prefixing with 'n'
  */
 function getTableName(chatId: number | bigint): string {
   const absId = chatId < 0 ? -chatId : chatId
-  return `messages_${chatId < 0 ? 'n' : ''}${absId}`
-}
-
-// TSVector column data
-export interface TSVectorColumnData extends PgColumn<ColumnBaseConfig<ColumnDataType, string>, object, object> {
-  dataType: ColumnDataType
-  baseType: string
-}
-
-// TSVector column builder
-export type TSVectorColumnBuilder = PgColumnBuilderBase<{
-  name: string
-  dataType: ColumnDataType
-  enumValues: string[]
-  data: TSVectorColumnData
-  driverParam: string
-  columnType: 'tsvector'
-}>
-
-/**
- * Creates a tsvector column for full text search
- * @param name Column name
- * @returns TSVector column builder
- */
-export function tsvector(name: string) {
-  return customType<{ data: string }>({
-    dataType: () => 'tsvector',
-  })(name)
+  const prefix = chatId < 0 ? 'n' : ''
+  return `messages_${prefix}${absId}`
 }
 
 /**
- * Common table schema for message content
+ * Base schema for message tables
+ * Defines common columns and their types
  */
 const messageTableSchema = {
   uuid: uuid('uuid').defaultRandom().primaryKey(),
@@ -53,10 +30,7 @@ const messageTableSchema = {
   type: messageTypeEnum('type').notNull().default('text'),
   content: text('content'),
   embedding: vector('embedding'),
-  // Note: tsContent still needs sql template since there's no direct drizzle equivalent
-  tsContent: tsvector('ts_content').notNull().$defaultFn(() =>
-    sql`to_tsvector('telegram_search', coalesce(content, ''))`,
-  ),
+  tsContent: tsvector('ts_content'),
   mediaInfo: jsonb('media_info').$type<MediaInfo>(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   fromId: bigint('from_id', { mode: 'number' }),
@@ -77,49 +51,107 @@ const messageTableSchema = {
 }
 
 /**
- * Creates table indexes
- * Note: Some indexes still need raw SQL due to specialized PostgreSQL features
+ * Index configuration type
  */
-function createTableIndexes(tableName: string, table: any) {
-  return [
-    // Composite unique constraint
-    { name: `${tableName}_chat_id_id_unique`, columns: ['chat_id', 'id'], unique: true },
+interface TableIndex {
+  name: string
+  columns: string[]
+  unique?: boolean
+  desc?: boolean
+}
 
-    // Vector similarity search index - needs raw SQL
+/**
+ * Generate table indexes including specialized PostgreSQL features
+ */
+function createTableIndexes(tableName: string, table: any): Array<TableIndex | SQL> {
+  return [
+    {
+      name: `${tableName}_chat_id_id_unique`,
+      columns: ['chat_id', 'id'],
+      unique: true,
+    },
     sql`CREATE INDEX IF NOT EXISTS ${sql.raw(tableName)}_embedding_idx 
       ON ${table} 
       USING ivfflat (embedding vector_cosine_ops)
       WITH (lists = 100)`,
-
-    // Full text search index - needs raw SQL
     sql`CREATE INDEX IF NOT EXISTS ${sql.raw(tableName)}_ts_content_idx
       ON ${table}
       USING GIN (ts_content)`,
-
-    // Regular indexes
-    { name: `${tableName}_created_at_idx`, columns: ['created_at'], desc: true },
-    { name: `${tableName}_type_idx`, columns: ['type'] },
-    { name: `${tableName}_id_idx`, columns: ['id'], unique: true },
+    {
+      name: `${tableName}_created_at_idx`,
+      columns: ['created_at'],
+      desc: true,
+    },
+    {
+      name: `${tableName}_type_idx`,
+      columns: ['type'],
+    },
+    {
+      name: `${tableName}_id_idx`,
+      columns: ['id'],
+      unique: true,
+    },
   ]
 }
 
 /**
- * Creates a message content table for a specific chat
+ * Create message table for a specific chat with all required columns and indexes
  */
 export function createMessageContentTable(chatId: number | bigint) {
   const tableName = getTableName(chatId)
-  return pgTable(tableName, messageTableSchema, table => createTableIndexes(tableName, table))
+  const table = pgTable(tableName, messageTableSchema)
+
+  // Create base table with generated tsvector column
+  useDB().execute(sql`
+    CREATE TABLE IF NOT EXISTS ${table} (
+      uuid UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      id BIGINT NOT NULL,
+      chat_id BIGINT NOT NULL,
+      type message_type NOT NULL DEFAULT 'text',
+      content TEXT,
+      embedding VECTOR(1536),
+      ts_content TSVECTOR GENERATED ALWAYS AS (to_tsvector('telegram_search', coalesce(content, ''))) STORED,
+      media_info JSONB,
+      created_at TIMESTAMP NOT NULL DEFAULT now(),
+      from_id BIGINT,
+      from_name TEXT,
+      from_avatar JSONB,
+      reply_to_id BIGINT,
+      forward_from_chat_id BIGINT,
+      forward_from_chat_name TEXT,
+      forward_from_message_id BIGINT,
+      views INTEGER,
+      forwards INTEGER,
+      links JSONB,
+      metadata JSONB
+    )
+  `)
+
+  // Create all indexes
+  createTableIndexes(tableName, table).forEach((index) => {
+    if ('name' in index) {
+      useDB().execute(sql`
+        CREATE ${index.unique ? sql`UNIQUE` : sql``} INDEX IF NOT EXISTS ${sql.raw(index.name)}
+        ON ${table} (${sql.raw(index.columns.join(', '))})
+        ${index.desc ? sql`DESC` : sql``}
+      `)
+    }
+    else {
+      useDB().execute(index)
+    }
+  })
+
+  return table
 }
 
 /**
- * Creates a partition table and materialized view for a chat
- * Note: This still needs raw SQL due to materialized view functionality
+ * Create partition table and materialized view for message statistics
  */
 export function createChatPartition(chatId: number | bigint) {
   const tableName = getTableName(chatId)
 
   return sql`
-    -- Create text search configuration
+    -- Create text search configuration if not exists
     DO $$ 
     BEGIN
       IF NOT EXISTS (
@@ -130,7 +162,7 @@ export function createChatPartition(chatId: number | bigint) {
       END IF;
     END $$;
 
-    -- Create materialized view
+    -- Create materialized view for message statistics
     CREATE MATERIALIZED VIEW IF NOT EXISTS message_stats_${sql.raw(tableName)} AS
     SELECT 
       chat_id,
@@ -146,6 +178,7 @@ export function createChatPartition(chatId: number | bigint) {
     FROM ${sql.raw(tableName)}
     GROUP BY chat_id;
 
+    -- Create unique index on chat_id for the materialized view
     CREATE UNIQUE INDEX IF NOT EXISTS message_stats_${sql.raw(tableName)}_chat_id_idx
     ON message_stats_${sql.raw(tableName)} (chat_id);
   `
