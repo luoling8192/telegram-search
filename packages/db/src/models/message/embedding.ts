@@ -36,27 +36,29 @@ export async function findSimilarMessages(embedding: number[], options: SearchOp
     offset = 0,
   } = options
 
-  const contentTable = useMessageTable(chatId)
+  // Get message table for this chat
+  const messageTable = await useMessageTable(chatId)
   const embeddingStr = `'[${embedding.join(',')}]'`
 
+  // Query similar messages using vector similarity
   return useDB()
     .select({
-      id: contentTable.id,
-      chatId: contentTable.chatId,
-      type: contentTable.type,
-      content: contentTable.content,
-      createdAt: contentTable.createdAt,
-      fromId: contentTable.fromId,
-      similarity: sql<number>`1 - (${contentTable.embedding} <=> ${sql.raw(embeddingStr)}::vector)`.as('similarity'),
+      id: messageTable.id,
+      chatId: messageTable.chatId,
+      type: messageTable.type,
+      content: messageTable.content,
+      createdAt: messageTable.createdAt,
+      fromId: messageTable.fromId,
+      similarity: sql<number>`1 - (${messageTable.embedding} <=> ${sql.raw(embeddingStr)}::vector)`.as('similarity'),
     })
-    .from(contentTable)
+    .from(messageTable)
     .where(sql`
-      ${contentTable.embedding} IS NOT NULL
+      ${messageTable.embedding} IS NOT NULL
       ${type ? sql`AND type = ${type}` : sql``}
       ${startTime ? sql`AND created_at >= ${startTime}` : sql``}
       ${endTime ? sql`AND created_at <= ${endTime}` : sql``}
     `)
-    .orderBy(sql`${contentTable.embedding} <=> ${sql.raw(embeddingStr)}::vector`)
+    .orderBy(sql`${messageTable.embedding} <=> ${sql.raw(embeddingStr)}::vector`)
     .limit(limit)
     .offset(offset)
 }

@@ -241,6 +241,9 @@ importers:
       '@tg-search/db':
         specifier: workspace:*
         version: link:../db
+      '@tg-search/server':
+        specifier: workspace:*
+        version: link:../server
       '@vueuse/core':
         specifier: ^12.7.0
         version: 12.7.0(typescript@5.7.3)

@@ -1,6 +1,6 @@
 <!-- Command list component -->
 <script setup lang="ts">
-import type { Command } from '@tg-search/server/routes/commands'
+import type { Command } from '@tg-search/server/types'
 
 defineProps<{
   commands: Command[]
@@ -54,4 +54,4 @@ defineProps<{
       </div>
     </div>
   </div>
-</template> 
+</template>

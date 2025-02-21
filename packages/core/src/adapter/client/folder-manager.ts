@@ -139,7 +139,7 @@ export class FolderManager {
               folders.push({
                 id: ('id' in folder ? folder.id : 0) + 1, // Add 1 to avoid conflict with default folder
                 title: ('title' in folder ? folder.title?.toString() : '') || '',
-                customId: 'id' in folder ? folder.id : undefined,
+                // Remove customId since it's not in the Folder type
               })
             }
           }

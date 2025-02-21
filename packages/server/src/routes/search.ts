@@ -95,67 +95,71 @@ export const searchRoutes = new Elysia({ prefix: '/search' })
         logger.debug(`Sent partial results: ${items.length} items, total: ${allResults.size}`)
       }
 
-      // 文本搜索
-      logger.debug('Starting text search...')
-      controller.enqueue(createSSEMessage('info', 'Starting text search...'))
+      // 文本相似度搜索
+      logger.debug('Starting text similarity search...')
+      controller.enqueue(createSSEMessage('info', 'Starting text similarity search...'))
 
-      const { items: textResults } = await findMessagesByText(query, {
+      const { items: similarResults } = await findMessagesByText(query, {
         chatId: targetChatId,
         limit: 1000, // Get more results for better ranking
       })
 
-      // Add text search results
-      textResults.forEach((msg) => {
-        if (!allResults.has(msg.id)) {
-          allResults.set(msg.id, toSearchResultItem(msg, msg.similarity))
-        }
+      // Add similarity search results
+      similarResults.forEach((msg) => {
+        allResults.set(msg.id, toSearchResultItem(msg, msg.similarity))
       })
 
       // Send partial results
-      if (textResults.length > 0) {
-        logger.debug(`Found ${textResults.length} text matches`)
-        controller.enqueue(createSSEMessage('info', `Found ${textResults.length} text matches`))
+      if (similarResults.length > 0) {
+        logger.debug(`Found ${similarResults.length} similar matches`)
+        controller.enqueue(createSSEMessage('info', `Found ${similarResults.length} similar matches`))
         sendPartialResults()
       }
 
-      // 向量搜索
-      logger.debug('Starting vector search...')
-      controller.enqueue(createSSEMessage('info', 'Starting vector search...'))
+      // 如果结果不够多，尝试向量搜索
+      if (allResults.size < limit) {
+        logger.debug('Not enough results, trying vector search...')
+        controller.enqueue(createSSEMessage('info', 'Not enough results, trying vector search...'))
 
-      const embedding = new EmbeddingService()
-      try {
-        const queryEmbedding = await embedding.generateEmbedding(query)
-        logger.debug('Generated query embedding')
-        controller.enqueue(createSSEMessage('info', 'Generated query embedding'))
+        const embedding = new EmbeddingService()
+        try {
+          const queryEmbedding = await embedding.generateEmbedding(query)
+          logger.debug('Generated query embedding')
+          controller.enqueue(createSSEMessage('info', 'Generated query embedding'))
 
-        const vectorResults = await findSimilarMessages(queryEmbedding, {
-          chatId: targetChatId!,
-          limit: 1000, // Get more results for better ranking
-        })
+          const vectorResults = await findSimilarMessages(queryEmbedding, {
+            chatId: targetChatId!,
+            limit: 1000, // Get more results for better ranking
+          })
 
-        // Add vector search results
-        vectorResults.forEach((msg) => {
-          if (allResults.has(msg.id)) {
-            // 如果已存在文本匹配结果，提升分数
-            allResults.get(msg.id)!.score = Math.max(
-              allResults.get(msg.id)!.score,
-              msg.similarity + 0.5,
-            )
+          // Add vector search results
+          vectorResults.forEach((msg) => {
+            if (allResults.has(msg.id)) {
+              // 如果已存在文本匹配结果，提升分数
+              allResults.get(msg.id)!.score = Math.max(
+                allResults.get(msg.id)!.score,
+                msg.similarity + 0.3, // 稍微降低向量搜索的权重
+              )
+            }
+            else {
+              allResults.set(msg.id, toSearchResultItem(msg, msg.similarity))
+            }
+          })
+
+          // Send partial results
+          if (vectorResults.length > 0) {
+            logger.debug(`Found ${vectorResults.length} vector matches`)
+            controller.enqueue(createSSEMessage('info', `Found ${vectorResults.length} vector matches`))
+            sendPartialResults()
           }
-          else {
-            allResults.set(msg.id, toSearchResultItem(msg, msg.similarity))
-          }
-        })
-
-        // Send partial results
-        if (vectorResults.length > 0) {
-          logger.debug(`Found ${vectorResults.length} vector matches`)
-          controller.enqueue(createSSEMessage('info', `Found ${vectorResults.length} vector matches`))
-          sendPartialResults()
         }
-      }
-      finally {
-        embedding.destroy()
+        catch (error) {
+          logger.error('Vector search failed', { error })
+          controller.enqueue(createSSEMessage('info', 'Vector search failed'))
+        }
+        finally {
+          embedding.destroy()
+        }
       }
 
       // 发送最终结果

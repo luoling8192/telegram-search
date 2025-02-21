@@ -10,7 +10,7 @@ export async function checkDuplicateMessages(chatId: number, id1: number, id2: n
   actualCount: number
   expectedCount: number
 }> {
-  const contentTable = useMessageTable(chatId)
+  const contentTable = await useMessageTable(chatId)
   const minId = Math.min(id1, id2)
   const maxId = Math.max(id1, id2)
 
