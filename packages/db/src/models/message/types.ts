@@ -1,5 +1,5 @@
-import type { tsvector } from '@tg-search/pg-vector'
 import type { MediaInfo, MessageType } from '../../schema'
+import type { tsvector } from '../../schema/tsvector'
 
 /**
  * Base message fields shared across interfaces
