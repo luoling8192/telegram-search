@@ -1,5 +1,4 @@
-import type { Chat, Folder } from '@tg-search/db'
-import type { MessageType } from '@tg-search/db/schema/types'
+import type { Chat, Folder, MessageType } from '@tg-search/db'
 
 /**
  * Public chat type for API responses

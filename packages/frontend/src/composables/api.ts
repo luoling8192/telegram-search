@@ -1,4 +1,5 @@
 import type { Config } from '@tg-search/common'
+import type { Command } from '@tg-search/server/routes/commands'
 import type { PaginationParams, PublicChat, PublicFolder, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/types'
 
 import { ofetch } from 'ofetch'
@@ -65,6 +66,31 @@ export const api = {
   }> => {
     return apiFetch(`/messages/${chatId}`, {
       query: params,
+    })
+  },
+
+  /**
+   * Get all commands
+   */
+  getCommands: (): Promise<{ success: boolean, data: Command[] }> => {
+    return apiFetch<{ success: boolean, data: Command[] }>('/commands')
+  },
+
+  /**
+   * Start export command
+   */
+  startExport: (params: {
+    chatId: number
+    format?: string
+    path?: string
+    messageTypes?: string[]
+    startTime?: string
+    endTime?: string
+    limit?: number
+  }): Promise<{ success: boolean, data: Command }> => {
+    return apiFetch<{ success: boolean, data: Command }>('/commands/export', {
+      method: 'POST',
+      body: params,
     })
   },
 }
@@ -174,6 +200,8 @@ export function useApi() {
     getMessages: (chatId: number, params?: PaginationParams) => request(() => api.getMessages(chatId, params)),
     getConfig,
     updateConfig,
+    getCommands: () => request(() => api.getCommands()),
+    startExport: (params: Parameters<typeof api.startExport>[0]) => request(() => api.startExport(params)),
   }
 }
 

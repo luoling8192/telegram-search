@@ -1,12 +1,5 @@
 {
   "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    "outDir": "dist",
-    "baseUrl": ".",
-    "paths": {
-      "@tg-search/db/*": ["../db/src/*"]
-    }
-  },
   "include": [
     "src/**/*"
   ],

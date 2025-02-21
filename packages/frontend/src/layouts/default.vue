@@ -19,6 +19,13 @@ const router = useRouter()
           <ThemeToggle />
 
           <button
+            class="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+            @click="router.push('/commands')"
+          >
+            <div class="i-carbon-mac-command h-5 w-5 dark:text-white" />
+          </button>
+
+          <button
             class="rounded-lg p-2 transition-colors duration-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             @click="router.push('/settings')"
           >
