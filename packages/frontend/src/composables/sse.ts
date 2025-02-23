@@ -1,6 +1,6 @@
-import type { ApiResponse } from '@tg-search/server'
+import type { ApiError, ApiResponse } from '@tg-search/server'
 
-import { ApiError } from '@tg-search/server'
+import { ofetch } from 'ofetch'
 import { ref } from 'vue'
 
 import { API_BASE } from '../constants'
@@ -43,19 +43,14 @@ export function useSSE<T>() {
       loading.value = true
       error.value = null
 
-      const response = await fetch(`${API_BASE}${url}`, {
+      const response = await ofetch(`${API_BASE}${url}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-        },
-        body: JSON.stringify(params),
+        body: params,
         signal: abortController.value.signal,
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to connect to SSE')
+        throw new Error(response.message || 'Failed to connect to SSE')
       }
 
       const eventSource = response.body?.getReader()
@@ -102,7 +97,7 @@ export function useSSE<T>() {
                   handlers.onUpdate?.(data)
                   break
                 case 'error':
-                  handlers.onError?.(new ApiError(data.message || 'Unknown error'))
+                  handlers.onError?.(new Error(data.message || 'Unknown error') as ApiError)
                   isConnected.value = false
                   break
                 case 'complete':
@@ -125,7 +120,7 @@ export function useSSE<T>() {
       const message = e instanceof Error ? e.message : 'Unknown error'
       error.value = message
       isConnected.value = false
-      handlers.onError?.(new ApiError(message))
+      handlers.onError?.(new Error(message) as ApiError)
     }
     finally {
       loading.value = false
