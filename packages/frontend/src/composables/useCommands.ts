@@ -78,7 +78,7 @@ export function useCommands() {
     const toastId = toast.loading('正在准备导出...')
 
     try {
-      await createSSEConnection<{ data: Command }>('/commands/export', params, {
+      await createSSEConnection<Command>('/commands/export', params as unknown as Record<string, unknown>, {
         onInfo: (info) => {
           exportProgress.value.push(info)
           isConnected.value = true
@@ -86,16 +86,17 @@ export function useCommands() {
           toast.loading(info, { id: toastId })
         },
         onInit: (data) => {
+          if (!data.success || !data.data)
+            return
           const newCommand = Array.isArray(data.data) ? data.data[0] : data.data
           if (newCommand) {
             commands.value = [newCommand]
           }
         },
         onUpdate: (data) => {
-          const command = data.data
-          if (!command)
+          if (!data.success || !data.data)
             return
-
+          const command = data.data
           updateCommand(command)
 
           // Update toast based on command status
@@ -105,7 +106,7 @@ export function useCommands() {
           else if (command.status === 'error') {
             toast.error(`导出失败: ${command.message}`, { id: toastId })
           }
-          else {
+          else if (command.message) {
             toast.loading(command.message, { id: toastId })
           }
         },

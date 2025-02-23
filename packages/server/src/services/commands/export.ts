@@ -225,4 +225,25 @@ export class ExportCommandHandler implements CommandHandler {
       this.options.onError?.(errorCommand, error as Error)
     }
   }
+
+  private createHandlerOptions(controller: SSEController) {
+    return {
+      store: this.options.store,
+      onProgress: (command: Command) => {
+        const response = createResponse(command)
+        controller.enqueue(createSSEMessage('update', response))
+      },
+      onComplete: (command: Command) => {
+        const response = createResponse(command)
+        controller.enqueue(createSSEMessage('update', response))
+        controller.enqueue(createSSEMessage('complete', createResponse(null)))
+        controller.close()
+      },
+      onError: (_command: Command, error: Error) => {
+        const response = createResponse(undefined, error)
+        controller.enqueue(createSSEMessage('error', response))
+        controller.close()
+      },
+    }
+  }
 }

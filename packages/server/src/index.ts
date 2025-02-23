@@ -53,13 +53,14 @@ function configureServer(logger: ReturnType<typeof useLogger>) {
   app.use(eventHandler((event: H3Event) => {
     setResponseHeaders(event, {
       'Access-Control-Allow-Origin': 'http://localhost:3333',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cache-Control, X-Requested-With',
     })
 
     if (event.method === 'OPTIONS') {
       setResponseHeaders(event, {
-        'Access-Control-Allow-Headers': '*',
+        'Access-Control-Max-Age': '86400',
       })
       return null
     }

@@ -75,7 +75,7 @@ class CommandManager {
       try {
         const handler = new ExportCommandHandler(this.createHandlerOptions(controller))
         await handler.execute(client, params)
-        controller.enqueue(createSSEMessage('complete', createResponse(null)))
+        controller.enqueue(createSSEMessage('update', createResponse(null)))
       }
       catch (error) {
         const errorData = createResponse(undefined, error)

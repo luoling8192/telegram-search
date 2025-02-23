@@ -103,16 +103,50 @@ const exportDetails = computed(() => {
     return null
   return currentCommand.value.details as ExportDetails
 })
+
+// Format speed for display
+function formatSpeed(speed: string): string {
+  const match = speed.match(/(\d+)/)
+  if (!match)
+    return speed
+  const value = parseInt(match[1])
+  if (value < 1)
+    return '< 1 消息/秒'
+  if (value > 1000)
+    return `${(value / 1000).toFixed(1)}k 消息/秒`
+  return `${value} 消息/秒`
+}
+
+// Format time for display
+function formatTime(time: string): string {
+  const match = time.match(/(\d+)/)
+  if (!match)
+    return time
+  const value = parseInt(match[1])
+  if (value < 60)
+    return `${value} 秒`
+  if (value < 3600)
+    return `${Math.floor(value / 60)} 分 ${value % 60} 秒`
+  return `${Math.floor(value / 3600)} 小时 ${Math.floor((value % 3600) / 60)} 分`
+}
 </script>
 
 <template>
   <div class="space-y-4">
     <!-- Connection status -->
     <div
-      v-if="!isConnected && isExporting"
-      class="rounded bg-yellow-100 p-4 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
+      v-if="!isConnected"
+      class="flex items-center gap-2 rounded bg-yellow-100 p-4 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
     >
-      正在连接命令服务...
+      <svg class="h-5 w-5 animate-spin" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+        <path
+          class="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        />
+      </svg>
+      <span>正在连接命令服务...</span>
     </div>
 
     <!-- Export settings -->
@@ -169,11 +203,11 @@ const exportDetails = computed(() => {
         <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
           消息类型
         </label>
-        <div class="space-y-2">
+        <div class="grid grid-cols-2 gap-2">
           <label
             v-for="option in messageTypeOptions"
             :key="option.value"
-            class="flex items-center"
+            class="flex items-center rounded border border-gray-200 p-2 dark:border-gray-700"
           >
             <input
               v-model="selectedMessageTypes"
@@ -266,15 +300,15 @@ const exportDetails = computed(() => {
       <div v-if="exportDetails" class="text-sm space-y-2">
         <div v-if="exportDetails.totalMessages" class="flex justify-between">
           <span>总消息数：</span>
-          <span>{{ exportDetails.totalMessages }}</span>
+          <span>{{ exportDetails.totalMessages.toLocaleString() }}</span>
         </div>
         <div v-if="exportDetails.processedMessages" class="flex justify-between">
           <span>已处理消息：</span>
-          <span>{{ exportDetails.processedMessages }}</span>
+          <span>{{ exportDetails.processedMessages.toLocaleString() }}</span>
         </div>
         <div v-if="exportDetails.failedMessages" class="flex justify-between text-red-600">
           <span>失败消息：</span>
-          <span>{{ exportDetails.failedMessages }}</span>
+          <span>{{ exportDetails.failedMessages.toLocaleString() }}</span>
         </div>
         <div v-if="exportDetails.currentBatch && exportDetails.totalBatches" class="flex justify-between">
           <span>当前批次：</span>
@@ -282,15 +316,15 @@ const exportDetails = computed(() => {
         </div>
         <div v-if="exportDetails.currentSpeed" class="flex justify-between">
           <span>当前速度：</span>
-          <span>{{ exportDetails.currentSpeed }}</span>
+          <span>{{ formatSpeed(exportDetails.currentSpeed) }}</span>
         </div>
         <div v-if="exportDetails.estimatedTimeRemaining" class="flex justify-between">
           <span>预计剩余时间：</span>
-          <span>{{ exportDetails.estimatedTimeRemaining }}</span>
+          <span>{{ formatTime(exportDetails.estimatedTimeRemaining) }}</span>
         </div>
         <div v-if="exportDetails.totalDuration" class="flex justify-between">
           <span>总耗时：</span>
-          <span>{{ exportDetails.totalDuration }}</span>
+          <span>{{ formatTime(exportDetails.totalDuration) }}</span>
         </div>
         <div v-if="exportDetails.error" class="mt-4 rounded bg-red-100 p-2 text-red-800 dark:bg-red-900 dark:text-red-100">
           <div v-if="typeof exportDetails.error === 'string'">
