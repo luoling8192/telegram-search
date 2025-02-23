@@ -1,32 +1,41 @@
 import type { ConnectOptions } from '@tg-search/core'
+import type { App, H3Event } from 'h3'
 
-import { useLogger } from '@tg-search/common'
-import { Elysia, t } from 'elysia'
+import { createRouter, defineEventHandler, readBody } from 'h3'
+import { z } from 'zod'
 
-import { getTelegramClient } from '../services/telegram'
+import { useTelegramClient } from '../services/telegram'
 import { createResponse } from '../utils/response'
 
-const logger = useLogger()
+// Auth validation schema
+const loginSchema = z.object({
+  code: z.string().optional(),
+  password: z.string().optional(),
+})
 
-// Auth routes
-export const authRoutes = new Elysia({ prefix: '/auth' })
-  .onError(({ code, error }) => {
-    logger.withError(error).error(`Error handling request: ${code}`)
-    return createResponse(undefined, error)
-  })
-  .post('/login', async ({ body }) => {
+/**
+ * Setup auth routes
+ */
+export function setupAuthRoutes(app: App) {
+  const router = createRouter()
+
+  // Login route
+  router.post('/login', defineEventHandler(async (event: H3Event) => {
     try {
-      const client = await getTelegramClient()
+      const body = await readBody(event)
+      const validatedBody = loginSchema.parse(body)
+
+      const client = await useTelegramClient()
       const options: ConnectOptions = {
         code: async () => {
-          if (!body.code)
+          if (!validatedBody.code)
             throw new Error('验证码不能为空')
-          return body.code
+          return validatedBody.code
         },
         password: async () => {
-          if (!body.password)
+          if (!validatedBody.password)
             throw new Error('密码不能为空')
-          return body.password
+          return validatedBody.password
         },
       }
       await client.connect(options)
@@ -47,19 +56,19 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       }
       throw error
     }
-  }, {
-    body: t.Object({
-      code: t.Optional(t.String()),
-      password: t.Optional(t.String()),
-    }),
-  })
-  .get('/status', async () => {
+  }))
+
+  // Status route
+  router.get('/status', defineEventHandler(async () => {
     try {
-      const client = await getTelegramClient()
-      const isConnected = await client.connect().then(() => true).catch(() => false)
-      return createResponse({ connected: isConnected })
+      const client = await useTelegramClient()
+      return createResponse({ connected: await client.isConnected() })
     }
     catch {
       return createResponse({ connected: false })
     }
-  })
+  }))
+
+  // Mount routes
+  app.use('/auth', router.handler)
+}

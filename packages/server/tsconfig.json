@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.json",
   "include": [
     "src/**/*"
-  ],
+, "../common/src/composable/telegram.ts"  ],
   "exclude": [
     "node_modules",
     "dist"

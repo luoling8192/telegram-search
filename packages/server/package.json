@@ -27,12 +27,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@elysiajs/cors": "^1.0.0",
-    "@elysiajs/node": "^1.2.5",
     "@tg-search/common": "workspace:*",
     "@tg-search/core": "workspace:*",
     "@tg-search/db": "workspace:*",
-    "elysia": "^1.0.0",
+    "h3": "^1.11.1",
+    "listhen": "^1.5.6",
     "tsx": "^4.19.2",
     "web-streams-polyfill": "^3.3.2",
     "zod": "^3.24.2"

@@ -1,12 +1,10 @@
+import type { App, H3Event } from 'h3'
 import type { PublicChat } from '../types'
 
-import { useLogger } from '@tg-search/common'
 import { findMessagesByChatId, getAllChats } from '@tg-search/db'
-import { Elysia, NotFoundError, t } from 'elysia'
+import { createError, createRouter, defineEventHandler, getQuery, getRouterParams } from 'h3'
 
 import { createResponse } from '../utils/response'
-
-const logger = useLogger()
 
 /**
  * Convert database chat to public chat
@@ -22,25 +20,29 @@ function toPublicChat(chat: Awaited<ReturnType<typeof getAllChats>>[number]): Pu
 }
 
 /**
- * Chat routes
+ * Setup chat routes
  */
-export const chatRoutes = new Elysia({ prefix: '/chats' })
-  // Error handling
-  .onError(({ code, error }) => {
-    logger.withError(error).error(`Error handling request: ${code}`)
-    return createResponse(undefined, error)
-  })
+export function setupChatRoutes(app: App) {
+  const router = createRouter()
+
   // Get all chats
-  .get('/', async () => {
+  router.get('/', defineEventHandler(async () => {
     const chats = await getAllChats()
     return createResponse(chats.map(toPublicChat))
-  })
+  }))
+
   // Get messages in chat
-  .get('/:id/messages', async ({ params: { id }, query: { limit = '50', offset = '0' } }) => {
+  router.get('/:id/messages', defineEventHandler(async (event: H3Event) => {
+    const { id } = getRouterParams(event)
+    const { limit = '50', offset = '0' } = getQuery(event)
+
     // Get messages with pagination
     const messages = await findMessagesByChatId(Number(id))
     if (!messages) {
-      throw new NotFoundError(`Chat ${id} not found`)
+      throw createError({
+        statusCode: 404,
+        message: `Chat ${id} not found`,
+      })
     }
 
     const total = messages.items.length
@@ -70,9 +72,8 @@ export const chatRoutes = new Elysia({ prefix: '/chats' })
       pageSize: Number(limit),
       totalPages: Math.ceil(total / Number(limit)),
     })
-  }, {
-    query: t.Object({
-      limit: t.Optional(t.String()),
-      offset: t.Optional(t.String()),
-    }),
-  })
+  }))
+
+  // Mount routes
+  app.use('/chats', router.handler)
+}

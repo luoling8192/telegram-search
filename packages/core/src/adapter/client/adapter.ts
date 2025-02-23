@@ -62,6 +62,10 @@ export class ClientAdapter implements ITelegramClientAdapter {
     return 'client' as const
   }
 
+  async isConnected() {
+    return this.client.isUserAuthorized()
+  }
+
   async connect(options?: ConnectOptions) {
     try {
       await this.mediaService.init()

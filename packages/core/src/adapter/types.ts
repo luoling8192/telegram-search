@@ -123,6 +123,11 @@ export interface ITelegramClientAdapter extends BaseTelegramAdapter {
   type: 'client'
 
   /**
+   * Check if the client is connected
+   */
+  isConnected: () => Promise<boolean>
+
+  /**
    * Get messages from chat
    */
   getMessages: (chatId: number, limit?: number, options?: MessageOptions) => AsyncGenerator<TelegramMessage>

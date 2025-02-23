@@ -27,15 +27,40 @@ export function useCommands() {
 
   // Current command state
   const currentCommand = computed(() => {
-    if (commands.value.length === 0)
+    if (!commands.value || commands.value.length === 0) {
       return null
-    return commands.value.find(cmd => cmd.status === 'running') || commands.value[0]
+    }
+    // Find running command or return the first one
+    const runningCommand = commands.value.find(cmd => cmd?.status === 'running')
+    return runningCommand || commands.value[0]
   })
+
+  /**
+   * Update command in state
+   */
+  function updateCommand(command: Command) {
+    if (!command)
+      return
+
+    const index = commands.value.findIndex(c => c?.id === command.id)
+    if (index !== -1) {
+      commands.value[index] = command
+    }
+    else {
+      commands.value = [command, ...commands.value]
+    }
+  }
 
   /**
    * Start export command with SSE
    */
   async function executeExport(params: ExportParams) {
+    // Prevent multiple running exports
+    if (currentCommand.value?.status === 'running') {
+      toast.error('已有正在进行的导出任务')
+      return false
+    }
+
     isLoading.value = true
     error.value = null
     lastExportParams.value = params
@@ -53,11 +78,6 @@ export function useCommands() {
     const toastId = toast.loading('正在准备导出...')
 
     try {
-      // Check if there's already a running export
-      if (commands.value.some(cmd => cmd.status === 'running')) {
-        throw new Error('已有正在进行的导出任务')
-      }
-
       await createSSEConnection<{ data: Command }>('/commands/export', params, {
         onInfo: (info) => {
           exportProgress.value.push(info)
@@ -66,21 +86,17 @@ export function useCommands() {
           toast.loading(info, { id: toastId })
         },
         onInit: (data) => {
-          commands.value = Array.isArray(data.data) ? data.data : [data.data]
+          const newCommand = Array.isArray(data.data) ? data.data[0] : data.data
+          if (newCommand) {
+            commands.value = [newCommand]
+          }
         },
         onUpdate: (data) => {
-          // The response data contains a single command
           const command = data.data
           if (!command)
             return
 
-          const index = commands.value.findIndex(c => c.id === command.id)
-          if (index !== -1) {
-            commands.value[index] = command
-          }
-          else {
-            commands.value.unshift(command)
-          }
+          updateCommand(command)
 
           // Update toast based on command status
           if (command.status === 'success') {
@@ -103,7 +119,11 @@ export function useCommands() {
             reconnectAttempts.value++
             const delay = reconnectDelay * reconnectAttempts.value
             toast.error(`命令服务连接失败，${delay / 1000} 秒后重试...`)
-            setTimeout(() => executeExport(lastExportParams.value!), delay)
+            setTimeout(() => {
+              if (lastExportParams.value) {
+                executeExport(lastExportParams.value)
+              }
+            }, delay)
           }
           else {
             toast.error('命令服务连接失败，请刷新页面重试')
@@ -146,6 +166,7 @@ export function useCommands() {
     error.value = null
     lastExportParams.value = null
     exportProgress.value = []
+    commands.value = []
   }
 
   return {

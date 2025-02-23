@@ -1,72 +1,77 @@
+import type { App, H3Event } from 'h3'
+
 import { getConfig, updateConfig, useLogger } from '@tg-search/common'
-import { Elysia, t } from 'elysia'
+import { createRouter, defineEventHandler, readBody } from 'h3'
+import { z } from 'zod'
 
 import { createResponse } from '../utils/response'
 
 const logger = useLogger()
 
 // Config validation schema
-const configSchema = t.Object({
-  database: t.Object({
-    host: t.String(),
-    port: t.Number(),
-    user: t.String(),
-    password: t.String(),
-    database: t.String(),
-    url: t.Optional(t.String()),
+const configSchema = z.object({
+  database: z.object({
+    host: z.string(),
+    port: z.number(),
+    user: z.string(),
+    password: z.string(),
+    database: z.string(),
+    url: z.string().optional(),
   }),
-  message: t.Object({
-    export: t.Object({
-      batchSize: t.Number(),
-      concurrent: t.Number(),
-      retryTimes: t.Number(),
-      maxTakeoutRetries: t.Number(),
+  message: z.object({
+    export: z.object({
+      batchSize: z.number(),
+      concurrent: z.number(),
+      retryTimes: z.number(),
+      maxTakeoutRetries: z.number(),
     }),
-    batch: t.Object({
-      size: t.Number(),
+    batch: z.object({
+      size: z.number(),
     }),
   }),
-  path: t.Object({
-    session: t.String(),
-    media: t.String(),
+  path: z.object({
+    session: z.string(),
+    media: z.string(),
   }),
-  api: t.Object({
-    telegram: t.Object({
-      apiId: t.String(),
-      apiHash: t.String(),
-      phoneNumber: t.String(),
+  api: z.object({
+    telegram: z.object({
+      apiId: z.string(),
+      apiHash: z.string(),
+      phoneNumber: z.string(),
     }),
-    openai: t.Object({
-      apiKey: t.String(),
-      apiBase: t.Optional(t.String()),
+    openai: z.object({
+      apiKey: z.string(),
+      apiBase: z.string().optional(),
     }),
   }),
 })
 
 /**
- * Config routes
+ * Setup config routes
  */
-export const configRoutes = new Elysia({ prefix: '/config' })
-  // Error handling
-  .onError(({ code, error }) => {
-    logger.withError(error).error(`Error handling request: ${code}`)
-    return createResponse(undefined, error)
-  })
+export function setupConfigRoutes(app: App) {
+  const router = createRouter()
+
   // Get current config
-  .get('/', () => {
+  router.get('/', defineEventHandler(() => {
     const config = getConfig()
     return createResponse(config)
-  })
+  }))
+
   // Update config
-  .put('/', async ({ body }) => {
+  router.put('/', defineEventHandler(async (event: H3Event) => {
     try {
-      const updatedConfig = updateConfig(body)
+      const body = await readBody(event)
+      const validatedBody = configSchema.parse(body)
+      const updatedConfig = updateConfig(validatedBody)
       return createResponse(updatedConfig)
     }
     catch (err) {
       logger.withError(err).error('Failed to update config')
       throw err
     }
-  }, {
-    body: configSchema,
-  })
+  }))
+
+  // Mount routes
+  app.use('/config', router.handler)
+}

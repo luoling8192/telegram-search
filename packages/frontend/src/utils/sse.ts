@@ -16,7 +16,6 @@ function parseSSEData<T>(data: string): ApiResponse<T> {
     return JSON.parse(trimmedData)
   }
   catch (error) {
-    // Log parsing error for debugging
     console.error('SSE data parsing error:', error, 'Data:', data)
     // If data is a plain string (like info messages), wrap it
     return {
@@ -52,6 +51,8 @@ export async function createSSEConnection<T>(
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
     },
     body: JSON.stringify(params),
     signal,
@@ -70,76 +71,103 @@ export async function createSSEConnection<T>(
   const decoder = new TextDecoder()
   let buffer = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done)
-      break
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
 
-    // Add new data to buffer
-    buffer += decoder.decode(value, { stream: true })
+      if (done) {
+        // Process any remaining data in buffer
+        if (buffer.trim()) {
+          processMessage(buffer)
+        }
+        break
+      }
 
-    // Process complete messages
-    const messages = buffer.split('\n\n')
-    // Keep the last incomplete message
-    buffer = messages.pop() || ''
+      // Add new data to buffer
+      buffer += decoder.decode(value, { stream: true })
 
-    for (const message of messages) {
-      if (!message.trim())
-        continue
+      // Process complete messages
+      const messages = buffer.split('\n\n')
+      // Keep the last incomplete message
+      buffer = messages.pop() || ''
 
-      // Parse event and data
-      const lines = message.split('\n')
-      const eventLine = lines.find(line => line.startsWith('event:'))
-      const dataLine = lines.find(line => line.startsWith('data:'))
+      for (const message of messages) {
+        processMessage(message)
+      }
+    }
+  }
+  catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      // Ignore aborted requests
+      return
+    }
+    handlers.onError?.(error instanceof Error ? error : new Error('Failed to process SSE stream'))
+  }
+  finally {
+    try {
+      await reader.cancel()
+    }
+    catch {
+      // Ignore reader cancel errors
+    }
+  }
 
-      if (!eventLine || !dataLine)
-        continue
+  function processMessage(message: string) {
+    if (!message.trim())
+      return
 
-      const eventType = eventLine.slice(6).trim()
-      const data = dataLine.slice(5).trim()
+    // Parse event and data
+    const lines = message.split('\n')
+    const eventLine = lines.find(line => line.startsWith('event:'))
+    const dataLine = lines.find(line => line.startsWith('data:'))
 
-      try {
-        switch (eventType) {
-          case 'info': {
-            const response = parseSSEData<string>(data)
-            handlers.onInfo?.(response.success ? response.data : response.error)
-            break
+    if (!eventLine || !dataLine)
+      return
+
+    const eventType = eventLine.slice(6).trim()
+    const data = dataLine.slice(5).trim()
+
+    try {
+      switch (eventType) {
+        case 'info': {
+          const response = parseSSEData<string>(data)
+          handlers.onInfo?.(response.success ? response.data : response.error)
+          break
+        }
+        case 'init': {
+          const response = parseSSEData<T>(data)
+          if (response.success) {
+            handlers.onInit?.(response.data)
           }
-          case 'init': {
-            const response = parseSSEData<T>(data)
-            if (response.success) {
-              handlers.onInit?.(response.data)
-            }
-            else {
-              handlers.onError?.(new Error(response.error))
-            }
-            break
+          else {
+            handlers.onError?.(new Error(response.error))
           }
-          case 'update': {
-            const response = parseSSEData<T>(data)
-            if (response.success) {
-              handlers.onUpdate?.(response.data)
-            }
-            else {
-              handlers.onError?.(new Error(response.error))
-            }
-            break
+          break
+        }
+        case 'update': {
+          const response = parseSSEData<T>(data)
+          if (response.success) {
+            handlers.onUpdate?.(response.data)
           }
-          case 'error': {
-            const response = parseSSEData<never>(data)
-            handlers.onError?.(new Error(response.success ? 'Unknown error' : response.error))
-            break
+          else {
+            handlers.onError?.(new Error(response.error))
           }
-          case 'complete': {
-            handlers.onComplete?.()
-            break
-          }
+          break
+        }
+        case 'error': {
+          const response = parseSSEData<never>(data)
+          handlers.onError?.(new Error(response.success ? 'Unknown error' : response.error))
+          break
+        }
+        case 'complete': {
+          handlers.onComplete?.()
+          break
         }
       }
-      catch (error) {
-        console.error('Error processing SSE message:', error)
-        handlers.onError?.(error instanceof Error ? error : new Error('Failed to process SSE message'))
-      }
+    }
+    catch (error) {
+      console.error('Error processing SSE message:', error)
+      handlers.onError?.(error instanceof Error ? error : new Error('Failed to process SSE message'))
     }
   }
 }

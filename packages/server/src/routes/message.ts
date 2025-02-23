@@ -1,8 +1,9 @@
+import type { App, H3Event } from 'h3'
 import type { PublicMessage } from '../types'
 
 import { useLogger } from '@tg-search/common'
 import { findMessagesByChatId } from '@tg-search/db'
-import { Elysia, t } from 'elysia'
+import { createRouter, defineEventHandler, getQuery, getRouterParams } from 'h3'
 
 import { createResponse } from '../utils/response'
 
@@ -34,12 +35,17 @@ function toPublicMessage(message: Awaited<ReturnType<typeof findMessagesByChatId
 }
 
 /**
- * Message routes
+ * Setup message routes
  */
-export const messageRoutes = new Elysia({ prefix: '/messages' })
+export function setupMessageRoutes(app: App) {
+  const router = createRouter()
+
   // Get messages in chat
-  .get('/:id', async ({ params: { id }, query: { limit = '50', offset = '0' } }) => {
+  router.get('/:id', defineEventHandler(async (event: H3Event) => {
     try {
+      const { id } = getRouterParams(event)
+      const { limit = '50', offset = '0' } = getQuery(event)
+
       const { items, total } = await findMessagesByChatId(Number(id), {
         limit: Number(limit),
         offset: Number(offset),
@@ -59,12 +65,8 @@ export const messageRoutes = new Elysia({ prefix: '/messages' })
       logger.withError(error).error('Failed to get messages')
       return createResponse(undefined, error)
     }
-  }, {
-    params: t.Object({
-      id: t.String(),
-    }),
-    query: t.Object({
-      limit: t.Optional(t.String()),
-      offset: t.Optional(t.String()),
-    }),
-  })
+  }))
+
+  // Mount routes
+  app.use('/messages', router.handler)
+}

@@ -1,7 +1,7 @@
 <!-- Export command component -->
 <script setup lang="ts">
 import type { PublicChat } from '@tg-search/server/types'
-import type { Command, ExportDetails } from '../../types/command'
+import type { ExportDetails } from '../../types/command'
 import { computed, onUnmounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { useCommands } from '../../composables/useCommands'

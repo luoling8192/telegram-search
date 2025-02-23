@@ -1,27 +1,39 @@
-import type { ExportOptions } from '@tg-search/core'
+import type { ExportOptions, ITelegramClientAdapter } from '@tg-search/core'
+import type { App, H3Event } from 'h3'
 import type { Command } from '../types/command'
-import type { SSEController, SSEEventEmitter } from '../utils/sse'
+import type { SSEController } from '../utils/sse'
 
 import { useLogger } from '@tg-search/common'
-import { Elysia, t } from 'elysia'
+import { createRouter, defineEventHandler, readBody } from 'h3'
+import { z } from 'zod'
 
 import { InMemoryCommandStore } from '../services/command-store'
 import { ExportCommandHandler } from '../services/commands/export'
+import { useTelegramClient } from '../services/telegram'
 import { createResponse } from '../utils/response'
 import { createSSEMessage, createSSEResponse } from '../utils/sse'
 
 const logger = useLogger()
+
+// Command validation schema
+const exportCommandSchema = z.object({
+  chatId: z.number(),
+  format: z.enum(['database', 'html', 'json']).optional(),
+  messageTypes: z.array(z.enum(['text', 'photo', 'video', 'document', 'sticker', 'other'])).optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  limit: z.number().optional(),
+  method: z.enum(['getMessage', 'takeout']).optional(),
+})
 
 /**
  * Manages command execution and event broadcasting
  */
 class CommandManager {
   private readonly store: InMemoryCommandStore
-  private readonly eventEmitter: SSEEventEmitter
 
   constructor() {
     this.store = new InMemoryCommandStore()
-    this.eventEmitter = new Map()
   }
 
   /**
@@ -31,24 +43,18 @@ class CommandManager {
     return {
       store: this.store,
       onProgress: (command: Command) => {
-        // Send progress update
         const response = createResponse(command)
         controller.enqueue(createSSEMessage('update', response))
       },
       onComplete: (command: Command) => {
-        // Send completion update
         const response = createResponse(command)
         controller.enqueue(createSSEMessage('update', response))
-        controller.enqueue(createSSEMessage('info', 'Export completed'))
         controller.enqueue(createSSEMessage('complete', createResponse(null)))
         controller.close()
       },
       onError: (_command: Command, error: Error) => {
-        // Send error update
         const response = createResponse(undefined, error)
         controller.enqueue(createSSEMessage('error', response))
-        controller.enqueue(createSSEMessage('info', 'Export failed'))
-        controller.enqueue(createSSEMessage('complete', createResponse(null)))
         controller.close()
       },
     }
@@ -57,42 +63,26 @@ class CommandManager {
   /**
    * Get all commands
    */
-  getAllCommands() {
+  getAllCommands(): Command[] {
     return this.store.getAll()
   }
 
   /**
    * Execute export command with SSE
    */
-  async executeExportWithSSE(params: Omit<ExportOptions, 'chatMetadata'>) {
+  executeExportWithSSE(client: ITelegramClientAdapter, params: ExportOptions) {
     return createSSEResponse(async (controller) => {
-      const startTime = Date.now()
-
-      // Send initial info
-      controller.enqueue(createSSEMessage('info', 'Starting export...'))
-
-      // Create export command
-      const command = this.store.create('export')
-
-      // Send initial data with the new command
-      const initialData = createResponse([command])
-      controller.enqueue(createSSEMessage('init', initialData))
-
-      // Execute export command
-      const handler = new ExportCommandHandler(this.createHandlerOptions(controller))
-
       try {
-        await handler.execute(params)
-
-        // Log completion
-        const duration = Date.now() - startTime
-        logger.withFields({
-          duration: `${duration}ms`,
-        }).debug('Export completed')
+        const handler = new ExportCommandHandler(this.createHandlerOptions(controller))
+        await handler.execute(client, params)
+        controller.enqueue(createSSEMessage('complete', createResponse(null)))
       }
       catch (error) {
-        // Log error
-        logger.withError(error as Error).error('Export failed')
+        const errorData = createResponse(undefined, error)
+        controller.enqueue(createSSEMessage('error', errorData))
+      }
+      finally {
+        controller.close()
       }
     })
   }
@@ -102,53 +92,51 @@ class CommandManager {
 const commandManager = new CommandManager()
 
 /**
- * Command routes
+ * Setup command routes
  */
-export const commandRoute = new Elysia({ prefix: '/commands' })
-  .onError(({ code, error }) => {
-    logger.withError(error).error(`Error handling request: ${code}`)
-    return createResponse(undefined, error)
-  })
-  .get('/', () => {
+export function setupCommandRoutes(app: App) {
+  const router = createRouter()
+
+  // Get all commands
+  router.get('/', defineEventHandler(() => {
     return createResponse(commandManager.getAllCommands())
-  })
-  .post('/export', async ({ body }) => {
-    logger.withFields(body).debug('Export request received')
+  }))
+
+  // Export command
+  router.post('/export', defineEventHandler(async (event: H3Event) => {
+    const body = await readBody(event)
+    const validatedBody = exportCommandSchema.parse(body)
+
+    logger.withFields(validatedBody).debug('Export request received')
+
+    const client = await useTelegramClient()
+    if (!await client.isConnected()) {
+      await client.connect()
+    }
+
+    // Get chat metadata
+    const chats = await client.getChats()
+    const chat = chats.find(c => c.id === validatedBody.chatId)
+    if (!chat) {
+      throw new Error(`Chat ${validatedBody.chatId} not found`)
+    }
 
     // Parse params
     const params = {
-      ...body,
-      startTime: body.startTime ? new Date(body.startTime) : undefined,
-      endTime: body.endTime ? new Date(body.endTime) : undefined,
+      ...validatedBody,
+      startTime: validatedBody.startTime ? new Date(validatedBody.startTime) : undefined,
+      endTime: validatedBody.endTime ? new Date(validatedBody.endTime) : undefined,
+      chatMetadata: {
+        id: chat.id,
+        title: chat.title,
+        type: chat.type,
+      },
     }
 
     // Execute export with SSE
-    return commandManager.executeExportWithSSE(params)
-  }, {
-    body: t.Object({
-      chatId: t.Number(),
-      format: t.Optional(t.Union([
-        t.Literal('database'),
-        t.Literal('html'),
-        t.Literal('json'),
-      ])),
-      messageTypes: t.Optional(t.Array(t.Union([
-        t.Literal('text'),
-        t.Literal('photo'),
-        t.Literal('video'),
-        t.Literal('document'),
-        t.Literal('sticker'),
-        t.Literal('other'),
-      ]))),
-      startTime: t.Optional(t.String()),
-      endTime: t.Optional(t.String()),
-      limit: t.Optional(t.Number()),
-      method: t.Optional(t.Union([
-        t.Literal('getMessage'),
-        t.Literal('takeout'),
-      ])),
-    }),
-  })
+    return commandManager.executeExportWithSSE(client, params)
+  }))
 
-// Export route
-export const commandRoutes = commandRoute
+  // Mount routes
+  app.use('/commands', router.handler)
+}

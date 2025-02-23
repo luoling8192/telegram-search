@@ -10,7 +10,7 @@ let client: ITelegramClientAdapter | undefined
  * Get or create a singleton Telegram client instance
  * Ensures only one client connection is maintained throughout the application lifecycle
  */
-export async function getTelegramClient(): Promise<ITelegramClientAdapter> {
+export async function useTelegramClient(): Promise<ITelegramClientAdapter> {
   // Return existing client if already initialized
   if (client)
     return client

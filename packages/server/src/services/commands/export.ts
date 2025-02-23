@@ -1,11 +1,9 @@
-import type { ExportOptions } from '@tg-search/core'
+import type { ExportOptions, ITelegramClientAdapter } from '@tg-search/core'
 import type { NewChat } from '@tg-search/db'
 import type { Command, CommandHandler, CommandOptions, CommandStatus } from '../../types/command'
 
-import { getConfig } from '@tg-search/common'
+import { getConfig, useLogger } from '@tg-search/common'
 import { ExportService } from '@tg-search/core'
-
-import { getTelegramClient } from '../telegram'
 
 /**
  * Export command status details
@@ -68,6 +66,7 @@ export class ExportCommandHandler implements CommandHandler {
   }
 
   private currentCommand: ExportCommand | null = null
+  private logger = useLogger()
 
   constructor(options: CommandOptions) {
     this.options = options
@@ -128,9 +127,8 @@ export class ExportCommandHandler implements CommandHandler {
     this.options.onProgress?.(updatedCommand)
   }
 
-  async execute(params: Omit<ExportOptions, 'chatMetadata'>): Promise<void> {
+  async execute(client: ITelegramClientAdapter, params: Record<string, unknown>): Promise<void> {
     const config = getConfig()
-    const client = await getTelegramClient()
     const exportService = new ExportService(client)
 
     // Create command record
@@ -144,33 +142,36 @@ export class ExportCommandHandler implements CommandHandler {
     this.status.startTime = Date.now()
 
     try {
+      // Type assertion for export options
+      const exportParams = params as unknown as Omit<ExportOptions, 'chatMetadata'>
+
       // Get chat info
-      const client = await getTelegramClient()
       const chats = await client.getChats()
-      const selectedChat = chats.find((c: NewChat) => c.id === params.chatId)
+      const selectedChat = chats.find((c: NewChat) => c.id === exportParams.chatId)
       if (!selectedChat) {
-        throw new Error(`Chat not found: ${params.chatId}`)
+        throw new Error(`Chat not found: ${exportParams.chatId}`)
       }
 
       // Set total messages
-      this.status.totalMessages = params.limit || selectedChat.messageCount || 0
+      this.status.totalMessages = exportParams.limit || selectedChat.messageCount || 0
       this.status.totalBatches = Math.ceil(this.status.totalMessages / config.message.export.batchSize)
 
       await exportService.exportMessages({
+        ...exportParams,
         chatMetadata: selectedChat,
-        chatId: params.chatId,
-        format: params.format,
-        messageTypes: params.messageTypes,
-        startTime: params.startTime ? new Date(params.startTime) : undefined,
-        endTime: params.endTime ? new Date(params.endTime) : undefined,
-        limit: params.limit,
         batchSize: config.message.export.batchSize,
-        method: params.method || 'takeout',
+        method: exportParams.method || 'takeout',
         onProgress: (progress: number, message: string, batchInfo?: {
           processed: number
           failed: number
           currentBatch: number
         }) => {
+          this.logger.withFields({
+            progress,
+            message,
+            batchInfo,
+          }).debug('Export progress')
+
           this.updateStatus(progress, message, {
             processedMessages: batchInfo?.processed || this.status.processedMessages,
             failedMessages: batchInfo?.failed || this.status.failedMessages,

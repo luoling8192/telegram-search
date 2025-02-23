@@ -1,9 +1,11 @@
+import type { MessageWithSimilarity } from '@tg-search/db'
+import type { App, H3Event } from 'h3'
 import type { SearchRequest, SearchResultItem } from '../types'
 
 import { useLogger } from '@tg-search/common'
 import { EmbeddingService } from '@tg-search/core'
 import { findMessagesByText, findSimilarMessages, getChatsInFolder } from '@tg-search/db'
-import { Elysia, t } from 'elysia'
+import { createRouter, defineEventHandler, readBody } from 'h3'
 
 import { createResponse } from '../utils/response'
 import { createSSEMessage, createSSEResponse } from '../utils/sse'
@@ -13,35 +15,39 @@ const logger = useLogger()
 /**
  * Convert database message to search result item
  */
-function toSearchResultItem(msg: any, score: number): SearchResultItem {
+function toSearchResultItem(msg: MessageWithSimilarity, score: number): SearchResultItem {
   return {
     id: msg.id,
     chatId: msg.chatId,
     type: msg.type,
-    content: msg.content,
-    mediaInfo: msg.mediaInfo || null,
-    fromId: msg.fromId,
-    fromName: msg.fromName,
-    fromAvatar: msg.fromAvatar,
-    replyToId: msg.replyToId,
-    forwardFromChatId: msg.forwardFromChatId,
-    forwardFromChatName: msg.forwardFromChatName,
-    forwardFromMessageId: msg.forwardFromMessageId,
-    views: msg.views,
-    forwards: msg.forwards,
-    links: msg.links,
-    metadata: msg.metadata,
+    content: msg.content || null,
+    mediaInfo: null,
+    fromId: msg.fromId || null,
+    fromName: null,
+    fromAvatar: null,
+    replyToId: null,
+    forwardFromChatId: null,
+    forwardFromChatName: null,
+    forwardFromMessageId: null,
+    views: null,
+    forwards: null,
+    links: [],
+    metadata: {},
     createdAt: msg.createdAt,
     score,
   }
 }
 
 /**
- * Search routes
+ * Setup search routes
  */
-export const searchRoutes = new Elysia({ prefix: '/search' })
-  .post('/', async ({ body }) => {
-    const { query, folderId, chatId, limit = 20, offset = 0, useVectorSearch = false } = body as SearchRequest
+export function setupSearchRoutes(app: App) {
+  const router = createRouter()
+
+  // Search route
+  router.post('/', defineEventHandler(async (event: H3Event) => {
+    const body = await readBody<SearchRequest>(event)
+    const { query, folderId, chatId, limit = 20, offset = 0, useVectorSearch = false } = body
     const startTime = Date.now()
 
     // Log search request
@@ -73,10 +79,10 @@ export const searchRoutes = new Elysia({ prefix: '/search' })
         controller.enqueue(createSSEMessage('info', `Searching in folder ${folderId} (${chats.length} chats)`))
       }
 
-      // 用于存储所有结果的 Map
+      // Store all results in a Map
       const allResults = new Map<number, SearchResultItem>()
 
-      // 发送部分结果的函数
+      // Function to send partial results
       const sendPartialResults = () => {
         const items = Array.from(allResults.values())
           .sort((a, b) => b.score - a.score)
@@ -96,110 +102,50 @@ export const searchRoutes = new Elysia({ prefix: '/search' })
         logger.debug(`Sent partial results: ${items.length} items, total: ${allResults.size}`)
       }
 
-      // 文本相似度搜索
-      logger.debug('Starting text similarity search...')
-      controller.enqueue(createSSEMessage('info', 'Starting text similarity search...'))
-
-      const { items: similarResults } = await findMessagesByText(query, {
-        chatId: targetChatId,
-        limit: 1000, // Get more results for better ranking
-      })
-
-      // Add similarity search results
-      similarResults.forEach((msg) => {
-        allResults.set(msg.id, toSearchResultItem(msg, msg.similarity))
-      })
-
-      // Send partial results
-      if (similarResults.length > 0) {
-        logger.debug(`Found ${similarResults.length} similar matches`)
-        controller.enqueue(createSSEMessage('info', `Found ${similarResults.length} similar matches`))
-        sendPartialResults()
-      }
-
-      // 如果使用向量搜索，则进行向量搜索
-      if (useVectorSearch) {
-        logger.debug('Starting vector search...')
-        controller.enqueue(createSSEMessage('info', 'Starting vector search...'))
-
-        const embedding = new EmbeddingService()
-        try {
+      try {
+        if (useVectorSearch) {
+          // Vector search
+          const embedding = new EmbeddingService()
           const queryEmbedding = await embedding.generateEmbedding(query)
-          logger.debug('Generated query embedding')
-          controller.enqueue(createSSEMessage('info', 'Generated query embedding'))
-
-          const vectorResults = await findSimilarMessages(queryEmbedding, {
-            chatId: targetChatId!,
-            limit: 1000, // Get more results for better ranking
+          const results = await findSimilarMessages(queryEmbedding, {
+            chatId: targetChatId || 0,
+            limit: limit * 2,
+            offset,
           })
 
-          // Add vector search results
-          vectorResults.forEach((msg) => {
-            if (allResults.has(msg.id)) {
-              // 如果已存在文本匹配结果，提升分数
-              allResults.get(msg.id)!.score = Math.max(
-                allResults.get(msg.id)!.score,
-                msg.similarity + 0.3, // 稍微降低向量搜索的权重
-              )
-            }
-            else {
-              allResults.set(msg.id, toSearchResultItem(msg, msg.similarity))
-            }
+          results.forEach((result) => {
+            allResults.set(result.id, toSearchResultItem(result, result.similarity))
+          })
+          sendPartialResults()
+        }
+        else {
+          // Text search
+          const results = await findMessagesByText(query, {
+            chatId: targetChatId,
+            limit: limit * 2,
+            offset,
           })
 
-          // Send partial results
-          if (vectorResults.length > 0) {
-            logger.debug(`Found ${vectorResults.length} vector matches`)
-            controller.enqueue(createSSEMessage('info', `Found ${vectorResults.length} vector matches`))
-            sendPartialResults()
-          }
+          results.items.forEach((result) => {
+            allResults.set(result.id, toSearchResultItem(result, 1))
+          })
+          sendPartialResults()
         }
-        catch (error) {
-          logger.error('Vector search failed', { error })
-          controller.enqueue(createSSEMessage('info', 'Vector search failed'))
-        }
-        finally {
-          embedding.destroy()
-        }
+
+        // Send complete message
+        const endTime = Date.now()
+        controller.enqueue(createSSEMessage('complete', createResponse({
+          duration: endTime - startTime,
+          total: allResults.size,
+        })))
       }
-
-      // 发送最终结果
-      const finalItems = Array.from(allResults.values())
-        .sort((a, b) => b.score - a.score)
-        .slice(offset, offset + limit)
-
-      const finalResponse = createResponse({
-        total: allResults.size,
-        items: finalItems,
-      }, undefined, {
-        total: allResults.size,
-        page: Math.floor(offset / limit) + 1,
-        pageSize: limit,
-        totalPages: Math.ceil(allResults.size / limit),
-      })
-
-      controller.enqueue(createSSEMessage('final', finalResponse))
-
-      // Log search completion
-      const duration = Date.now() - startTime
-      logger.withFields({
-        duration: `${duration}ms`,
-        totalResults: allResults.size,
-        returnedResults: finalItems.length,
-      }).debug('Search completed')
-
-      controller.enqueue(createSSEMessage('info', 'Search completed'))
-
-      // 关闭流
-      controller.close()
+      catch (error) {
+        logger.withError(error).error('Search failed')
+        controller.enqueue(createSSEMessage('error', createResponse(undefined, error)))
+      }
     })
-  }, {
-    body: t.Object({
-      query: t.String(),
-      folderId: t.Optional(t.Number()),
-      chatId: t.Optional(t.Number()),
-      limit: t.Optional(t.Number()),
-      offset: t.Optional(t.Number()),
-      useVectorSearch: t.Optional(t.Boolean()),
-    }),
-  })
+  }))
+
+  // Mount routes
+  app.use('/search', router.handler)
+}

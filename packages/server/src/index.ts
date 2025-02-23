@@ -1,16 +1,19 @@
-import process from 'node:process'
-import { cors } from '@elysiajs/cors'
-import { node } from '@elysiajs/node'
-import { initConfig, initDB, initLogger, useLogger } from '@tg-search/common'
-import { Elysia } from 'elysia'
+import type {
+  H3Event,
+} from 'h3'
 
-import { authRoutes } from './routes/auth'
-import { chatRoutes } from './routes/chat'
-import { commandRoutes } from './routes/commands'
-import { configRoutes } from './routes/config'
-import { messageRoutes } from './routes/message'
-import { searchRoutes } from './routes/search'
-import { getTelegramClient } from './services/telegram'
+import process from 'node:process'
+import { initConfig, initDB, initLogger, useLogger } from '@tg-search/common'
+import {
+  createApp,
+  eventHandler,
+  getRequestHeader,
+  setResponseHeaders,
+  toNodeListener,
+} from 'h3'
+import { listen } from 'listhen'
+
+import { setupRoutes } from './routes'
 import { createResponse } from './utils/response'
 
 // Core initialization
@@ -22,15 +25,6 @@ async function initCore(): Promise<ReturnType<typeof useLogger>> {
   try {
     await initDB()
     logger.debug('Database initialized successfully')
-
-    const client = await getTelegramClient()
-    try {
-      await client.connect()
-      logger.debug('Telegram client connected successfully')
-    }
-    catch (error) {
-      logger.withError(error).warn('Failed to connect to Telegram, authentication required')
-    }
   }
   catch (error) {
     logger.withError(error).error('Failed to initialize services')
@@ -52,75 +46,85 @@ function setupErrorHandlers(logger: ReturnType<typeof useLogger>): void {
 }
 
 // Server configuration
-function configureServer(logger: ReturnType<typeof useLogger>): Elysia {
-  return new Elysia({ adapter: node() })
-    .use(cors({
-      origin: 'http://localhost:3333',
-      methods: ['GET', 'POST', 'OPTIONS'],
-      credentials: true,
-    }))
-    .onRequest(({ request }) => {
-      const path = new URL(request.url).pathname
-      logger.withFields({
-        method: request.method,
-        path,
-        userAgent: request.headers.get('user-agent'),
-      }).debug('Request started')
+function configureServer(logger: ReturnType<typeof useLogger>) {
+  const app = createApp()
+
+  // CORS middleware
+  app.use(eventHandler((event: H3Event) => {
+    setResponseHeaders(event, {
+      'Access-Control-Allow-Origin': 'http://localhost:3333',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Credentials': 'true',
     })
-    .onAfterHandle(({ request }) => {
-      const path = new URL(request.url).pathname
-      logger.withFields({
-        method: request.method,
-        path,
-        status: 200,
-        userAgent: request.headers.get('user-agent'),
-      }).debug('Request completed')
-    })
-    .onError(({ request, error, code }) => {
-      const path = new URL(request.url).pathname
-      const status = getErrorStatus(code as string)
+
+    if (event.method === 'OPTIONS') {
+      setResponseHeaders(event, {
+        'Access-Control-Allow-Headers': '*',
+      })
+      return null
+    }
+  }))
+
+  // Request logging middleware
+  app.use(eventHandler(async (event: H3Event) => {
+    const path = event.path
+    const method = event.method
+    const userAgent = getRequestHeader(event, 'user-agent')
+
+    logger.withFields({
+      method,
+      path,
+      userAgent,
+    }).debug('Request started')
+
+    try {
+      // Pass the event to the next handler
+
+    }
+    catch (error: unknown) {
+      const status = error instanceof Error && 'statusCode' in error
+        ? (error as { statusCode: number }).statusCode
+        : 500
 
       logger.withFields({
-        method: request.method,
+        method,
         path,
         status,
         error: error instanceof Error ? error.message : 'Unknown error',
-        userAgent: request.headers.get('user-agent'),
+        userAgent,
       }).error('Request failed')
 
       return createResponse(undefined, error)
-    })
-    .use(authRoutes)
-    .use(chatRoutes)
-    .use(searchRoutes)
-    .use(messageRoutes)
-    .use(configRoutes)
-    .use(commandRoutes)
-}
+    }
+  }))
 
-// Helper function to map error codes to status codes
-function getErrorStatus(code: string): number {
-  const statusMap: Record<string, number> = {
-    NOT_FOUND: 404,
-    VALIDATION: 400,
-    PARSE: 400,
-  }
-  return statusMap[code] || 500
+  // Setup routes
+  setupRoutes(app)
+
+  return app
 }
 
 // Main application bootstrap
-(async () => {
+async function bootstrap() {
   const logger = await initCore()
   setupErrorHandlers(logger)
 
   const app = configureServer(logger)
-    .listen(3000, () => {
-      logger.debug('Server listening on http://localhost:3000')
-    })
+  const listener = toNodeListener(app)
+
+  await listen(listener, {
+    port: 3000,
+    showURL: true,
+  })
 
   const shutdown = () => process.exit(0)
   process.on('SIGINT', shutdown)
   process.on('SIGTERM', shutdown)
 
   return app
-})()
+}
+
+bootstrap().catch((error) => {
+  console.error('Failed to start server:', error)
+  process.exit(1)
+})
