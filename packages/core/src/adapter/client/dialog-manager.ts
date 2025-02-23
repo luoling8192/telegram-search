@@ -1,6 +1,6 @@
 import type { DatabaseNewChat } from '@tg-search/db'
 import type { TelegramClient } from 'telegram'
-import type { TelegramChatsResult } from '../../types'
+import type { TelegramChat, TelegramChatsResult } from '../../types'
 
 import { useLogger } from '@tg-search/common'
 
@@ -39,7 +39,7 @@ export class DialogManager {
 
       return {
         id: entity?.id.toJSNumber() || 0,
-        name,
+        title: name,
         type,
         unreadCount: dialog.unreadCount,
         lastMessage: dialog.message?.message,
@@ -48,7 +48,7 @@ export class DialogManager {
     })
 
     return {
-      chats: convertedDialogs,
+      chats: convertedDialogs as TelegramChat[],
       total: dialogs.length,
     }
   }

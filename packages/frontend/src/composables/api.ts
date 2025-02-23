@@ -1,8 +1,7 @@
 import { ofetch } from 'ofetch'
 import { ref } from 'vue'
 
-// API base URL with fallback
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000'
+import { API_BASE } from '../constants'
 
 // Create API client instance with default configuration
 export const apiFetch = ofetch.create({

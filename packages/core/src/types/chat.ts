@@ -3,12 +3,15 @@
  */
 export interface TelegramChat {
   id: number
-  name: string
+  uuid: string
+  title: string
   type: 'user' | 'group' | 'channel'
   unreadCount: number
   messageCount?: number
   lastMessage?: string
-  lastMessageDate?: Date
+  lastMessageDate?: string
+  lastSyncTime?: string
+  folderId?: number | null
 }
 
 /**

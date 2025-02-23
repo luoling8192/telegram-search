@@ -255,7 +255,7 @@ loadConfig()
               :max="1000"
               :disabled="!isEditing"
               class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              @input="(e) => handleNumberInput(e, ['message', 'export', 'batchSize'])"
+              @input="(e: Event) => handleNumberInput(e, ['message', 'export', 'batchSize'])"
             >
           </div>
           <div>
@@ -267,7 +267,7 @@ loadConfig()
               :max="10"
               :disabled="!isEditing"
               class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              @input="(e) => handleNumberInput(e, ['message', 'export', 'concurrent'])"
+              @input="(e: Event) => handleNumberInput(e, ['message', 'export', 'concurrent'])"
             >
           </div>
           <div>
@@ -279,7 +279,7 @@ loadConfig()
               :max="10"
               :disabled="!isEditing"
               class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              @input="(e) => handleNumberInput(e, ['message', 'export', 'retryTimes'])"
+              @input="(e: Event) => handleNumberInput(e, ['message', 'export', 'retryTimes'])"
             >
           </div>
           <div>
@@ -291,7 +291,7 @@ loadConfig()
               :max="10"
               :disabled="!isEditing"
               class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              @input="(e) => handleNumberInput(e, ['message', 'export', 'maxTakeoutRetries'])"
+              @input="(e: Event) => handleNumberInput(e, ['message', 'export', 'maxTakeoutRetries'])"
             >
           </div>
         </div>

@@ -3,7 +3,7 @@ import type { PaginationParams } from '@tg-search/server/types'
 
 import { ref } from 'vue'
 
-import { useApi } from '../composables/api'
+import { apiFetch, useApi } from '../composables/api'
 
 /**
  * Vue composable for managing messages state and operations
@@ -23,14 +23,11 @@ export function useMessages() {
         total: number
         limit: number
         offset: number
-      }>(async () => {
-        const response = await fetch(`/messages/${chatId}${params ? `?${new URLSearchParams(params as any)}` : ''}`)
-        const json = await response.json()
-        return {
-          success: response.ok,
-          data: json.data,
-        }
-      })
+      }>(() =>
+        apiFetch<{ success: boolean, data: { items: TelegramMessage[], total: number, limit: number, offset: number } }>(
+          `/messages/${chatId}${params ? `?${new URLSearchParams(params as any)}` : ''}`,
+        ),
+      )
 
       messages.value = data.items
       total.value = data.total

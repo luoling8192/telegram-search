@@ -34,7 +34,7 @@ export class WatchCommand extends TelegramCommand {
       return 0
     }
 
-    logger.log(`开始监听 "${selectedDialog.name}" 的 "${folderTitle}" 文件夹...`)
+    logger.log(`开始监听 "${selectedDialog.title}" 的 "${folderTitle}" 文件夹...`)
     let count = 0
 
     // Setup message handler
@@ -95,7 +95,7 @@ export class WatchCommand extends TelegramCommand {
     const dialogs = await this.getClient().getDialogs()
     logger.debug(`获取到 ${dialogs.chats.length} 个会话`)
     const chatChoices = dialogs.chats.map((dialog: TelegramChat) => ({
-      name: `[${dialog.type}] ${dialog.name} (${dialog.unreadCount} 条未读)`,
+      name: `[${dialog.type}] ${dialog.title} (${dialog.unreadCount} 条未读)`,
       value: dialog.id,
     }))
 

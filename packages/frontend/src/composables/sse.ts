@@ -1,10 +1,9 @@
-import type { ApiResponse } from '@tg-search/server/types'
+import type { ApiResponse } from '@tg-search/server'
 
-import { ApiError } from '@tg-search/server/types'
+import { ApiError } from '@tg-search/server'
 import { ref } from 'vue'
 
-// API base URL with fallback
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000'
+import { API_BASE } from '../constants'
 
 interface SSEHandlers<T> {
   onInfo: (info: string) => void

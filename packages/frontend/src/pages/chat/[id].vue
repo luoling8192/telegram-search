@@ -5,7 +5,6 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useChats } from '../../apis/useChats'
 import { useMessages } from '../../apis/useMessages'
-import MessageBubble from '../../components/MessageBubble.vue'
 
 // Local message type with highlight support
 interface LocalMessage extends TelegramMessage {
@@ -51,7 +50,7 @@ async function loadChatInfo() {
   await loadChats()
   const chat = chats.value.find((c: TelegramChat) => c.id === chatId)
   if (chat) {
-    chatTitle.value = chat.name
+    chatTitle.value = chat.title
   }
 }
 

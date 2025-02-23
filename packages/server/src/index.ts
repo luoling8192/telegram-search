@@ -22,6 +22,8 @@ import { setupMessageRoutes } from './routes/message'
 import { setupSearchRoutes } from './routes/search'
 import { createResponse } from './utils/response'
 
+export * from './types'
+
 // Core initialization
 async function initCore(): Promise<ReturnType<typeof useLogger>> {
   initLogger()

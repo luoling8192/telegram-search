@@ -1,11 +1,8 @@
-<!-- Command management page -->
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { Toaster } from 'vue-sonner'
+import { Toaster } from 'vue-sonner' // Changed from default import to named import
 import { useChats } from '../apis/useChats'
 import { useCommands } from '../apis/useCommands'
-import CommandList from '../components/commands/CommandList.vue'
-import ExportCommand from '../components/commands/ExportCommand.vue'
 
 // API composables
 const { chats, error: apiError, loadChats } = useChats()

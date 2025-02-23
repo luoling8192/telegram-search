@@ -3,7 +3,6 @@
 import { useRoute, useRouter } from 'vue-router'
 import { toast, Toaster } from 'vue-sonner'
 import { useSearch } from '../apis/useSearch'
-import HighlightText from '../components/HighlightText.vue'
 
 const route = useRoute()
 const router = useRouter()

@@ -7,7 +7,7 @@
     "useDefineForClassFields": true,
 
     /* Paths */
-    // "baseUrl": ".",
+    "baseUrl": ".",
     "module": "ESNext",
 
     /* Bundler mode */

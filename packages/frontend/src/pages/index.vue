@@ -10,7 +10,6 @@ const router = useRouter()
 
 // Computed properties for filtered and categorized chats
 const nonEmptyChats = computed(() => chats.value.filter(chat => chat.messageCount && chat.messageCount > 0))
-
 const privateChats = computed(() => nonEmptyChats.value.filter(chat => chat.type === 'user'))
 const groupChats = computed(() => nonEmptyChats.value.filter(chat => chat.type === 'group'))
 const channelChats = computed(() => nonEmptyChats.value.filter(chat => chat.type === 'channel'))
@@ -21,8 +20,8 @@ function goToChat(chatId: number) {
 }
 
 // Load chats on component mount
-onMounted(() => {
-  loadChats()
+onMounted(async () => {
+  await loadChats()
 })
 </script>
 
@@ -57,7 +56,7 @@ onMounted(() => {
             @click="goToChat(chat.id)"
           >
             <h2 class="text-left text-lg font-semibold">
-              {{ chat.name }}
+              {{ chat.title }}
             </h2>
             <div class="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span>{{ chat.messageCount }} messages</span>
@@ -82,7 +81,7 @@ onMounted(() => {
             @click="goToChat(chat.id)"
           >
             <h2 class="text-left text-lg font-semibold">
-              {{ chat.name }}
+              {{ chat.title }}
             </h2>
             <div class="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span>{{ chat.messageCount }} messages</span>
@@ -107,7 +106,7 @@ onMounted(() => {
             @click="goToChat(chat.id)"
           >
             <h2 class="text-left text-lg font-semibold">
-              {{ chat.name }}
+              {{ chat.title }}
             </h2>
             <div class="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span>{{ chat.messageCount }} messages</span>

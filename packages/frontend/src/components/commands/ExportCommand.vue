@@ -193,7 +193,7 @@ function formatTime(time: string): string {
             :key="chat.id"
             :value="chat.id"
           >
-            {{ chat.name }}
+            {{ chat.title }}
           </option>
         </select>
       </div>
