@@ -1,7 +1,20 @@
-import type { Folder, NewChat, NewFolder } from '@tg-search/db'
-import type { MessageOptions } from 'node:child_process'
-import type { ChatsResult } from './chat'
-import type { Message } from './message'
+import type { DatabaseFolder, DatabaseNewChat } from '@tg-search/db'
+import type { TelegramChatsResult } from './chat'
+import type { TelegramFolder } from './folder'
+import type { GetTelegramMessageParams, TelegramMessage } from './message'
+
+export interface ConnectOptions {
+  code?: () => Promise<string>
+  password?: () => Promise<string>
+}
+
+export interface ClientAdapterConfig {
+  apiId: number
+  apiHash: string
+  phoneNumber: string
+  password?: string
+  systemVersion?: string
+}
 
 /**
  * Telegram adapter type
@@ -25,11 +38,7 @@ export interface BaseTelegramAdapter {
   /**
    * Connect to Telegram
    */
-  connect: (options?: {
-    code?: () => Promise<string>
-    password?: () => Promise<string>
-  }
-  ) => Promise<void>
+  connect: (options?: ConnectOptions) => Promise<void>
 
   /**
    * Disconnect from Telegram
@@ -39,7 +48,7 @@ export interface BaseTelegramAdapter {
   /**
    * Listen for new messages
    */
-  onMessage: (callback: (message: Message) => Promise<void>) => void
+  onMessage: (callback: (message: TelegramMessage) => Promise<void>) => void
 }
 
 /**
@@ -63,25 +72,25 @@ export interface ITelegramClientAdapter extends BaseTelegramAdapter {
   /**
    * Get messages from chat
    */
-  getMessages: (chatId: number, limit?: number, options?: MessageOptions) => AsyncGenerator<Message>
+  getMessages: (chatId: number, limit?: number, options?: GetTelegramMessageParams) => AsyncGenerator<TelegramMessage>
 
   /**
    * Get all dialogs (chats) with pagination
    */
-  getDialogs: (offset?: number, limit?: number) => Promise<ChatsResult>
+  getDialogs: (offset?: number, limit?: number) => Promise<TelegramChatsResult>
 
   /**
    * Get all folders from Telegram
    */
-  getFolders: () => Promise<NewFolder[]>
+  getFolders: () => Promise<DatabaseFolder[]>
 
   /**
    * Get all chats from Telegram
    */
-  getChats: () => Promise<NewChat[]>
+  getChats: () => Promise<DatabaseNewChat[]>
 
   /**
    * Get folders for a specific chat
    */
-  getFoldersForChat: (chatId: number) => Promise<Folder[]>
+  getFoldersForChat: (chatId: number) => Promise<TelegramFolder[]>
 }

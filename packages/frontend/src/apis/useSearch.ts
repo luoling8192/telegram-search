@@ -3,7 +3,7 @@ import type { ApiResponse, SearchRequest, SearchResultItem } from '@tg-search/se
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
 
-import { createSSEConnection } from '../composables/sse'
+import { useSSE } from '../composables/sse'
 
 interface SearchResponse {
   total: number
@@ -23,7 +23,6 @@ type LocalSearchEventData = SearchResponse | SearchCompleteResponse
 export function useSearch() {
   // Search state
   const query = ref('')
-  const isLoading = ref(false)
   const results = ref<SearchResultItem[]>([])
   const total = ref(0)
   const error = ref<Error | null>(null)
@@ -35,17 +34,24 @@ export function useSearch() {
   const currentFolderId = ref<number | undefined>()
   const useVectorSearch = ref(false)
 
-  // Stream state
+  // Store last search params for reconnection
+  const lastSearchParams = ref<SearchRequest | null>(null)
+
+  // Initialize SSE
+  const {
+    loading: isLoading,
+    error: sseError,
+    isConnected,
+    reconnectAttempts,
+    maxReconnectAttempts,
+    reconnectDelay,
+    createConnection,
+  } = useSSE<LocalSearchEventData>()
+
+  // Search progress state
   const isStreaming = ref(false)
   const streamController = ref<AbortController | null>(null)
   const searchProgress = ref<string[]>([])
-  const isConnected = ref(false)
-  const reconnectAttempts = ref(0)
-  const maxReconnectAttempts = 5
-  const reconnectDelay = 5000
-
-  // Store last search params for reconnection
-  const lastSearchParams = ref<SearchRequest | null>(null)
 
   /**
    * Execute search with current parameters
@@ -67,7 +73,6 @@ export function useSearch() {
       currentFolderId.value = params.folderId
     }
 
-    isLoading.value = true
     isStreaming.value = true
     error.value = null
     searchProgress.value = []
@@ -87,11 +92,9 @@ export function useSearch() {
     const toastId = toast.loading('正在搜索...')
 
     try {
-      await createSSEConnection<LocalSearchEventData>('/search', lastSearchParams.value as unknown as Record<string, unknown>, {
+      await createConnection('/search', lastSearchParams.value, {
         onInfo: (info: string) => {
           searchProgress.value.push(info)
-          isConnected.value = true
-          reconnectAttempts.value = 0
           toast.loading(info, { id: toastId })
         },
         onUpdate: (response: ApiResponse<LocalSearchEventData>) => {
@@ -109,7 +112,6 @@ export function useSearch() {
         },
         onComplete: (response: ApiResponse<LocalSearchEventData>) => {
           isStreaming.value = false
-          isConnected.value = false
           if (response.success && response.data && 'duration' in response.data) {
             toast.success(`搜索完成，共找到 ${total.value} 条结果，耗时 ${response.data.duration}ms`, {
               id: toastId,
@@ -124,12 +126,10 @@ export function useSearch() {
         onError: (err: Error) => {
           error.value = err
           isStreaming.value = false
-          isConnected.value = false
           toast.error(`搜索失败: ${err.message}`, { id: toastId })
 
           // Try to reconnect if not exceeded max attempts
           if (reconnectAttempts.value < maxReconnectAttempts) {
-            reconnectAttempts.value++
             const delay = reconnectDelay * reconnectAttempts.value
             toast.error(`搜索服务连接失败，${delay / 1000} 秒后重试...`)
             setTimeout(() => {
@@ -142,7 +142,7 @@ export function useSearch() {
             toast.error('搜索服务连接失败，请刷新页面重试')
           }
         },
-      }, streamController.value.signal)
+      })
     }
     catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -159,7 +159,6 @@ export function useSearch() {
       })
     }
     finally {
-      isLoading.value = false
       streamController.value = null
     }
   }
@@ -185,8 +184,6 @@ export function useSearch() {
     useVectorSearch.value = false
     error.value = null
     searchProgress.value = []
-    isConnected.value = false
-    reconnectAttempts.value = 0
     lastSearchParams.value = null
 
     if (streamController.value) {
@@ -202,7 +199,7 @@ export function useSearch() {
     isStreaming,
     results,
     total,
-    error,
+    error: error || sseError,
     currentPage,
     pageSize,
     searchProgress,

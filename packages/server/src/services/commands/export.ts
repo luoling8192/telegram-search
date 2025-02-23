@@ -1,5 +1,5 @@
 import type { ExportOptions, ITelegramClientAdapter } from '@tg-search/core'
-import type { NewChat } from '@tg-search/db'
+import type { DatabaseNewChat } from '@tg-search/db'
 import type { SSEController } from '../../types'
 import type { Command, CommandHandler, CommandOptions, CommandStatus } from '../../types/apis/command'
 import type { ExportCommand, ExportDetails, ExportStatus } from '../../types/apis/export'
@@ -107,7 +107,7 @@ export class ExportCommandHandler implements CommandHandler {
 
       // Get chat info
       const chats = await client.getChats()
-      const selectedChat = chats.find((c: NewChat) => c.id === exportParams.chatId)
+      const selectedChat = chats.find((c: DatabaseNewChat) => c.id === exportParams.chatId)
       if (!selectedChat) {
         throw new Error(`Chat not found: ${exportParams.chatId}`)
       }

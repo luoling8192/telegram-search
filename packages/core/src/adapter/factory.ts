@@ -1,4 +1,4 @@
-import type { TelegramAdapter, TelegramAdapterType } from './types'
+import type { TelegramAdapter, TelegramAdapterType } from '../types'
 
 import { BotAdapter } from './bot'
 import { ClientAdapter } from './client'

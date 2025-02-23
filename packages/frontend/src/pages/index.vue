@@ -1,26 +1,19 @@
 <!-- Chat list page -->
 <script setup lang="ts">
-import type { PublicChat } from '@tg-search/server/types'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useApi } from '../utils/api'
+import { useChats } from '../apis/useChats'
 
 // Initialize API client and router
-const { loading, getChats } = useApi()
+const { loading, error, chats, loadChats } = useChats()
 const router = useRouter()
-const chats = ref<PublicChat[]>([])
 
 // Computed properties for filtered and categorized chats
-const nonEmptyChats = computed(() => chats.value.filter(chat => chat.messageCount > 0))
+const nonEmptyChats = computed(() => chats.value.filter(chat => chat.messageCount && chat.messageCount > 0))
 
 const privateChats = computed(() => nonEmptyChats.value.filter(chat => chat.type === 'user'))
 const groupChats = computed(() => nonEmptyChats.value.filter(chat => chat.type === 'group'))
 const channelChats = computed(() => nonEmptyChats.value.filter(chat => chat.type === 'channel'))
-
-// Load chats from API
-async function loadChats() {
-  chats.value = await getChats()
-}
 
 // Navigate to chat view
 function goToChat(chatId: number) {
@@ -44,6 +37,11 @@ onMounted(() => {
       Loading...
     </div>
 
+    <!-- Error state -->
+    <div v-else-if="error" class="text-red-500">
+      {{ error }}
+    </div>
+
     <!-- Chat list -->
     <div v-else class="space-y-6">
       <!-- Private Chats -->
@@ -59,7 +57,7 @@ onMounted(() => {
             @click="goToChat(chat.id)"
           >
             <h2 class="text-left text-lg font-semibold">
-              {{ chat.title }}
+              {{ chat.name }}
             </h2>
             <div class="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span>{{ chat.messageCount }} messages</span>
@@ -84,7 +82,7 @@ onMounted(() => {
             @click="goToChat(chat.id)"
           >
             <h2 class="text-left text-lg font-semibold">
-              {{ chat.title }}
+              {{ chat.name }}
             </h2>
             <div class="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span>{{ chat.messageCount }} messages</span>
@@ -109,7 +107,7 @@ onMounted(() => {
             @click="goToChat(chat.id)"
           >
             <h2 class="text-left text-lg font-semibold">
-              {{ chat.title }}
+              {{ chat.name }}
             </h2>
             <div class="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span>{{ chat.messageCount }} messages</span>

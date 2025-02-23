@@ -1,23 +1,26 @@
 <!-- Chat messages page -->
 <script setup lang="ts">
-import type { PublicMessage } from '@tg-search/server/types'
+import type { TelegramChat, TelegramMessage } from '@tg-search/core'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useChats } from '../../apis/useChats'
+import { useMessages } from '../../apis/useMessages'
 import MessageBubble from '../../components/MessageBubble.vue'
-import { useApi } from '../../utils/api'
 
 // Local message type with highlight support
-interface LocalMessage extends PublicMessage {
+interface LocalMessage extends TelegramMessage {
   highlight?: boolean
 }
 
 // Initialize API client and router
-const { loading, error, getMessages, getChats } = useApi()
+const { loading, error, loadChats } = useChats()
+const { messages: apiMessages, loading: messagesLoading, total: messagesTotal, loadMessages: fetchMessages } = useMessages()
 const route = useRoute()
 const router = useRouter()
 const messages = ref<LocalMessage[]>([])
 const total = ref(0)
 const chatTitle = ref('')
+const chats = ref<TelegramChat[]>([])
 
 // Pagination
 const pageSize = 50
@@ -45,10 +48,10 @@ function handleSearch() {
 
 // Load chat info
 async function loadChatInfo() {
-  const chats = await getChats()
-  const chat = chats.find(c => c.id === chatId)
+  await loadChats()
+  const chat = chats.value.find((c: TelegramChat) => c.id === chatId)
   if (chat) {
-    chatTitle.value = chat.title
+    chatTitle.value = chat.name
   }
 }
 
@@ -63,22 +66,22 @@ async function loadMessages(page = 1, append = false) {
 
   try {
     const offset = (page - 1) * pageSize
-    const response = await getMessages(chatId, {
+    await fetchMessages(chatId, {
       limit: pageSize,
       offset,
     })
 
-    if (response.items) {
+    if (apiMessages.value) {
       // Get current scroll position
       const scrollPos = messageContainer.value?.scrollHeight || 0
       if (append) {
         // Add older messages to the beginning (since they're in reverse order)
-        messages.value.unshift(...response.items)
+        messages.value.unshift(...apiMessages.value)
       }
       else {
-        messages.value = response.items.reverse()
+        messages.value = [...apiMessages.value].reverse()
       }
-      total.value = response.total
+      total.value = messagesTotal.value
       currentPage.value = page
 
       // Restore scroll position after appending messages
@@ -146,17 +149,17 @@ async function jumpToMessage(messageId: number) {
     let offset = 0
     let found = false
     while (!found) {
-      const response = await getMessages(chatId, {
+      await fetchMessages(chatId, {
         limit: pageSize,
         offset,
       })
 
-      if (!response.items || response.items.length === 0) {
+      if (!apiMessages.value || apiMessages.value.length === 0) {
         break
       }
 
-      messages.value = response.items.reverse()
-      total.value = response.total
+      messages.value = [...apiMessages.value].reverse()
+      total.value = messagesTotal.value
       currentPage.value = Math.floor(offset / pageSize) + 1
 
       // Check if target message is in this batch
@@ -177,7 +180,7 @@ async function jumpToMessage(messageId: number) {
       }
 
       // If not found and there are more messages, try next batch
-      if (offset + pageSize < response.total) {
+      if (offset + pageSize < messagesTotal.value) {
         offset += pageSize
       }
       else {
@@ -258,7 +261,7 @@ onMounted(async () => {
       @scroll="onScroll"
     >
       <!-- Loading state -->
-      <div v-if="loading" class="text-center text-gray-500 dark:text-gray-400">
+      <div v-if="loading || messagesLoading" class="text-center text-gray-500 dark:text-gray-400">
         Loading messages...
       </div>
 

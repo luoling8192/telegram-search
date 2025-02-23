@@ -7,13 +7,13 @@ import { chats } from '../schema/chat'
 import { getMessageStats } from './message'
 
 // Export types
-export type Chat = InferSelectModel<typeof chats>
-export type NewChat = InferInsertModel<typeof chats>
+export type DatabaseChat = InferSelectModel<typeof chats>
+export type DatabaseNewChat = InferInsertModel<typeof chats>
 
 /**
  * Update or create a chat in the database
  */
-export async function updateChat(data: NewChat) {
+export async function updateChat(data: DatabaseNewChat) {
   // Get message stats from materialized view
   let stats = null
   try {

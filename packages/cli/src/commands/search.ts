@@ -1,4 +1,4 @@
-import type { MessageType, SearchOptions } from '@tg-search/db'
+import type { DatabaseMessageType, SearchOptions } from '@tg-search/db'
 
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
@@ -76,7 +76,7 @@ export class SearchCommand extends TelegramCommand {
         { name: '贴纸', value: 'sticker' },
         { name: '其他', value: 'other' },
       ],
-    }) as MessageType | undefined
+    }) as DatabaseMessageType | undefined
 
     // Get time range
     const useTimeRange = await input.confirm({

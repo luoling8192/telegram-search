@@ -1,4 +1,4 @@
-import type { MediaInfo } from '@tg-search/db'
+import type { DatabaseMediaInfo } from '@tg-search/db'
 import type { TelegramClient } from 'telegram'
 
 import * as fs from 'node:fs/promises'
@@ -32,14 +32,14 @@ export class MediaService {
   /**
    * Get media info from message
    */
-  getMediaInfo(message: any): MediaInfo | undefined {
+  getMediaInfo(message: any): DatabaseMediaInfo | undefined {
     if (message.media) {
       const media = message.media
       const type = this.getMediaType(media)
       if (!type)
         return undefined
 
-      const info: MediaInfo = {
+      const info: DatabaseMediaInfo = {
         fileId: media.id?.toString() || '',
         type: type as 'text' | 'photo' | 'video' | 'document' | 'sticker' | 'other',
       }
@@ -93,7 +93,7 @@ export class MediaService {
   /**
    * Download media file
    */
-  async downloadMedia(message: any, info: MediaInfo): Promise<string | undefined> {
+  async downloadMedia(message: any, info: DatabaseMediaInfo): Promise<string | undefined> {
     try {
       // Create subdirectory for each type
       const typeDir = path.join(this.mediaDir, info.type)
@@ -121,7 +121,7 @@ export class MediaService {
   /**
    * Get file extension from media info
    */
-  private getFileExtension(info: MediaInfo): string {
+  private getFileExtension(info: DatabaseMediaInfo): string {
     if (info.fileName) {
       return path.extname(info.fileName)
     }

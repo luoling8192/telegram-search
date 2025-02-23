@@ -1,44 +1,15 @@
 <!-- Settings page -->
 <script setup lang="ts">
 import type { Config } from '@tg-search/common'
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { toast, Toaster } from 'vue-sonner'
-import { useApi } from '../utils/api'
+import { useConfig } from '../apis/useConfig'
 
-// 添加类型定义
-interface ConfigState {
-  config: Config | null
-  isEditing: boolean
-  error: string | null
-}
+// Initialize config composable
+const { config, loading, error, getConfig, updateConfig } = useConfig()
 
-// 初始化 API client
-const { loading, error, getConfig, updateConfig } = useApi()
-
-// Config state with type
-const config = ref<Config | null>(null)
 const isEditing = ref(false)
 const validationError = ref<string | null>(null)
-
-// 使用 ConfigState 接口来类型化我们的状态
-const state: ConfigState = {
-  config: config.value,
-  isEditing: isEditing.value,
-  error: error.value,
-}
-
-// 使用计算属性来保持状态同步
-watch(config, (newValue) => {
-  state.config = newValue
-})
-
-watch(isEditing, (newValue) => {
-  state.isEditing = newValue
-})
-
-watch(error, (newValue) => {
-  state.error = newValue
-})
 
 // 数字类型字段的验证函数
 function validateNumberField(value: number, fieldName: string, min = 1, max = 1000): string | null {
@@ -96,12 +67,11 @@ function handleNumberInput(event: Event, path: string[]) {
 // 加载配置
 async function loadConfig() {
   try {
-    config.value = await getConfig()
+    await getConfig()
   }
   catch (err) {
     console.error('Failed to load config:', err)
     toast.error(`Failed to load config: ${err instanceof Error ? err.message : 'Unknown error'}`)
-    error.value = err instanceof Error ? err.message : 'Failed to load config'
   }
 }
 
@@ -135,13 +105,11 @@ async function saveConfig() {
     const configValidationError = validateConfig(safeConfig)
     if (configValidationError) {
       toast.error(configValidationError)
-      error.value = configValidationError
       return
     }
 
     await updateConfig(safeConfig)
     isEditing.value = false
-    error.value = null
     toast.success('Settings saved successfully')
 
     // 修复：确保 validationError 存在再设置
@@ -151,15 +119,12 @@ async function saveConfig() {
   catch (err) {
     console.error('Failed to save config:', err)
     toast.error(`Failed to save config: ${err instanceof Error ? err.message : 'Unknown error'}`)
-    error.value = err instanceof Error ? err.message : 'Failed to save config'
   }
 }
 
 // 重置配置
 function resetConfig() {
   isEditing.value = false
-  error.value = null
-
   // 修复：确保 validationError 存在再设置
   if (validationError.value && validationError.value !== undefined)
     validationError.value = null

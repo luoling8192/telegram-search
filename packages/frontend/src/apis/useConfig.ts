@@ -2,64 +2,37 @@ import type { Config } from '@tg-search/common'
 
 import { ref } from 'vue'
 
-import { apiFetch } from '../composables/api'
+import { apiFetch, useApi } from '../composables/api'
 
 /**
  * Vue composable for managing config state and operations
  */
 export function useConfig() {
-  const loading = ref(false)
-  const error = ref<string | null>(null)
   const config = ref<Config | null>(null)
+  const { loading, error, request } = useApi()
 
   /**
    * Get current config
    */
   async function getConfig(): Promise<Config> {
-    loading.value = true
-    error.value = null
-
-    try {
-      const response = await apiFetch<{ success: boolean, data: Config }>('/config')
-      if (!response.success) {
-        throw new Error('Failed to fetch config')
-      }
-      config.value = response.data
-      return response.data
-    }
-    catch (err) {
-      error.value = err instanceof Error ? err.message : 'Unknown error'
-      throw err
-    }
-    finally {
-      loading.value = false
-    }
+    const data = await request<Config>(() =>
+      apiFetch<{ success: boolean, data: Config }>('/config'),
+    )
+    config.value = data
+    return data
   }
 
   /**
    * Update config
    */
   async function updateConfig(newConfig: Config): Promise<void> {
-    loading.value = true
-    error.value = null
-
-    try {
-      const response = await apiFetch<{ success: boolean }>('/config', {
+    await request<void>(() =>
+      apiFetch<{ success: boolean, data: void }>('/config', {
         method: 'PUT',
         body: newConfig,
-      })
-      if (!response.success) {
-        throw new Error('Failed to update config')
-      }
-      config.value = newConfig
-    }
-    catch (err) {
-      error.value = err instanceof Error ? err.message : 'Unknown error'
-      throw err
-    }
-    finally {
-      loading.value = false
-    }
+      }),
+    )
+    config.value = newConfig
   }
 
   return {

@@ -1,16 +1,17 @@
-import type { ITelegramBotAdapter, Message, MessageType } from './types'
+import type { DatabaseMessageType } from '@tg-search/db'
+import type { ITelegramBotAdapter, TelegramMessage } from '../types'
 
 import { useLogger } from '@tg-search/common'
 import { getMessageStats } from '@tg-search/db'
-import { Bot, GrammyError, HttpError } from 'grammy'
+import { GrammyError, HttpError, Bot as TelegramBot } from 'grammy'
 
 export class BotAdapter implements ITelegramBotAdapter {
-  private bot: Bot
-  private messageCallback?: (message: Message) => Promise<void>
+  private bot: TelegramBot
+  private messageCallback?: (message: TelegramMessage) => Promise<void>
   private logger = useLogger()
 
   constructor(token: string) {
-    this.bot = new Bot(token)
+    this.bot = new TelegramBot(token)
 
     // Error handling
     this.bot.catch((err) => {
@@ -84,7 +85,7 @@ export class BotAdapter implements ITelegramBotAdapter {
   /**
    * Convert message type from Grammy to our type
    */
-  private getMessageType(message: any): MessageType {
+  private getMessageType(message: any): DatabaseMessageType {
     if (message.text)
       return 'text'
     if (message.photo)
@@ -99,7 +100,7 @@ export class BotAdapter implements ITelegramBotAdapter {
   /**
    * Convert message from Grammy to our format
    */
-  private convertMessage(message: any): Message {
+  private convertMessage(message: any): TelegramMessage {
     return {
       id: message.message_id,
       chatId: message.chat.id,
@@ -156,13 +157,13 @@ export class BotAdapter implements ITelegramBotAdapter {
     await this.bot.stop()
   }
 
-  async *getMessages(_chatId: number, _limit = 100): AsyncGenerator<Message> {
+  async *getMessages(_chatId: number, _limit = 100): AsyncGenerator<TelegramMessage> {
     // Note: Bot API doesn't support getting message history
     // We can only get messages that are sent to the bot
     throw new Error('Bot API does not support getting message history')
   }
 
-  onMessage(callback: (message: Message) => Promise<void>) {
+  onMessage(callback: (message: TelegramMessage) => Promise<void>) {
     this.messageCallback = callback
   }
 }

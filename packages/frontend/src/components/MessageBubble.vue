@@ -1,11 +1,11 @@
 <!-- Message bubble component for displaying PublicMessage -->
 <script setup lang="ts">
-import type { PublicMessage } from '@tg-search/server/types'
+import type { TelegramMessage } from '@tg-search/core'
 import { Icon } from '@iconify/vue'
 import { computed } from 'vue'
 
 const props = defineProps<{
-  message: PublicMessage & { highlight?: boolean }
+  message: TelegramMessage & { highlight?: boolean }
   isSelf?: boolean
 }>()
 
@@ -38,7 +38,7 @@ const avatarColor = computed(() => {
     'bg-[#9E8B83]', // 柔和的玫瑰褐色
     'bg-[#7F938F]', // 青灰色
   ]
-  const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
+  const index = name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % colors.length
   return colors[index]
 })
 

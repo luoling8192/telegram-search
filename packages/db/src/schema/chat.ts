@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { bigint, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 
-import { chatTypeEnum } from './types'
+import { databaseChatTypeEnum } from './types'
 
 // Chats table
 export const chats = pgTable('chats', {
@@ -10,7 +10,7 @@ export const chats = pgTable('chats', {
   // Chat ID from Telegram
   id: bigint('id', { mode: 'number' }).notNull().unique(),
   // Chat type
-  type: chatTypeEnum('type').notNull(),
+  type: databaseChatTypeEnum('type').notNull(),
   // Chat title
   title: text('title').notNull(),
   // Last message

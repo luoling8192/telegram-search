@@ -1,6 +1,6 @@
-import type { NewChat } from '@tg-search/db'
+import type { DatabaseNewChat } from '@tg-search/db'
 import type { TelegramClient } from 'telegram'
-import type { ChatsResult } from '../types'
+import type { TelegramChatsResult } from '../../types'
 
 import { useLogger } from '@tg-search/common'
 
@@ -19,7 +19,7 @@ export class DialogManager {
   /**
    * Get all dialogs (chats) with pagination
    */
-  async getDialogs(offset = 0, limit = 10): Promise<ChatsResult> {
+  async getDialogs(offset = 0, limit = 10): Promise<TelegramChatsResult> {
     // Get dialogs with pagination
     const dialogs = await this.client.getDialogs({
       limit: limit + 1, // Get one extra to check if there are more
@@ -48,7 +48,7 @@ export class DialogManager {
     })
 
     return {
-      dialogs: convertedDialogs,
+      chats: convertedDialogs,
       total: dialogs.length,
     }
   }
@@ -56,8 +56,8 @@ export class DialogManager {
   /**
    * Get all chats from Telegram
    */
-  async getChats(): Promise<NewChat[]> {
-    const chats: NewChat[] = []
+  async getChats(): Promise<DatabaseNewChat[]> {
+    const chats: DatabaseNewChat[] = []
 
     try {
       // Get all dialogs first

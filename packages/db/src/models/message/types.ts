@@ -1,4 +1,4 @@
-import type { MediaInfo, MessageType } from '../../schema'
+import type { DatabaseMediaInfo, DatabaseMessageType } from '../../schema'
 import type { tsvector } from '../../schema/tsvector'
 
 /**
@@ -7,7 +7,7 @@ import type { tsvector } from '../../schema/tsvector'
 interface BaseMessage {
   id: number
   chatId: number
-  type: MessageType
+  type: DatabaseMessageType
   content?: string | null
   createdAt: Date
   tsContent?: typeof tsvector // Added for full-text search support
@@ -43,7 +43,7 @@ interface MessageMeta {
   forwards?: number | null
   links?: string[] | null
   metadata?: Record<string, unknown> | null
-  mediaInfo?: MediaInfo | null
+  mediaInfo?: DatabaseMediaInfo | null
 }
 
 /**
@@ -58,7 +58,7 @@ export interface MessageCreateInput extends BaseMessage, MessageSender, MessageF
  */
 export interface SearchOptions {
   chatId: number // Required for partition table lookup
-  type?: MessageType
+  type?: DatabaseMessageType
   startTime?: Date
   endTime?: Date
   limit?: number

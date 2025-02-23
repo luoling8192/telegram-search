@@ -1,7 +1,7 @@
 /**
  * Folder from Telegram
  */
-export interface Folder {
+export interface TelegramFolder {
   id: number
   title: string
   emoticon?: string

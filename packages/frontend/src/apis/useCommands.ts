@@ -1,14 +1,14 @@
-import type { MessageType } from '@tg-search/db'
+import type { DatabaseMessageType } from '@tg-search/db'
 import type { ApiResponse, Command, ExportCommand, ExportMethod } from '@tg-search/server/types'
 
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 
-import { createSSEConnection } from '../composables/sse'
+import { useSSE } from '../composables/sse'
 
 interface ExportParams {
   chatId: number
-  messageTypes: MessageType[]
+  messageTypes: DatabaseMessageType[]
   method: ExportMethod
 
   [key: string]: unknown
@@ -20,19 +20,20 @@ interface ExportParams {
 export function useCommands() {
   // Command state
   const commands = ref<Command[]>([])
-  const isLoading = ref(false)
   const error = ref<Error | null>(null)
-  const isConnected = ref(false)
-  const reconnectAttempts = ref(0)
-  const maxReconnectAttempts = 5
-  const reconnectDelay = 5000
-
-  // Store last export params for reconnection
+  const exportProgress = ref<string[]>([])
   const lastExportParams = ref<ExportParams | null>(null)
 
-  // Stream state
-  const streamController = ref<AbortController | null>(null)
-  const exportProgress = ref<string[]>([])
+  // Initialize SSE
+  const {
+    loading: isLoading,
+    error: sseError,
+    isConnected,
+    reconnectAttempts,
+    maxReconnectAttempts,
+    reconnectDelay,
+    createConnection,
+  } = useSSE<Command>()
 
   // Current command state
   const currentCommand = computed<Command | ExportCommand | null>(() => {
@@ -70,28 +71,17 @@ export function useCommands() {
       return false
     }
 
-    isLoading.value = true
     error.value = null
     lastExportParams.value = params
     exportProgress.value = []
-
-    // Cancel previous stream if exists
-    if (streamController.value) {
-      streamController.value.abort()
-    }
-
-    // Create new stream controller
-    streamController.value = new AbortController()
 
     // Show loading toast
     const toastId = toast.loading('正在准备导出...')
 
     try {
-      await createSSEConnection<Command>('/commands/export', params, {
+      await createConnection('/commands/export', params, {
         onInfo: (info: string) => {
           exportProgress.value.push(info)
-          isConnected.value = true
-          reconnectAttempts.value = 0
           toast.loading(info, { id: toastId })
         },
         onInit: (data: ApiResponse<Command>) => {
@@ -121,12 +111,10 @@ export function useCommands() {
         },
         onError: (err: Error) => {
           error.value = err
-          isConnected.value = false
           toast.error(`导出失败: ${err.message}`, { id: toastId })
 
           // Try to reconnect if not exceeded max attempts
           if (reconnectAttempts.value < maxReconnectAttempts) {
-            reconnectAttempts.value++
             const delay = reconnectDelay * reconnectAttempts.value
             toast.error(`命令服务连接失败，${delay / 1000} 秒后重试...`)
             setTimeout(() => {
@@ -140,26 +128,16 @@ export function useCommands() {
           }
         },
         onComplete: (_data: ApiResponse<Command>) => {
-          isConnected.value = false
+          // Handle completion
         },
-      }, streamController.value.signal)
+      })
 
       return true
     }
     catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        // Ignore aborted requests
-        toast.dismiss(toastId)
-        return false
-      }
-
       error.value = err as Error
       toast.error(err instanceof Error ? err.message : '导出失败', { id: toastId })
       return false
-    }
-    finally {
-      isLoading.value = false
-      streamController.value = null
     }
   }
 
@@ -167,12 +145,6 @@ export function useCommands() {
    * Cleanup function
    */
   function cleanup() {
-    if (streamController.value) {
-      streamController.value.abort()
-      streamController.value = null
-    }
-    isConnected.value = false
-    reconnectAttempts.value = 0
     error.value = null
     lastExportParams.value = null
     exportProgress.value = []
@@ -183,9 +155,9 @@ export function useCommands() {
     // State
     commands,
     isLoading,
-    isStreaming: computed(() => streamController.value !== null),
+    isStreaming: computed(() => isConnected.value),
     currentCommand,
-    error,
+    error: computed(() => error.value || sseError.value),
     exportProgress,
     isConnected,
 

@@ -1,19 +1,19 @@
-import type { MediaInfo } from '@tg-search/db'
+import type { DatabaseMediaInfo } from '@tg-search/db'
 
 /**
  * Message type
  */
-export type MessageType = 'text' | 'photo' | 'video' | 'document' | 'sticker' | 'other'
+export type TelegramMessageType = 'text' | 'photo' | 'video' | 'document' | 'sticker' | 'other'
 
 /**
  * Message from Telegram
  */
-export interface Message {
+export interface TelegramMessage {
   id: number
   chatId: number
-  type: MessageType
+  type: TelegramMessageType
   content?: string
-  mediaInfo?: MediaInfo
+  mediaInfo?: DatabaseMediaInfo
   fromId?: number
   fromName?: string
   fromAvatar?: {
@@ -35,11 +35,11 @@ export interface Message {
 /**
  * Message options for getting messages
  */
-export interface MessageOptions {
+export interface GetTelegramMessageParams {
   skipMedia?: boolean
   startTime?: Date
   endTime?: Date
   limit?: number
-  messageTypes?: MessageType[]
+  messageTypes?: TelegramMessageType[]
   method?: 'getMessage' | 'takeout'
 }

@@ -1,4 +1,4 @@
-import type { Message } from '../../../core/src/adapter/types'
+import type { TelegramChat, TelegramMessage } from '@tg-search/core'
 
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
@@ -28,7 +28,7 @@ export class WatchCommand extends TelegramCommand {
   private async watchChat(chatId: number, folderTitle: string): Promise<number> {
     // Get dialog info
     const result = await this.getClient().getDialogs(0, 100)
-    const selectedDialog = result.dialogs.find(d => d.id === chatId)
+    const selectedDialog = result.chats.find((d: TelegramChat) => d.id === chatId)
     if (!selectedDialog) {
       logger.log('找不到该对话')
       return 0
@@ -38,7 +38,7 @@ export class WatchCommand extends TelegramCommand {
     let count = 0
 
     // Setup message handler
-    this.getClient().onMessage(async (message: Message) => {
+    this.getClient().onMessage(async (message: TelegramMessage) => {
       // Only handle messages from selected chat
       if (message.chatId !== chatId)
         return
@@ -93,8 +93,8 @@ export class WatchCommand extends TelegramCommand {
 
     // Get all chats in folder
     const dialogs = await this.getClient().getDialogs()
-    logger.debug(`获取到 ${dialogs.dialogs.length} 个会话`)
-    const chatChoices = dialogs.dialogs.map(dialog => ({
+    logger.debug(`获取到 ${dialogs.chats.length} 个会话`)
+    const chatChoices = dialogs.chats.map((dialog: TelegramChat) => ({
       name: `[${dialog.type}] ${dialog.name} (${dialog.unreadCount} 条未读)`,
       value: dialog.id,
     }))
@@ -111,7 +111,7 @@ export class WatchCommand extends TelegramCommand {
       return
     }
 
-    await this.watchChat(chatId, selectedFolder.title)
+    await this.watchChat(chatId!, selectedFolder.title)
   }
 }
 

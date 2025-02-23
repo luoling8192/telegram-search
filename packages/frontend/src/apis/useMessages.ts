@@ -1,81 +1,42 @@
-import type { Message } from '@tg-search/core'
-import type { PaginationParams, SearchRequest, SearchResponse } from '@tg-search/server/types'
+import type { TelegramMessage } from '@tg-search/core'
+import type { PaginationParams } from '@tg-search/server/types'
 
 import { ref } from 'vue'
 
-import { apiFetch } from '../composables/api'
+import { useApi } from '../composables/api'
 
 /**
  * Vue composable for managing messages state and operations
  */
 export function useMessages() {
-  const messages = ref<Message[]>([])
-  const loading = ref(false)
-  const error = ref<string | null>(null)
+  const messages = ref<TelegramMessage[]>([])
   const total = ref(0)
-
-  /**
-   * Search messages with given parameters
-   */
-  async function searchMessages(params: SearchRequest): Promise<void> {
-    loading.value = true
-    error.value = null
-
-    try {
-      const response = await apiFetch<{ success: boolean, data: SearchResponse }>('/search', {
-        method: 'POST',
-        body: params,
-      })
-
-      if (!response.success) {
-        throw new Error('Failed to search messages')
-      }
-
-      messages.value = response.data.items
-      total.value = response.data.total
-    }
-    catch (err) {
-      error.value = err instanceof Error ? err.message : 'Unknown error'
-      console.error('Failed to search messages:', err)
-    }
-    finally {
-      loading.value = false
-    }
-  }
+  const { loading, error, request } = useApi()
 
   /**
    * Load messages from a specific chat
    */
   async function loadMessages(chatId: number, params?: PaginationParams): Promise<void> {
-    loading.value = true
-    error.value = null
-
     try {
-      const response = await apiFetch<{
-        success: boolean
-        data: {
-          items: Message[]
-          total: number
-          limit: number
-          offset: number
+      const data = await request<{
+        items: TelegramMessage[]
+        total: number
+        limit: number
+        offset: number
+      }>(async () => {
+        const response = await fetch(`/messages/${chatId}${params ? `?${new URLSearchParams(params as any)}` : ''}`)
+        const json = await response.json()
+        return {
+          success: response.ok,
+          data: json.data,
         }
-      }>(`/messages/${chatId}`, {
-        query: params,
       })
 
-      if (!response.success) {
-        throw new Error('Failed to fetch messages')
-      }
-
-      messages.value = response.data.items
-      total.value = response.data.total
+      messages.value = data.items
+      total.value = data.total
     }
     catch (err) {
-      error.value = err instanceof Error ? err.message : 'Unknown error'
       console.error('Failed to load messages:', err)
-    }
-    finally {
-      loading.value = false
     }
   }
 
@@ -84,7 +45,6 @@ export function useMessages() {
     loading,
     error,
     total,
-    searchMessages,
     loadMessages,
   }
 }

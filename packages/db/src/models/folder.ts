@@ -6,13 +6,13 @@ import { sql } from 'drizzle-orm'
 import { folders } from '../schema/folder'
 
 // Export types
-export type Folder = InferSelectModel<typeof folders>
-export type NewFolder = InferInsertModel<typeof folders>
+export type DatabaseFolder = InferSelectModel<typeof folders>
+export type DatabaseNewFolder = InferInsertModel<typeof folders>
 
 /**
  * Update or create a folder in the database
  */
-export async function updateFolder(data: NewFolder) {
+export async function updateFolder(data: DatabaseNewFolder) {
   return useDB().insert(folders).values({
     ...data,
     lastSyncTime: data.lastSyncTime ? new Date(data.lastSyncTime) : new Date(),

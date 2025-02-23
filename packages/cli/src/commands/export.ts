@@ -1,5 +1,5 @@
 import type { ExportFormat, ExportMethod, ExportOptions } from '@tg-search/core'
-import type { NewChat } from '@tg-search/db'
+import type { DatabaseNewChat } from '@tg-search/db'
 
 import * as input from '@inquirer/prompts'
 import { getConfig, useLogger } from '@tg-search/common'
@@ -24,7 +24,7 @@ export class ExportCommand extends TelegramCommand {
     const chats = await this.getClient().getChats()
     logger.debug(`获取到 ${chats.length} 个会话`)
 
-    const chatChoices = chats.map((chat: NewChat) => ({
+    const chatChoices = chats.map((chat: DatabaseNewChat) => ({
       name: `[${chat.type}] ${chat.title} (${chat.messageCount} 条消息)`,
       value: chat.id,
     }))
@@ -34,7 +34,7 @@ export class ExportCommand extends TelegramCommand {
       choices: chatChoices,
     })
 
-    const chatMetadata = chats.find((c: NewChat) => c.id === chatId)
+    const chatMetadata = chats.find((c: DatabaseNewChat) => c.id === chatId)
     if (!chatMetadata) {
       throw new Error(`Chat not found: ${chatId}`)
     }

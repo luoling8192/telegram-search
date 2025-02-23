@@ -1,13 +1,14 @@
 <!-- Export command component -->
 <script setup lang="ts">
-import type { Chat, MessageType } from '@tg-search/core'
+import type { TelegramChat } from '@tg-search/core'
+import type { DatabaseMessageType } from '@tg-search/db'
 import { computed, onUnmounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { useCommands } from '../../apis/useCommands'
 
 // Props
 const props = defineProps<{
-  chats: Chat[]
+  chats: TelegramChat[]
 }>()
 
 const {
@@ -28,7 +29,7 @@ const selectedChatType = ref<'user' | 'group' | 'channel'>('user')
 // Selected chat
 const selectedChatId = ref<number>()
 // Selected message types
-const selectedMessageTypes = ref<MessageType[]>(['text'])
+const selectedMessageTypes = ref<DatabaseMessageType[]>(['text'])
 // Selected export method
 const selectedMethod = ref<'getMessage' | 'takeout'>('takeout')
 
@@ -57,7 +58,7 @@ const exportMethodOptions = [
 
 // Filtered chats based on selected type
 const filteredChats = computed(() => {
-  return props.chats.filter((chat: Chat) => chat.type === selectedChatType.value)
+  return props.chats.filter((chat: TelegramChat) => chat.type === selectedChatType.value)
 })
 
 // Start export command

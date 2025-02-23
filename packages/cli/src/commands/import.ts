@@ -1,4 +1,4 @@
-import type { MessageType } from '@tg-search/db'
+import type { DatabaseMessageType } from '@tg-search/db'
 
 import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -21,7 +21,7 @@ interface ImportOptions {
 interface MessageData {
   id: number
   chatId: number
-  type: MessageType
+  type: DatabaseMessageType
   content: string
   createdAt: Date
   fromId?: number
@@ -168,7 +168,7 @@ function extractAvatarInfo(element: Element) {
 /**
  * Determine message type from element
  */
-function getMessageType(element: Element): MessageType {
+function getMessageType(element: Element): DatabaseMessageType {
   if (element.querySelector('.photo_wrap'))
     return 'photo'
   if (element.querySelector('.video_file_wrap'))

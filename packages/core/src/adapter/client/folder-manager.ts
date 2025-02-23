@@ -1,6 +1,6 @@
-import type { NewFolder } from '@tg-search/db'
+import type { DatabaseFolder } from '@tg-search/db'
 import type { TelegramClient } from 'telegram'
-import type { Folder } from '../types'
+import type { TelegramFolder } from '../../types'
 
 import { useLogger } from '@tg-search/common'
 import { Api } from 'telegram'
@@ -18,8 +18,8 @@ export class FolderManager {
   /**
    * Get all folders from Telegram
    */
-  async getFolders(): Promise<NewFolder[]> {
-    const folders: NewFolder[] = []
+  async getFolders(): Promise<DatabaseFolder[]> {
+    const folders: DatabaseFolder[] = []
 
     try {
       // Add default "All Chats" folder
@@ -28,7 +28,7 @@ export class FolderManager {
         title: '全部消息',
         emoji: '📁',
         lastSyncTime: new Date(),
-      })
+      } as DatabaseFolder)
 
       // Get custom folders from Telegram
       const result = await this.client.invoke(new Api.messages.GetDialogFilters())
@@ -65,7 +65,7 @@ export class FolderManager {
               title,
               emoji,
               lastSyncTime: new Date(),
-            })
+            } as DatabaseFolder)
           }
         }
       }
@@ -83,8 +83,8 @@ export class FolderManager {
   /**
    * Get folders for a specific chat
    */
-  async getFoldersForChat(chatId: number): Promise<Folder[]> {
-    const folders: Folder[] = []
+  async getFoldersForChat(chatId: number): Promise<TelegramFolder[]> {
+    const folders: TelegramFolder[] = []
 
     try {
       // Get dialog entity

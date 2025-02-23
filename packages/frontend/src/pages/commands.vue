@@ -1,20 +1,16 @@
 <!-- Command management page -->
 <script setup lang="ts">
-import type { PublicChat } from '@tg-search/server/types'
 import { onMounted, onUnmounted, ref } from 'vue'
-import { toast, Toaster } from 'vue-sonner'
+import { Toaster } from 'vue-sonner'
+import { useChats } from '../apis/useChats'
 import { useCommands } from '../apis/useCommands'
 import CommandList from '../components/commands/CommandList.vue'
 import ExportCommand from '../components/commands/ExportCommand.vue'
-import { useApi } from '../utils/api'
 
-// API composable
-const { error: apiError, getChats } = useApi()
-// Commands composable
+// API composables
+const { chats, error: apiError, loadChats } = useChats()
 const { commands, error: commandError, cleanup } = useCommands()
 
-// Chat list
-const chats = ref<PublicChat[]>([])
 // Active command type
 const activeCommandType = ref<'export' | 'import' | 'sync' | 'watch'>('export')
 
@@ -25,16 +21,6 @@ const commandTypeOptions = [
   { label: '同步', value: 'sync' as const, disabled: true },
   { label: '监控', value: 'watch' as const, disabled: true },
 ]
-
-// Load chats
-async function loadChats() {
-  try {
-    chats.value = await getChats()
-  }
-  catch {
-    toast.error('加载会话列表失败')
-  }
-}
 
 // Lifecycle hooks
 onMounted(() => {

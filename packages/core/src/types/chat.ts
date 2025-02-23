@@ -1,17 +1,20 @@
 /**
  * Chat result from Telegram
  */
-export interface Chat {
+export interface TelegramChat {
   id: number
   name: string
   type: 'user' | 'group' | 'channel'
   unreadCount: number
+  messageCount?: number
+  lastMessage?: string
+  lastMessageDate?: Date
 }
 
 /**
  * Chats result from Telegram
  */
-export interface ChatsResult {
-  chats: Chat[]
+export interface TelegramChatsResult {
+  chats: TelegramChat[]
   total: number
 }
