@@ -1,5 +1,5 @@
 import type { NewChat, NewFolder } from '@tg-search/db'
-import type { ConnectOptions, DialogsResult, Folder, ITelegramClientAdapter, MessageOptions, TelegramMessage } from '../types'
+import type { ChatsResult, ConnectOptions, Folder, ITelegramClientAdapter, Message, MessageOptions } from '../types'
 
 import { getConfig, useLogger } from '@tg-search/common'
 import bigInt from 'big-integer'
@@ -25,7 +25,7 @@ interface ClientAdapterConfig {
  */
 export class ClientAdapter implements ITelegramClientAdapter {
   private client: TelegramClient
-  private messageCallback?: (message: TelegramMessage) => Promise<void>
+  private messageCallback?: (message: Message) => Promise<void>
   private sessionManager: SessionManager
   private mediaService: MediaService
   private messageConverter: MessageConverter
@@ -119,7 +119,7 @@ export class ClientAdapter implements ITelegramClientAdapter {
     await this.client.disconnect()
   }
 
-  async getDialogs(offset = 0, limit = 10): Promise<DialogsResult> {
+  async getDialogs(offset = 0, limit = 10): Promise<ChatsResult> {
     return this.dialogManager.getDialogs(offset, limit)
   }
 
@@ -274,7 +274,7 @@ export class ClientAdapter implements ITelegramClientAdapter {
     chatId: number,
     limit: number,
     options?: MessageOptions,
-  ): AsyncGenerator<TelegramMessage> {
+  ): AsyncGenerator<Message> {
     let offsetId = 0
     let hasMore = true
     let processedCount = 0
@@ -367,7 +367,7 @@ export class ClientAdapter implements ITelegramClientAdapter {
     chatId: number,
     limit?: number,
     options?: MessageOptions,
-  ): AsyncGenerator<TelegramMessage> {
+  ): AsyncGenerator<Message> {
     let offsetId = 0
     let hasMore = true
     let processedCount = 0
@@ -428,7 +428,7 @@ export class ClientAdapter implements ITelegramClientAdapter {
     }
   }
 
-  async *getMessages(chatId: number, limit = 100, options?: MessageOptions): AsyncGenerator<TelegramMessage> {
+  async *getMessages(chatId: number, limit = 100, options?: MessageOptions): AsyncGenerator<Message> {
     if (options?.method === 'takeout') {
       try {
       // Try to use takeout first
@@ -450,7 +450,7 @@ export class ClientAdapter implements ITelegramClientAdapter {
     }
   }
 
-  onMessage(callback: (message: TelegramMessage) => Promise<void>) {
+  onMessage(callback: (message: Message) => Promise<void>) {
     this.messageCallback = callback
   }
 

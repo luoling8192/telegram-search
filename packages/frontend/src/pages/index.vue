@@ -3,7 +3,7 @@
 import type { PublicChat } from '@tg-search/server/types'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useApi } from '../composables/api'
+import { useApi } from '../utils/api'
 
 // Initialize API client and router
 const { loading, getChats } = useApi()

@@ -1,4 +1,4 @@
-import type { TelegramMessage } from '../../../core/src/adapter/types'
+import type { Message } from '../../../core/src/adapter/types'
 
 import * as input from '@inquirer/prompts'
 import { useLogger } from '@tg-search/common'
@@ -38,7 +38,7 @@ export class WatchCommand extends TelegramCommand {
     let count = 0
 
     // Setup message handler
-    this.getClient().onMessage(async (message: TelegramMessage) => {
+    this.getClient().onMessage(async (message: Message) => {
       // Only handle messages from selected chat
       if (message.chatId !== chatId)
         return

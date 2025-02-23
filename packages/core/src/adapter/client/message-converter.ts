@@ -1,6 +1,6 @@
 import type { TelegramClient } from 'telegram'
 import type { MediaService } from '../../services/media'
-import type { TelegramMessage, TelegramMessageType } from '../types'
+import type { Message, MessageType } from '../types'
 
 import { useLogger } from '@tg-search/common'
 import { Api } from 'telegram'
@@ -25,7 +25,7 @@ export class MessageConverter {
   /**
    * Convert message type from Telegram to internal type
    */
-  private getMessageType(message: Api.Message): TelegramMessageType {
+  private getMessageType(message: Api.Message): MessageType {
     if (message.media) {
       if ('photo' in message.media)
         return 'photo'
@@ -45,7 +45,7 @@ export class MessageConverter {
   /**
    * Convert message from Telegram to internal format
    */
-  async convertMessage(message: Api.Message, skipMedia = false): Promise<TelegramMessage> {
+  async convertMessage(message: Api.Message, skipMedia = false): Promise<Message> {
     const type = this.getMessageType(message)
     let mediaInfo
 

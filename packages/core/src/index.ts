@@ -6,3 +6,5 @@ export * from './adapter/types'
 export * from './services/embedding'
 export * from './services/export'
 export * from './services/media'
+
+export * from './types'

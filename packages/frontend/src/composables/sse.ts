@@ -1,7 +1,17 @@
 import type { ApiResponse } from '@tg-search/server/types'
 
+import { ApiError } from '@tg-search/server/types'
+
 // API base URL with fallback
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000'
+
+interface SSEHandlers<T> {
+  onInfo: (info: string) => void
+  onInit: (data: ApiResponse<T>) => void
+  onUpdate: (data: ApiResponse<T>) => void
+  onError: (error: ApiError) => void
+  onComplete: (data: ApiResponse<T>) => void
+}
 
 /**
  * Create SSE connection with event handlers
@@ -69,7 +79,7 @@ export async function createSSEConnection<T>(
               handlers.onUpdate?.(data)
               break
             case 'error':
-              handlers.onError?.(new Error(data.message || 'Unknown error'))
+              handlers.onError?.(new ApiError(data.message || 'Unknown error'))
               break
             case 'complete':
               handlers.onComplete?.(data)
@@ -83,7 +93,7 @@ export async function createSSEConnection<T>(
     if (error instanceof Error && error.name === 'AbortError')
       throw error
 
-    handlers.onError?.(error as Error)
+    handlers.onError?.(error as ApiError)
   }
   finally {
     eventSource.cancel()

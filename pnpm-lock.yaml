@@ -238,15 +238,15 @@ importers:
       '@tg-search/common':
         specifier: workspace:*
         version: link:../common
+      '@tg-search/core':
+        specifier: workspace:*
+        version: link:../core
       '@tg-search/db':
         specifier: workspace:*
         version: link:../db
       '@tg-search/server':
         specifier: workspace:*
         version: link:../server
-      '@tg-search/types':
-        specifier: workspace:*
-        version: link:../types
       '@vueuse/core':
         specifier: ^10.9.0
         version: 10.11.1(vue@3.5.13(typescript@5.7.3))
@@ -375,15 +375,6 @@ importers:
       vitest:
         specifier: ^3.0.5
         version: 3.0.5(@types/debug@4.1.12)(@types/node@22.13.4)(jiti@2.4.2)(jsdom@26.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(tsx@4.19.2)(yaml@2.7.0)
-
-  packages/types:
-    devDependencies:
-      typescript:
-        specifier: ^5.4.2
-        version: 5.7.3
-      unbuild:
-        specifier: ^3.3.1
-        version: 3.3.1(typescript@5.7.3)(vue-tsc@2.2.2(typescript@5.7.3))(vue@3.5.13(typescript@5.7.3))
 
 packages:
 

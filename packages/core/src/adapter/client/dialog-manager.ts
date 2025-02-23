@@ -1,6 +1,6 @@
 import type { NewChat } from '@tg-search/db'
 import type { TelegramClient } from 'telegram'
-import type { DialogsResult } from '../types'
+import type { ChatsResult } from '../types'
 
 import { useLogger } from '@tg-search/common'
 
@@ -19,7 +19,7 @@ export class DialogManager {
   /**
    * Get all dialogs (chats) with pagination
    */
-  async getDialogs(offset = 0, limit = 10): Promise<DialogsResult> {
+  async getDialogs(offset = 0, limit = 10): Promise<ChatsResult> {
     // Get dialogs with pagination
     const dialogs = await this.client.getDialogs({
       limit: limit + 1, // Get one extra to check if there are more

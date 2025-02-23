@@ -1,9 +1,18 @@
-import type { ApiResponse, Command, ExportCommand } from '@tg-search/server/types'
+import type { MessageType } from '@tg-search/db'
+import type { ApiResponse, Command, ExportCommand, ExportMethod } from '@tg-search/server/types'
 
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 
-import { createSSEConnection } from '../utils/sse'
+import { createSSEConnection } from '../composables/sse'
+
+interface ExportParams {
+  chatId: number
+  messageTypes: MessageType[]
+  method: ExportMethod
+
+  [key: string]: unknown
+}
 
 /**
  * Commands composable for managing command state and functionality
@@ -19,14 +28,14 @@ export function useCommands() {
   const reconnectDelay = 5000
 
   // Store last export params for reconnection
-  const lastExportParams = ref<ExportCommand | null>(null)
+  const lastExportParams = ref<ExportParams | null>(null)
 
   // Stream state
   const streamController = ref<AbortController | null>(null)
   const exportProgress = ref<string[]>([])
 
   // Current command state
-  const currentCommand = computed(() => {
+  const currentCommand = computed<Command | ExportCommand | null>(() => {
     if (!commands.value || commands.value.length === 0) {
       return null
     }
@@ -54,7 +63,7 @@ export function useCommands() {
   /**
    * Start export command with SSE
    */
-  async function executeExport(params: ExportCommand) {
+  async function executeExport(params: ExportParams) {
     // Prevent multiple running exports
     if (currentCommand.value?.status === 'running') {
       toast.error('已有正在进行的导出任务')
@@ -78,7 +87,7 @@ export function useCommands() {
     const toastId = toast.loading('正在准备导出...')
 
     try {
-      await createSSEConnection<Command>('/commands/export', params as unknown as Record<string, unknown>, {
+      await createSSEConnection<Command>('/commands/export', params, {
         onInfo: (info: string) => {
           exportProgress.value.push(info)
           isConnected.value = true

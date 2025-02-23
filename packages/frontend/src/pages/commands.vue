@@ -3,10 +3,10 @@
 import type { PublicChat } from '@tg-search/server/types'
 import { onMounted, onUnmounted, ref } from 'vue'
 import { toast, Toaster } from 'vue-sonner'
+import { useCommands } from '../apis/useCommands'
 import CommandList from '../components/commands/CommandList.vue'
 import ExportCommand from '../components/commands/ExportCommand.vue'
-import { useApi } from '../composables/api'
-import { useCommands } from '../composables/useCommands'
+import { useApi } from '../utils/api'
 
 // API composable
 const { error: apiError, getChats } = useApi()

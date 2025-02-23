@@ -1,10 +1,9 @@
-import type { ApiResponse, SearchResultItem } from '@tg-search/server/types'
-import type { SearchRequest } from './api'
+import type { ApiResponse, SearchRequest, SearchResultItem } from '@tg-search/server/types'
 
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
 
-import { createSSEConnection } from '../utils/sse'
+import { createSSEConnection } from '../composables/sse'
 
 interface SearchResponse {
   total: number

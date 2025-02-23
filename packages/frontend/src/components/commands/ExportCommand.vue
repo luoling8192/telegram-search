@@ -1,14 +1,13 @@
 <!-- Export command component -->
 <script setup lang="ts">
-import type { PublicChat } from '@tg-search/server/types'
-import type { ExportDetails } from '../../types/command'
+import type { Chat, MessageType } from '@tg-search/core'
 import { computed, onUnmounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
-import { useCommands } from '../../composables/useCommands'
+import { useCommands } from '../../apis/useCommands'
 
 // Props
 const props = defineProps<{
-  chats: PublicChat[]
+  chats: Chat[]
 }>()
 
 const {
@@ -29,7 +28,7 @@ const selectedChatType = ref<'user' | 'group' | 'channel'>('user')
 // Selected chat
 const selectedChatId = ref<number>()
 // Selected message types
-const selectedMessageTypes = ref<string[]>(['text'])
+const selectedMessageTypes = ref<MessageType[]>(['text'])
 // Selected export method
 const selectedMethod = ref<'getMessage' | 'takeout'>('takeout')
 
@@ -58,7 +57,7 @@ const exportMethodOptions = [
 
 // Filtered chats based on selected type
 const filteredChats = computed(() => {
-  return props.chats.filter((chat: PublicChat) => chat.type === selectedChatType.value)
+  return props.chats.filter((chat: Chat) => chat.type === selectedChatType.value)
 })
 
 // Start export command
@@ -99,9 +98,9 @@ const exportStatus = computed(() => {
 })
 
 const exportDetails = computed(() => {
-  if (!currentCommand.value?.details)
+  if (!currentCommand.value || !('details' in currentCommand.value))
     return null
-  return currentCommand.value.details as ExportDetails
+  return currentCommand.value.details
 })
 
 // Format speed for display
@@ -193,7 +192,7 @@ function formatTime(time: string): string {
             :key="chat.id"
             :value="chat.id"
           >
-            {{ chat.title }}
+            {{ chat.name }}
           </option>
         </select>
       </div>

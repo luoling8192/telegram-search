@@ -1,5 +1,6 @@
 import type { MessageType, NewChat } from '@tg-search/db'
-import type { ITelegramClientAdapter, TelegramMessage, TelegramMessageType } from '../adapter/types'
+import type { ITelegramClientAdapter } from '../types/adapter'
+import type { Message } from '../types/message'
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -26,7 +27,7 @@ export interface ExportOptions {
   chatId: number
   format?: ExportFormat
   path?: string
-  messageTypes?: TelegramMessageType[]
+  messageTypes?: MessageType[]
   startTime?: Date
   endTime?: Date
   limit?: number
@@ -46,7 +47,7 @@ export class ExportService {
    * Process a batch of messages for database export
    */
   private async processDatabaseBatch(
-    messages: TelegramMessage[],
+    messages: Message[],
     startIndex: number,
   ): Promise<{ failedCount: number }> {
     try {
@@ -93,7 +94,7 @@ export class ExportService {
   /**
    * Save messages to JSON file
    */
-  private async saveToJsonFile(messages: TelegramMessage[], chatId: number, exportPath: string): Promise<boolean> {
+  private async saveToJsonFile(messages: Message[], chatId: number, exportPath: string): Promise<boolean> {
     try {
       await fs.mkdir(exportPath, { recursive: true })
 
@@ -134,7 +135,7 @@ export class ExportService {
     // Export messages
     let count = 0
     let failedCount = 0
-    let messages: TelegramMessage[] = []
+    let messages: Message[] = []
     const total = limit || chatMetadata.messageCount || 100
 
     function isSkipMedia(type: MessageType) {

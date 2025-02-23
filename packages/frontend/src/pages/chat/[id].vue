@@ -4,7 +4,7 @@ import type { PublicMessage } from '@tg-search/server/types'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import MessageBubble from '../../components/MessageBubble.vue'
-import { useApi } from '../../composables/api'
+import { useApi } from '../../utils/api'
 
 // Local message type with highlight support
 interface LocalMessage extends PublicMessage {

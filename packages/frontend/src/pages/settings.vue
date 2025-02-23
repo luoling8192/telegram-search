@@ -3,7 +3,7 @@
 import type { Config } from '@tg-search/common'
 import { ref, watch } from 'vue'
 import { toast, Toaster } from 'vue-sonner'
-import { useApi } from '../composables/api'
+import { useApi } from '../utils/api'
 
 // 添加类型定义
 interface ConfigState {
