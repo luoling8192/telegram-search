@@ -13,12 +13,6 @@ export const commandStatus = ['idle', 'running', 'success', 'error'] as const
 export type CommandStatus = typeof commandStatus[number]
 
 /**
- * Supported Telegram message types for filtering
- */
-export const messageTypes = ['text', 'photo', 'video', 'document', 'sticker', 'other'] as const
-export type MessageType = typeof messageTypes[number]
-
-/**
  * Available methods for exporting messages
  */
 export const exportMethods = ['getMessage', 'takeout'] as const

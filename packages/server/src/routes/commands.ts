@@ -1,7 +1,7 @@
 import type { ExportOptions, ITelegramClientAdapter } from '@tg-search/core'
 import type { App, H3Event } from 'h3'
-import type { Command } from '../types/command'
-import type { SSEController } from '../utils/sse'
+import type { Command } from '../types/apis/command'
+import type { SSEController } from '../types/sse'
 
 import { useLogger } from '@tg-search/common'
 import { createRouter, defineEventHandler, readBody } from 'h3'
@@ -74,7 +74,7 @@ class CommandManager {
     return createSSEResponse(async (controller) => {
       try {
         const handler = new ExportCommandHandler(this.createHandlerOptions(controller))
-        await handler.execute(client, params)
+        await handler.execute(client, params as unknown as Record<string, unknown>)
         controller.enqueue(createSSEMessage('update', createResponse(null)))
       }
       catch (error) {

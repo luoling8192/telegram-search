@@ -1,5 +1,4 @@
 import type { App, H3Event } from 'h3'
-import type { PublicMessage } from '../types'
 
 import { useLogger } from '@tg-search/common'
 import { findMessagesByChatId } from '@tg-search/db'
@@ -8,31 +7,6 @@ import { createRouter, defineEventHandler, getQuery, getRouterParams } from 'h3'
 import { createResponse } from '../utils/response'
 
 const logger = useLogger()
-
-/**
- * Convert database message to public message
- */
-function toPublicMessage(message: Awaited<ReturnType<typeof findMessagesByChatId>>['items'][number]): PublicMessage {
-  return {
-    id: message.id,
-    chatId: message.chatId,
-    type: message.type,
-    content: message.content,
-    mediaInfo: message.mediaInfo,
-    fromId: message.fromId,
-    fromName: message.fromName,
-    fromAvatar: message.fromAvatar,
-    replyToId: message.replyToId,
-    forwardFromChatId: message.forwardFromChatId,
-    forwardFromChatName: message.forwardFromChatName,
-    forwardFromMessageId: message.forwardFromMessageId,
-    views: message.views,
-    forwards: message.forwards,
-    links: message.links,
-    metadata: message.metadata,
-    createdAt: message.createdAt,
-  }
-}
 
 /**
  * Setup message routes
@@ -52,7 +26,7 @@ export function setupMessageRoutes(app: App) {
       })
 
       return createResponse({
-        items: items.map(toPublicMessage),
+        items,
         total,
       }, undefined, {
         total,

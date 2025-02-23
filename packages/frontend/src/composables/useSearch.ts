@@ -1,4 +1,5 @@
-import type { SearchRequest, SearchResultItem } from '@tg-search/server/types'
+import type { ApiResponse, SearchResultItem } from '@tg-search/server/types'
+import type { SearchRequest } from './api'
 
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
@@ -15,7 +16,7 @@ interface SearchCompleteResponse {
   total: number
 }
 
-type SearchEventData = SearchResponse | SearchCompleteResponse
+type LocalSearchEventData = SearchResponse | SearchCompleteResponse
 
 /**
  * Search composable for managing search state and functionality
@@ -81,20 +82,20 @@ export function useSearch() {
       folderId: currentFolderId.value,
       chatId: currentChatId.value,
       useVectorSearch: useVectorSearch.value,
-    }
+    } as SearchRequest
 
     // Show loading toast
     const toastId = toast.loading('正在搜索...')
 
     try {
-      await createSSEConnection<SearchEventData>('/search', lastSearchParams.value as unknown as Record<string, unknown>, {
-        onInfo: (info) => {
+      await createSSEConnection<LocalSearchEventData>('/search', lastSearchParams.value as unknown as Record<string, unknown>, {
+        onInfo: (info: string) => {
           searchProgress.value.push(info)
           isConnected.value = true
           reconnectAttempts.value = 0
           toast.loading(info, { id: toastId })
         },
-        onUpdate: (response) => {
+        onUpdate: (response: ApiResponse<LocalSearchEventData>) => {
           if (!response.success || !response.data || !('items' in response.data))
             return
 
@@ -107,7 +108,7 @@ export function useSearch() {
             id: toastId,
           })
         },
-        onComplete: (response) => {
+        onComplete: (response: ApiResponse<LocalSearchEventData>) => {
           isStreaming.value = false
           isConnected.value = false
           if (response.success && response.data && 'duration' in response.data) {
@@ -121,7 +122,7 @@ export function useSearch() {
             })
           }
         },
-        onError: (err) => {
+        onError: (err: Error) => {
           error.value = err
           isStreaming.value = false
           isConnected.value = false

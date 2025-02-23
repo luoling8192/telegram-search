@@ -1,16 +1,17 @@
-import type { Command as BaseCommand } from '@tg-search/server/types'
+import type { Command } from './command'
 
 /**
- * Export command parameters
+ * Export command status details
  */
-export interface ExportParams {
-  chatId: number
-  messageTypes: string[]
-  format?: 'database' | 'html' | 'json'
-  startTime?: string
-  endTime?: string
-  limit?: number
-  method?: 'getMessage' | 'takeout'
+export interface ExportStatus {
+  totalMessages: number
+  processedMessages: number
+  failedMessages: number
+  currentBatch: number
+  totalBatches: number
+  estimatedTimeRemaining?: number
+  startTime: number
+  currentSpeed: number // messages per second
 }
 
 /**
@@ -38,10 +39,8 @@ export interface ExportDetails {
 }
 
 /**
- * Extended command type with details
+ * Extended command type with export details
  */
-export interface Command extends BaseCommand {
-  details?: ExportDetails | Record<string, any>
+export interface ExportCommand extends Command {
+  details?: ExportDetails
 }
-
-export type { BaseCommand }

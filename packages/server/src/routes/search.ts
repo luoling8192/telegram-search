@@ -1,4 +1,3 @@
-import type { MessageWithSimilarity } from '@tg-search/db'
 import type { App, H3Event } from 'h3'
 import type { SearchRequest, SearchResultItem } from '../types'
 
@@ -11,32 +10,6 @@ import { createResponse } from '../utils/response'
 import { createSSEMessage, createSSEResponse } from '../utils/sse'
 
 const logger = useLogger()
-
-/**
- * Convert database message to search result item
- */
-function toSearchResultItem(msg: MessageWithSimilarity, score: number): SearchResultItem {
-  return {
-    id: msg.id,
-    chatId: msg.chatId,
-    type: msg.type,
-    content: msg.content || null,
-    mediaInfo: null,
-    fromId: msg.fromId || null,
-    fromName: null,
-    fromAvatar: null,
-    replyToId: null,
-    forwardFromChatId: null,
-    forwardFromChatName: null,
-    forwardFromMessageId: null,
-    views: null,
-    forwards: null,
-    links: [],
-    metadata: {},
-    createdAt: msg.createdAt,
-    score,
-  }
-}
 
 /**
  * Setup search routes
@@ -114,7 +87,10 @@ export function setupSearchRoutes(app: App) {
           })
 
           results.forEach((result) => {
-            allResults.set(result.id, toSearchResultItem(result, result.similarity))
+            allResults.set(result.id, {
+              ...result,
+              score: result.similarity,
+            } as SearchResultItem)
           })
           sendPartialResults()
         }
@@ -127,7 +103,10 @@ export function setupSearchRoutes(app: App) {
           })
 
           results.items.forEach((result) => {
-            allResults.set(result.id, toSearchResultItem(result, 1))
+            allResults.set(result.id, {
+              ...result,
+              score: 1,
+            } as SearchResultItem)
           })
           sendPartialResults()
         }

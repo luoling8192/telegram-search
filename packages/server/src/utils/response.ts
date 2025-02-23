@@ -1,30 +1,4 @@
-// Response type definitions
-export interface BaseResponse {
-  success: boolean
-  timestamp: string
-  code?: string
-  message?: string
-}
-
-export type SuccessResponse<T> = BaseResponse & {
-  success: true
-  data: T
-  pagination?: {
-    total: number
-    page: number
-    pageSize: number
-    totalPages: number
-  }
-}
-
-export type ErrorResponse = BaseResponse & {
-  success: false
-  error: string
-  code: string
-  details?: Record<string, unknown>
-}
-
-export type ApiResponse<T> = SuccessResponse<T> | ErrorResponse
+import type { ApiResponse, ErrorResponse, SuccessResponse } from '../types'
 
 /**
  * Create standardized response
@@ -55,19 +29,5 @@ export function createResponse<T>(
     data: data as T,
     timestamp: new Date().toISOString(),
     pagination,
-  }
-}
-
-/**
- * Custom error class for API errors
- */
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public code: string = 'API_ERROR',
-    public details?: Record<string, unknown>,
-  ) {
-    super(message)
-    this.name = code
   }
 }

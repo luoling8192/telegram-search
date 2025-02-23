@@ -1,3 +1,6 @@
+import type { SSEController } from '../types/sse'
+
+import { SSE_HEADERS } from '../types/sse'
 import { createResponse } from './response'
 
 /**
@@ -6,28 +9,6 @@ import { createResponse } from './response'
 export function createSSEMessage(event: string, data: unknown) {
   return new TextEncoder().encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
 }
-
-/**
- * SSE response headers
- */
-export const SSE_HEADERS = {
-  'Content-Type': 'text/event-stream',
-  'Cache-Control': 'no-cache',
-  'Connection': 'keep-alive',
-}
-
-/**
- * SSE stream controller type
- */
-export interface SSEController {
-  enqueue: (data: Uint8Array) => void
-  close: () => void
-}
-
-/**
- * SSE event emitter type
- */
-export type SSEEventEmitter = Map<string, (data: Uint8Array) => void>
 
 /**
  * Create SSE response with error handling

@@ -1,4 +1,4 @@
-import type { Command, ExportParams } from '../types/command'
+import type { ApiResponse, Command, ExportCommand } from '@tg-search/server/types'
 
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
@@ -19,7 +19,7 @@ export function useCommands() {
   const reconnectDelay = 5000
 
   // Store last export params for reconnection
-  const lastExportParams = ref<ExportParams | null>(null)
+  const lastExportParams = ref<ExportCommand | null>(null)
 
   // Stream state
   const streamController = ref<AbortController | null>(null)
@@ -54,7 +54,7 @@ export function useCommands() {
   /**
    * Start export command with SSE
    */
-  async function executeExport(params: ExportParams) {
+  async function executeExport(params: ExportCommand) {
     // Prevent multiple running exports
     if (currentCommand.value?.status === 'running') {
       toast.error('已有正在进行的导出任务')
@@ -79,13 +79,13 @@ export function useCommands() {
 
     try {
       await createSSEConnection<Command>('/commands/export', params as unknown as Record<string, unknown>, {
-        onInfo: (info) => {
+        onInfo: (info: string) => {
           exportProgress.value.push(info)
           isConnected.value = true
           reconnectAttempts.value = 0
           toast.loading(info, { id: toastId })
         },
-        onInit: (data) => {
+        onInit: (data: ApiResponse<Command>) => {
           if (!data.success || !data.data)
             return
           const newCommand = Array.isArray(data.data) ? data.data[0] : data.data
@@ -93,7 +93,7 @@ export function useCommands() {
             commands.value = [newCommand]
           }
         },
-        onUpdate: (data) => {
+        onUpdate: (data: ApiResponse<Command>) => {
           if (!data.success || !data.data)
             return
           const command = data.data
@@ -110,7 +110,7 @@ export function useCommands() {
             toast.loading(command.message, { id: toastId })
           }
         },
-        onError: (err) => {
+        onError: (err: Error) => {
           error.value = err
           isConnected.value = false
           toast.error(`导出失败: ${err.message}`, { id: toastId })
@@ -130,7 +130,7 @@ export function useCommands() {
             toast.error('命令服务连接失败，请刷新页面重试')
           }
         },
-        onComplete: () => {
+        onComplete: (_data: ApiResponse<Command>) => {
           isConnected.value = false
         },
       }, streamController.value.signal)
@@ -173,11 +173,12 @@ export function useCommands() {
   return {
     // State
     commands,
-    currentCommand,
     isLoading,
+    isStreaming: computed(() => streamController.value !== null),
+    currentCommand,
     error,
-    isConnected,
     exportProgress,
+    isConnected,
 
     // Methods
     executeExport,

@@ -1,54 +1,14 @@
 import type { ExportOptions, ITelegramClientAdapter } from '@tg-search/core'
 import type { NewChat } from '@tg-search/db'
-import type { Command, CommandHandler, CommandOptions, CommandStatus } from '../../types/command'
+import type { SSEController } from '../../types'
+import type { Command, CommandHandler, CommandOptions, CommandStatus } from '../../types/apis/command'
+import type { ExportCommand, ExportDetails, ExportStatus } from '../../types/apis/export'
 
 import { getConfig, useLogger } from '@tg-search/common'
 import { ExportService } from '@tg-search/core'
 
-/**
- * Export command status details
- */
-interface ExportStatus {
-  totalMessages: number
-  processedMessages: number
-  failedMessages: number
-  currentBatch: number
-  totalBatches: number
-  estimatedTimeRemaining?: number
-  startTime: number
-  currentSpeed: number // messages per second
-}
-
-/**
- * Export command details
- */
-interface ExportDetails {
-  // Status fields
-  totalMessages?: number
-  processedMessages?: number
-  failedMessages?: number
-  currentBatch?: number
-  totalBatches?: number
-  // Formatted fields
-  startTime: string
-  endTime?: string
-  totalDuration?: string
-  averageSpeed?: string
-  estimatedTimeRemaining?: string
-  currentSpeed?: string
-  error?: {
-    name: string
-    message: string
-    stack?: string
-  } | string
-}
-
-/**
- * Extended command type with export details
- */
-interface ExportCommand extends Command {
-  details?: ExportDetails
-}
+import { createResponse } from '../../utils/response'
+import { createSSEMessage } from '../../utils/sse'
 
 /**
  * Export command handler

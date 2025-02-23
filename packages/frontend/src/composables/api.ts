@@ -1,6 +1,6 @@
-import type { Config } from '@tg-search/common'
-import type { PaginationParams, PublicChat, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/types'
-import type { Command } from '@tg-search/server/types/command'
+import type { Config } from '@tg-search/common/src/types'
+import type { PaginationParams, PublicChat, PublicMessage, SearchRequest, SearchResponse } from '@tg-search/server/src/types'
+import type { Command } from '@tg-search/server/src/types/command'
 
 import { ofetch } from 'ofetch'
 import { ref } from 'vue'

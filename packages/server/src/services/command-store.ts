@@ -1,4 +1,4 @@
-import type { Command, CommandStore, CommandType } from '../types/command'
+import type { Command, CommandStore, CommandType } from '../types/apis/command'
 
 /**
  * In-memory command store implementation

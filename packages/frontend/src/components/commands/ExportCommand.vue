@@ -109,7 +109,7 @@ function formatSpeed(speed: string): string {
   const match = speed.match(/(\d+)/)
   if (!match)
     return speed
-  const value = parseInt(match[1])
+  const value = Number.parseInt(match[1])
   if (value < 1)
     return '< 1 消息/秒'
   if (value > 1000)
@@ -122,7 +122,7 @@ function formatTime(time: string): string {
   const match = time.match(/(\d+)/)
   if (!match)
     return time
-  const value = parseInt(match[1])
+  const value = Number.parseInt(match[1])
   if (value < 60)
     return `${value} 秒`
   if (value < 3600)
@@ -207,7 +207,7 @@ function formatTime(time: string): string {
           <label
             v-for="option in messageTypeOptions"
             :key="option.value"
-            class="flex items-center rounded border border-gray-200 p-2 dark:border-gray-700"
+            class="flex items-center border border-gray-200 rounded p-2 dark:border-gray-700"
           >
             <input
               v-model="selectedMessageTypes"

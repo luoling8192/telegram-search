@@ -1,4 +1,5 @@
 import type {
+  App,
   H3Event,
 } from 'h3'
 
@@ -13,7 +14,12 @@ import {
 } from 'h3'
 import { listen } from 'listhen'
 
-import { setupRoutes } from './routes'
+import { setupAuthRoutes } from './routes/auth'
+import { setupChatRoutes } from './routes/chat'
+import { setupCommandRoutes } from './routes/commands'
+import { setupConfigRoutes } from './routes/config'
+import { setupMessageRoutes } from './routes/message'
+import { setupSearchRoutes } from './routes/search'
 import { createResponse } from './utils/response'
 
 // Core initialization
@@ -43,6 +49,18 @@ function setupErrorHandlers(logger: ReturnType<typeof useLogger>): void {
 
   process.on('uncaughtException', error => handleFatalError(error, 'Uncaught exception'))
   process.on('unhandledRejection', error => handleFatalError(error, 'Unhandled rejection'))
+}
+
+/**
+ * Setup all routes for the application
+ */
+function setupRoutes(app: App) {
+  setupAuthRoutes(app)
+  setupChatRoutes(app)
+  setupCommandRoutes(app)
+  setupConfigRoutes(app)
+  setupMessageRoutes(app)
+  setupSearchRoutes(app)
 }
 
 // Server configuration

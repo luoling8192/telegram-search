@@ -1,18 +1,7 @@
-import type { ApiResponse } from '../types/api'
+import type { ApiResponse } from '@tg-search/server/types'
 
 // API base URL with fallback
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000'
-
-/**
- * SSE event handlers
- */
-export interface SSEHandlers<T> {
-  onInfo?: (info: string) => void
-  onInit?: (data: ApiResponse<T>) => void
-  onUpdate?: (data: ApiResponse<T>) => void
-  onComplete?: (data: ApiResponse<T>) => void
-  onError?: (error: Error) => void
-}
 
 /**
  * Create SSE connection with event handlers

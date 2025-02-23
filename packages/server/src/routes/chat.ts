@@ -1,23 +1,9 @@
 import type { App, H3Event } from 'h3'
-import type { PublicChat } from '../types'
 
 import { findMessagesByChatId, getAllChats } from '@tg-search/db'
 import { createError, createRouter, defineEventHandler, getQuery, getRouterParams } from 'h3'
 
 import { createResponse } from '../utils/response'
-
-/**
- * Convert database chat to public chat
- */
-function toPublicChat(chat: Awaited<ReturnType<typeof getAllChats>>[number]): PublicChat {
-  return {
-    id: chat.id,
-    title: chat.title,
-    type: chat.type,
-    lastMessageDate: chat.lastMessageDate,
-    messageCount: chat.messageCount,
-  }
-}
 
 /**
  * Setup chat routes
@@ -28,7 +14,7 @@ export function setupChatRoutes(app: App) {
   // Get all chats
   router.get('/', defineEventHandler(async () => {
     const chats = await getAllChats()
-    return createResponse(chats.map(toPublicChat))
+    return createResponse(chats)
   }))
 
   // Get messages in chat
