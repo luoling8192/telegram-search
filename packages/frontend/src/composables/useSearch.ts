@@ -5,6 +5,18 @@ import { toast } from 'vue-sonner'
 
 import { createSSEConnection } from '../utils/sse'
 
+interface SearchResponse {
+  total: number
+  items: SearchResultItem[]
+}
+
+interface SearchCompleteResponse {
+  duration: number
+  total: number
+}
+
+type SearchEventData = SearchResponse | SearchCompleteResponse
+
 /**
  * Search composable for managing search state and functionality
  */
@@ -75,18 +87,18 @@ export function useSearch() {
     const toastId = toast.loading('正在搜索...')
 
     try {
-      await createSSEConnection<{ total: number, items: SearchResultItem[] }>('/search', lastSearchParams.value, {
+      await createSSEConnection<SearchEventData>('/search', lastSearchParams.value as unknown as Record<string, unknown>, {
         onInfo: (info) => {
           searchProgress.value.push(info)
           isConnected.value = true
           reconnectAttempts.value = 0
           toast.loading(info, { id: toastId })
         },
-        onUpdate: (data) => {
-          if (!data.success || !data.data)
+        onUpdate: (response) => {
+          if (!response.success || !response.data || !('items' in response.data))
             return
 
-          const { items, total: newTotal } = data.data
+          const { items, total: newTotal } = response.data
           results.value = items
           total.value = newTotal
 
@@ -94,6 +106,20 @@ export function useSearch() {
           toast.loading(`找到 ${newTotal} 条结果，继续搜索中...`, {
             id: toastId,
           })
+        },
+        onComplete: (response) => {
+          isStreaming.value = false
+          isConnected.value = false
+          if (response.success && response.data && 'duration' in response.data) {
+            toast.success(`搜索完成，共找到 ${total.value} 条结果，耗时 ${response.data.duration}ms`, {
+              id: toastId,
+            })
+          }
+          else {
+            toast.success(`搜索完成，共找到 ${total.value} 条结果`, {
+              id: toastId,
+            })
+          }
         },
         onError: (err) => {
           error.value = err
@@ -115,13 +141,6 @@ export function useSearch() {
           else {
             toast.error('搜索服务连接失败，请刷新页面重试')
           }
-        },
-        onComplete: () => {
-          isStreaming.value = false
-          isConnected.value = false
-          toast.success(`搜索完成，共找到 ${total.value} 条结果`, {
-            id: toastId,
-          })
         },
       }, streamController.value.signal)
     }

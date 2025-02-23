@@ -1,4 +1,4 @@
-import type { ApiResponse } from '@tg-search/server/types'
+import type { ApiResponse } from '../types/api'
 
 // API base URL with fallback
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000'
@@ -10,8 +10,8 @@ export interface SSEHandlers<T> {
   onInfo?: (info: string) => void
   onInit?: (data: ApiResponse<T>) => void
   onUpdate?: (data: ApiResponse<T>) => void
+  onComplete?: (data: ApiResponse<T>) => void
   onError?: (error: Error) => void
-  onComplete?: () => void
 }
 
 /**
@@ -20,13 +20,7 @@ export interface SSEHandlers<T> {
 export async function createSSEConnection<T>(
   url: string,
   params: Record<string, unknown>,
-  handlers: {
-    onInfo?: (info: string) => void
-    onInit?: (data: ApiResponse<T>) => void
-    onUpdate?: (data: ApiResponse<T>) => void
-    onError?: (error: Error) => void
-    onComplete?: () => void
-  },
+  handlers: SSEHandlers<T>,
   signal?: AbortSignal,
 ) {
   const response = await fetch(`${API_BASE}${url}`, {
@@ -82,13 +76,14 @@ export async function createSSEConnection<T>(
               handlers.onInit?.(data)
               break
             case 'update':
+            case 'partial':
               handlers.onUpdate?.(data)
               break
             case 'error':
               handlers.onError?.(new Error(data.message || 'Unknown error'))
               break
             case 'complete':
-              handlers.onComplete?.()
+              handlers.onComplete?.(data)
               break
           }
         }
