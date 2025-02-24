@@ -77,7 +77,7 @@ export interface ITelegramClientAdapter extends BaseTelegramAdapter {
   /**
    * Get all dialogs (chats) with pagination
    */
-  getDialogs: (offset?: number, limit?: number) => Promise<TelegramChatsResult>
+  getPaginationDialogs: (offset?: number, limit?: number) => Promise<TelegramChatsResult>
 
   /**
    * Get all folders from Telegram
@@ -87,7 +87,7 @@ export interface ITelegramClientAdapter extends BaseTelegramAdapter {
   /**
    * Get all chats from Telegram
    */
-  getChats: () => Promise<DatabaseNewChat[]>
+  getDialogs: () => Promise<DatabaseNewChat[]>
 
   /**
    * Get folders for a specific chat

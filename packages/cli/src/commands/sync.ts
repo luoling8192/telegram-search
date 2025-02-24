@@ -46,7 +46,7 @@ export class SyncCommand extends TelegramCommand {
 
       // Sync chats
       logger.log('正在同步会话...')
-      const newChats = await this.getClient().getChats()
+      const newChats = await this.getClient().getDialogs()
       logger.debug(`获取到 ${newChats.length} 个会话`)
 
       for (const chat of newChats) {

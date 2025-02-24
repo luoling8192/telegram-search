@@ -362,7 +362,7 @@ async function selectTargetChat(client: any, sourceChatName: string): Promise<Se
 
     // Get chat info to verify ID
     logger.debug('正在验证会话...')
-    const chats = await client.getChats()
+    const chats = await client.getDialogs()
     const selectedChat = chats.find((c: TelegramChat) => c.id === Number(chatId))
     if (!selectedChat) {
       throw new Error(`找不到会话: ${chatId}`)
@@ -382,7 +382,7 @@ async function selectTargetChat(client: any, sourceChatName: string): Promise<Se
     default: false,
   })) {
     logger.debug('正在从 Telegram 获取会话列表...')
-    const telegramChats = await client.getChats()
+    const telegramChats = await client.getDialogs()
     logger.debug(`从 Telegram 获取到 ${telegramChats.length} 个会话`)
 
     // Update chats in database

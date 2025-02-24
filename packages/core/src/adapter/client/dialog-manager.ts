@@ -19,7 +19,7 @@ export class DialogManager {
   /**
    * Get all dialogs (chats) with pagination
    */
-  async getDialogs(offset = 0, limit = 10): Promise<TelegramChatsResult> {
+  async getPaginationDialogs(offset = 0, limit = 10): Promise<TelegramChatsResult> {
     // Get dialogs with pagination
     const dialogs = await this.client.getDialogs({
       limit: limit + 1, // Get one extra to check if there are more
@@ -56,7 +56,7 @@ export class DialogManager {
   /**
    * Get all chats from Telegram
    */
-  async getChats(): Promise<DatabaseNewChat[]> {
+  async getDialogs(): Promise<DatabaseNewChat[]> {
     const chats: DatabaseNewChat[] = []
 
     try {

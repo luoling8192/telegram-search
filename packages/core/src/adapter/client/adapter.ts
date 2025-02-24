@@ -111,8 +111,8 @@ export class ClientAdapter implements ITelegramClientAdapter {
     await this.client.disconnect()
   }
 
-  async getDialogs(offset = 0, limit = 10): Promise<TelegramChatsResult> {
-    return this.dialogManager.getDialogs(offset, limit)
+  async getPaginationDialogs(offset = 0, limit = 10): Promise<TelegramChatsResult> {
+    return this.dialogManager.getPaginationDialogs(offset, limit)
   }
 
   /**
@@ -454,7 +454,7 @@ export class ClientAdapter implements ITelegramClientAdapter {
     return this.folderManager.getFoldersForChat(chatId)
   }
 
-  async getChats(): Promise<DatabaseNewChat[]> {
-    return this.dialogManager.getChats()
+  async getDialogs(): Promise<DatabaseNewChat[]> {
+    return this.dialogManager.getDialogs()
   }
 }

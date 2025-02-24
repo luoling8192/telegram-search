@@ -27,7 +27,7 @@ export class WatchCommand extends TelegramCommand {
 
   private async watchChat(chatId: number, folderTitle: string): Promise<number> {
     // Get dialog info
-    const result = await this.getClient().getDialogs(0, 100)
+    const result = await this.getClient().getPaginationDialogs(0, 100)
     const selectedDialog = result.chats.find((d: TelegramChat) => d.id === chatId)
     if (!selectedDialog) {
       logger.log('找不到该对话')
@@ -92,7 +92,7 @@ export class WatchCommand extends TelegramCommand {
     })
 
     // Get all chats in folder
-    const dialogs = await this.getClient().getDialogs()
+    const dialogs = await this.getClient().getPaginationDialogs()
     logger.debug(`获取到 ${dialogs.chats.length} 个会话`)
     const chatChoices = dialogs.chats.map((dialog: TelegramChat) => ({
       name: `[${dialog.type}] ${dialog.title} (${dialog.unreadCount} 条未读)`,

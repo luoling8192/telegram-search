@@ -21,7 +21,7 @@ export class ExportCommand extends TelegramCommand {
   }
 
   private async promptForOptions(options: Partial<ExportOptions>): Promise<ExportOptions> {
-    const chats = await this.getClient().getChats()
+    const chats = await this.getClient().getDialogs()
     logger.debug(`获取到 ${chats.length} 个会话`)
 
     const chatChoices = chats.map((chat: DatabaseNewChat) => ({

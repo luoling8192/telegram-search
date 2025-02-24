@@ -29,7 +29,7 @@ export function setupCommandRoutes(app: App) {
     }
 
     // Get chat metadata
-    const chats = await client.getChats()
+    const chats = await client.getDialogs()
     const chat = chats.find(c => c.id === validatedBody.chatId)
     if (!chat) {
       throw new Error(`Chat ${validatedBody.chatId} not found`)
