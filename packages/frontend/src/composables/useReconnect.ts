@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 
 export function useReconnect() {
-  const maxAttempts = 5
+  const maxAttempts = 3
   const baseDelay = 5000
   const attempts = ref(0)
 

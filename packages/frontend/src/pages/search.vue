@@ -27,13 +27,22 @@ const {
 
 // Handle search with chat ID
 async function handleSearch() {
+  const toastId = toast.loading('正在搜索...')
+
   try {
-    await doSearch({
+    const result = await doSearch({
       chatId,
     })
+
+    if (!result.success) {
+      toast.error(result.error?.message || '搜索失败', { id: toastId })
+    }
+    else {
+      toast.success(`找到 ${result.total} 条结果`, { id: toastId })
+    }
   }
   catch (err) {
-    toast.error(`搜索失败: ${err instanceof Error ? err.message : '未知错误'}`)
+    toast.error(`搜索失败: ${err instanceof Error ? err.message : '未知错误'}`, { id: toastId })
   }
 }
 
@@ -145,7 +154,7 @@ function formatDate(date: string | Date): string {
       v-if="error"
       class="mb-8 border border-red-200 rounded-lg bg-red-50 p-4 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
     >
-      {{ error.message }}
+      {{ error instanceof Error ? error.message : error }}
     </div>
 
     <!-- Search results -->

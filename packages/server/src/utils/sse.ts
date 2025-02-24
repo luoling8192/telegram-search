@@ -22,24 +22,24 @@ export function createSSEResponse(
         const sseController: SSEController = {
           enqueue: data => controller.enqueue(data),
           close: () => {
-            if (controller.desiredSize !== null) {
+            if (!isStreamClosed(controller)) {
               controller.close()
             }
           },
           complete: (data) => {
-            if (controller.desiredSize !== null) {
+            if (!isStreamClosed(controller)) {
               controller.enqueue(createSSEMessage('complete', createResponse(data)))
               controller.close()
             }
           },
           error: (err) => {
-            if (controller.desiredSize !== null) {
+            if (!isStreamClosed(controller)) {
               controller.enqueue(createSSEMessage('error', createResponse(undefined, err)))
               controller.close()
             }
           },
           progress: (data) => {
-            if (controller.desiredSize !== null) {
+            if (!isStreamClosed(controller)) {
               controller.enqueue(createSSEMessage('progress', createResponse(data)))
             }
           },
@@ -57,4 +57,11 @@ export function createSSEResponse(
     }),
     { headers: SSE_HEADERS },
   )
+}
+
+/**
+ * Check if the stream is closed
+ */
+function isStreamClosed(controller: ReadableStreamDefaultController) {
+  return controller.desiredSize === null
 }

@@ -1,10 +1,9 @@
 import type { ApiError, ApiResponse, SSEHandlerOptions } from '@tg-search/server'
 
 import { ref } from 'vue'
-import { toast } from 'vue-sonner'
 
-import { useReconnect } from '../apis/useReconnect'
 import { API_BASE } from '../constants'
+import { useReconnect } from './useReconnect'
 
 interface SSEEvent {
   event: string
@@ -62,13 +61,6 @@ export function useSSE<T = unknown, R = unknown>() {
     recordAttempt,
   } = useReconnect()
 
-  function handleError(err: Error, toastId?: string) {
-    error.value = err.message
-    if (toastId) {
-      toast.error(err.message, { id: toastId })
-    }
-  }
-
   async function createConnection(
     url: string,
     params: Record<string, unknown>,
@@ -106,25 +98,34 @@ export function useSSE<T = unknown, R = unknown>() {
             const data = JSON.parse(event.data) as ApiResponse<T | R>
 
             switch (event.event) {
-              case 'progress':
-              case 'update':
-              case 'partial':
+              case 'progress': {
+                // eslint-disable-next-line no-console
+                console.log('[SSE] Received progress event:', data)
+
                 if (data.success && data.data) {
                   handlers.onProgress?.(data.data as T)
                 }
                 break
-              case 'complete':
+              }
+              case 'complete': {
+                // eslint-disable-next-line no-console
+                console.log('[SSE] Received complete event:', data)
+
                 if (data.success && data.data) {
                   handlers.onComplete?.(data.data as R)
                 }
                 isConnected.value = false
                 resetAttempts()
                 break
-              case 'error':
+              }
+              case 'error': {
+                console.error('[SSE] Received error event:', data)
+
                 handlers.onError?.(new Error(data.message || 'Unknown error') as ApiError)
                 isConnected.value = false
                 recordAttempt()
                 break
+              }
             }
           }
         }
@@ -160,6 +161,5 @@ export function useSSE<T = unknown, R = unknown>() {
     maxReconnectAttempts,
     reconnectDelay,
     createConnection,
-    handleError,
   }
 }

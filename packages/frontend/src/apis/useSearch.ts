@@ -1,15 +1,9 @@
-import type { SearchRequest, SearchResultItem } from '@tg-search/server'
+import type { SearchCompleteResponse, SearchRequest, SearchResultItem } from '@tg-search/server'
 import type { SSEClientOptions } from '../composables/sse'
 
-import { ref } from 'vue'
-import { toast } from 'vue-sonner'
+import { computed, ref } from 'vue'
 
 import { useSSE } from '../composables/sse'
-
-interface SearchCompleteResponse {
-  duration: number
-  total: number
-}
 
 /**
  * Search composable for managing search state and functionality
@@ -37,7 +31,6 @@ export function useSearch() {
     error: sseError,
     isConnected,
     createConnection,
-    handleError,
   } = useSSE<SearchResultItem[], SearchCompleteResponse>()
 
   // Search progress state
@@ -49,8 +42,9 @@ export function useSearch() {
    * Execute search with current parameters
    */
   async function search(params?: Partial<SearchRequest>) {
-    if (!query.value.trim() && !params?.query)
-      return
+    if (!query.value.trim() && !params?.query) {
+      return { success: false, error: new Error('搜索词不能为空') }
+    }
 
     // Cancel previous stream if exists
     if (streamController.value) {
@@ -80,11 +74,8 @@ export function useSearch() {
       useVectorSearch: useVectorSearch.value,
     } as SearchRequest
 
-    // Show loading toast
-    const toastId = toast.loading('正在搜索...')
-
     const options: SSEClientOptions<SearchResultItem[], SearchCompleteResponse> = {
-      onProgress: (data: SearchResultItem[] | string) => {
+      onProgress: (data) => {
         if (typeof data === 'string') {
           searchProgress.value.push(data)
         }
@@ -92,31 +83,30 @@ export function useSearch() {
           results.value = data
         }
       },
-      onComplete: (data: SearchCompleteResponse) => {
+      onComplete: (data) => {
         total.value = data.total
-        toast.loading(`找到 ${total.value} 条结果，继续搜索中...`, { id: toastId })
+        isStreaming.value = false
+        return { success: true, total: data.total }
       },
-      onError: (error: Error) => {
-        handleError(error)
+      onError: (err) => {
+        error.value = err
+        isStreaming.value = false
+        return { success: false, error: err }
       },
+      signal: streamController.value.signal,
     }
 
     try {
       await createConnection('/search', lastSearchParams.value, options)
+      return { success: true, total: total.value }
     }
     catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        // 忽略取消的请求
-        toast.dismiss(toastId)
-        return
+        return { success: false, error: new Error('搜索已取消') }
       }
       error.value = err as Error
       isStreaming.value = false
-      console.error('Search failed:', err)
-      // Show error toast
-      toast.error(`搜索失败: ${err instanceof Error ? err.message : '未知错误'}`, {
-        id: toastId,
-      })
+      return { success: false, error: err as Error }
     }
     finally {
       streamController.value = null
@@ -159,7 +149,7 @@ export function useSearch() {
     isStreaming,
     results,
     total,
-    error: error || sseError,
+    error: computed(() => error.value || sseError.value),
     currentPage,
     pageSize,
     searchProgress,

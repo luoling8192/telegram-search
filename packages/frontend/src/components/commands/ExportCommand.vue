@@ -5,7 +5,7 @@ import type { DatabaseMessageType } from '@tg-search/db'
 import type { ExportDetails } from '@tg-search/server'
 import { computed, onUnmounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
-import { useCommands } from '../../apis/useCommands'
+import { useExport } from '../../apis/commands/useExport'
 
 // Props
 const props = defineProps<{
@@ -18,7 +18,7 @@ const {
   isLoading,
   isConnected,
   cleanup,
-} = useCommands()
+} = useExport()
 
 // Cleanup when component is unmounted
 onUnmounted(() => {
@@ -74,11 +74,16 @@ async function handleExport() {
     return
   }
 
-  await executeExport({
+  const toastId = toast.loading('正在准备导出...')
+  const result = await executeExport({
     chatId: selectedChatId.value,
     messageTypes: selectedMessageTypes.value,
     method: selectedMethod.value,
   })
+
+  if (!result.success) {
+    toast.error(result.error || '导出失败', { id: toastId })
+  }
 }
 
 // Computed properties for progress display

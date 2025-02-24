@@ -1,18 +1,5 @@
-import type { Command } from './command'
-
-/**
- * Export command status details
- */
-export interface ExportStatus {
-  totalMessages: number
-  processedMessages: number
-  failedMessages: number
-  currentBatch: number
-  totalBatches: number
-  estimatedTimeRemaining?: number
-  startTime: number
-  currentSpeed: number // messages per second
-}
+import type { DatabaseMessageType } from '@tg-search/db'
+import type { ExportMethod } from './command'
 
 /**
  * Export command details
@@ -39,8 +26,11 @@ export interface ExportDetails {
 }
 
 /**
- * Extended command type with export details
+ * Export params
  */
-export interface ExportCommand extends Command {
-  details?: ExportDetails
+export interface ExportParams {
+  chatId: number
+  messageTypes: DatabaseMessageType[]
+  method: ExportMethod
+  [key: string]: unknown
 }

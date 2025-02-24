@@ -1,5 +1,5 @@
 import type { TelegramMessage } from '@tg-search/core'
-import type { PaginatedResponse, PaginationParams } from '../api'
+import type { PaginationParams } from '../api'
 
 /**
  * Search request parameters
@@ -19,6 +19,9 @@ export interface SearchResultItem extends TelegramMessage {
 }
 
 /**
- * Search response type alias
+ * Search complete response
  */
-export type SearchResponse = PaginatedResponse<SearchResultItem>
+export interface SearchCompleteResponse {
+  duration: number
+  total: number
+}

@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { Toaster } from 'vue-sonner' // Changed from default import to named import
 import { useChats } from '../apis/useChats'
-import { useCommands } from '../apis/useCommands'
+import { useCommands } from '../composables/useCommands'
 
 // API composables
 const { chats, error: apiError, loadChats } = useChats()

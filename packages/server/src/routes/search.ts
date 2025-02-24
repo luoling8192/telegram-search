@@ -1,5 +1,5 @@
 import type { App, H3Event } from 'h3'
-import type { SearchRequest, SearchResultItem } from '../types'
+import type { SearchCompleteResponse, SearchRequest, SearchResultItem } from '../types'
 
 import { useLogger } from '@tg-search/common'
 import { EmbeddingService } from '@tg-search/core'
@@ -24,21 +24,10 @@ export function setupSearchRoutes(app: App) {
     const startTime = Date.now()
 
     // Log search request
-    logger.withFields({
-      query,
-      folderId,
-      chatId,
-      limit,
-      offset,
-      useVectorSearch,
-    }).debug('Search request received')
-
     return createSSEResponse(async (controller) => {
       const handler = new SSEHandler<SearchResultItem[]>(controller)
 
       try {
-        handler.sendProgress('Starting search...')
-
         // Get chats to search in
         let targetChatId = chatId
         if (folderId) {
@@ -50,8 +39,8 @@ export function setupSearchRoutes(app: App) {
           if (chats.length === 1) {
             targetChatId = chats[0].id
           }
+
           logger.debug(`Searching in folder: ${folderId}, found ${chats.length} chats`)
-          handler.sendProgress(`Searching in folder ${folderId} (${chats.length} chats)`)
         }
 
         const allResults = new Map<number, SearchResultItem>()
@@ -103,7 +92,7 @@ export function setupSearchRoutes(app: App) {
         handler.complete({
           duration: Date.now() - startTime,
           total: allResults.size,
-        })
+        } as SearchCompleteResponse)
       }
       catch (error) {
         logger.withError(error).error('Search failed')
