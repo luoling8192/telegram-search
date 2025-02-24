@@ -13,7 +13,7 @@ export function useExport() {
     ...commandHandler
   } = useCommandHandler()
 
-  const exportProgress = ref<string[]>([])
+  const exportProgress = ref<number>(0)
   const lastExportParams = ref<ExportParams | null>(null)
 
   async function executeExport(params: ExportParams) {
@@ -22,15 +22,13 @@ export function useExport() {
     }
 
     lastExportParams.value = params
-    exportProgress.value = []
+    exportProgress.value = 0
 
     const options: SSEClientOptions<Command, Command> = {
       onProgress: (data: Command | string) => {
-        if (typeof data === 'string') {
-          exportProgress.value.push(data)
-        }
-        else {
+        if (typeof data !== 'string') {
           updateCommand(data)
+          exportProgress.value = data.progress
         }
       },
       onComplete: updateCommand,
@@ -53,7 +51,7 @@ export function useExport() {
 
   function cleanup() {
     commandHandler.cleanup()
-    exportProgress.value = []
+    exportProgress.value = 0
     lastExportParams.value = null
   }
 

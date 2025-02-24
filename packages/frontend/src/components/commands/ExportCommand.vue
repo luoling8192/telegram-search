@@ -15,8 +15,7 @@ const props = defineProps<{
 const {
   executeExport,
   currentCommand,
-  isLoading,
-  isConnected,
+  exportProgress,
   cleanup,
 } = useExport()
 
@@ -74,7 +73,7 @@ async function handleExport() {
     return
   }
 
-  const toastId = toast.loading('正在准备导出...')
+  const toastId = toast.loading('正在导出...')
   const result = await executeExport({
     chatId: selectedChatId.value,
     messageTypes: selectedMessageTypes.value,
@@ -84,11 +83,13 @@ async function handleExport() {
   if (!result.success) {
     toast.error(result.error || '导出失败', { id: toastId })
   }
+  else {
+    toast.success('导出成功', { id: toastId })
+  }
 }
 
 // Computed properties for progress display
 const isExporting = computed(() => currentCommand.value?.status === 'running')
-const exportProgress = computed(() => currentCommand.value?.progress || 0)
 const exportStatus = computed(() => {
   if (!currentCommand.value)
     return ''
@@ -139,22 +140,6 @@ function formatTime(time: string): string {
 
 <template>
   <div class="space-y-4">
-    <!-- Connection status -->
-    <div
-      v-if="!isConnected"
-      class="flex items-center gap-2 rounded bg-yellow-100 p-4 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100"
-    >
-      <svg class="h-5 w-5 animate-spin" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
-        <path
-          class="opacity-75"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-        />
-      </svg>
-      <span>正在连接命令服务...</span>
-    </div>
-
     <!-- Export settings -->
     <div class="rounded bg-white p-4 shadow dark:bg-gray-800 dark:text-gray-100">
       <h2 class="mb-2 text-lg font-semibold">
@@ -169,7 +154,7 @@ function formatTime(time: string): string {
         <select
           v-model="selectedChatType"
           class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-          :disabled="isLoading || isExporting"
+          :disabled="isExporting"
         >
           <option
             v-for="option in chatTypeOptions"
@@ -189,7 +174,7 @@ function formatTime(time: string): string {
         <select
           v-model="selectedChatId"
           class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-          :disabled="isLoading || isExporting"
+          :disabled="isExporting"
         >
           <option value="">
             请选择会话
@@ -220,7 +205,7 @@ function formatTime(time: string): string {
               type="checkbox"
               :value="option.value"
               class="border-gray-300 rounded text-blue-600 dark:border-gray-600 dark:bg-gray-700"
-              :disabled="isLoading || isExporting"
+              :disabled="isExporting"
             >
             <span class="ml-2">{{ option.label }}</span>
           </label>
@@ -235,7 +220,7 @@ function formatTime(time: string): string {
         <select
           v-model="selectedMethod"
           class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-          :disabled="isLoading || isExporting"
+          :disabled="isExporting"
         >
           <option
             v-for="option in exportMethodOptions"
@@ -250,7 +235,7 @@ function formatTime(time: string): string {
       <!-- Export button -->
       <button
         class="w-full rounded bg-blue-500 px-4 py-2 text-white dark:bg-blue-600 hover:bg-blue-600 disabled:opacity-50 dark:hover:bg-blue-700"
-        :disabled="isLoading || isExporting || !selectedChatId || selectedMessageTypes.length === 0"
+        :disabled="isExporting || !selectedChatId || selectedMessageTypes.length === 0"
         @click="handleExport"
       >
         {{ isExporting ? '导出中...' : '开始导出' }}
