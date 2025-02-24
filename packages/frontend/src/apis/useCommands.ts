@@ -1,5 +1,5 @@
 import type { DatabaseMessageType } from '@tg-search/db'
-import type { ApiResponse, Command, ExportCommand, ExportMethod } from '@tg-search/server/types'
+import type { ApiResponse, Command, ExportMethod } from '@tg-search/server/types'
 
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
@@ -35,30 +35,24 @@ export function useCommands() {
     createConnection,
   } = useSSE<Command>()
 
+  // Use Map to store commands
+  const commandsMap = ref<Map<string, Command>>(new Map())
+
   // Current command state
-  const currentCommand = computed<Command | ExportCommand | null>(() => {
-    if (!commands.value || commands.value.length === 0) {
-      return null
+  const currentCommand = computed(() => {
+    for (const cmd of commandsMap.value.values()) {
+      if (cmd.status === 'running')
+        return cmd
     }
-    // Find running command or return the first one
-    const runningCommand = commands.value.find(cmd => cmd?.status === 'running')
-    return runningCommand || commands.value[0]
+    return commands.value[0] || null
   })
 
   /**
    * Update command in state
    */
   function updateCommand(command: Command) {
-    if (!command)
-      return
-
-    const index = commands.value.findIndex(c => c?.id === command.id)
-    if (index !== -1) {
-      commands.value[index] = command
-    }
-    else {
-      commands.value = [command, ...commands.value]
-    }
+    commandsMap.value.set(command.id, command)
+    commands.value = Array.from(commandsMap.value.values())
   }
 
   /**
@@ -115,7 +109,7 @@ export function useCommands() {
 
           // Try to reconnect if not exceeded max attempts
           if (reconnectAttempts.value < maxReconnectAttempts) {
-            const delay = reconnectDelay * reconnectAttempts.value
+            const delay = reconnectDelay() * reconnectAttempts.value
             toast.error(`命令服务连接失败，${delay / 1000} 秒后重试...`)
             setTimeout(() => {
               if (lastExportParams.value) {
@@ -149,6 +143,7 @@ export function useCommands() {
     lastExportParams.value = null
     exportProgress.value = []
     commands.value = []
+    commandsMap.value.clear()
   }
 
   return {

@@ -13,6 +13,8 @@ export const SSE_HEADERS = {
 export interface SSEController {
   enqueue: (data: Uint8Array) => void
   close: () => void
+  complete: (data: unknown) => void
+  error: (error: unknown) => void
 }
 
 /**

@@ -3,6 +3,7 @@ import type { ApiError, ApiResponse } from '@tg-search/server'
 import { ofetch } from 'ofetch'
 import { ref } from 'vue'
 
+import { useReconnect } from '../apis/useReconnect'
 import { API_BASE } from '../constants'
 
 interface SSEHandlers<T> {
@@ -22,48 +23,69 @@ export function useSSE<T>() {
   const error = ref<string | null>(null)
   const abortController = ref<AbortController | null>(null)
   const isConnected = ref(false)
-  const reconnectAttempts = ref(0)
-  const maxReconnectAttempts = 5
-  const reconnectDelay = 5000
+  const {
+    attempts: reconnectAttempts,
+    maxAttempts: maxReconnectAttempts,
+    calculateDelay: reconnectDelay,
+    resetAttempts,
+    recordAttempt,
+  } = useReconnect()
 
   async function createConnection(
     url: string,
     params: Record<string, unknown>,
     handlers: SSEHandlers<T>,
   ) {
-    // Cancel previous connection if exists
     if (abortController.value) {
       abortController.value.abort()
     }
-
-    // Create new abort controller
     abortController.value = new AbortController()
 
     try {
       loading.value = true
       error.value = null
 
-      const response = await ofetch(`${API_BASE}${url}`, {
+      const response = await ofetch.raw(`${API_BASE}${url}`, {
         method: 'POST',
         body: params,
         signal: abortController.value.signal,
+        responseType: 'stream',
+        onResponseError: () => {},
       })
 
       if (!response.ok) {
-        throw new Error(response.message || 'Failed to connect to SSE')
+        throw new Error('Failed to connect to SSE')
       }
 
-      const eventSource = response.body?.getReader()
-      if (!eventSource) {
-        throw new Error('Failed to create event source')
-      }
-
+      const reader = response._data!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
 
+      // Create event type to handler mapping
+      const eventHandlers: Record<string, (data: ApiResponse<T>) => void> = {
+        info: (data) => {
+          handlers.onInfo?.(data.message || 'Unknown info')
+          isConnected.value = true
+          resetAttempts()
+        },
+        init: data => handlers.onInit?.(data),
+        update: data => handlers.onUpdate?.(data),
+        partial: data => handlers.onUpdate?.(data),
+        complete: (data) => {
+          handlers.onComplete?.(data)
+          isConnected.value = false
+          resetAttempts()
+        },
+        error: (data) => {
+          handlers.onError?.(new Error(data.message || 'Unknown error') as ApiError)
+          isConnected.value = false
+          recordAttempt()
+        },
+      }
+
       try {
         while (true) {
-          const { done, value } = await eventSource.read()
+          const { done, value } = await reader.read()
           if (done)
             break
 
@@ -81,41 +103,27 @@ export function useSSE<T>() {
               if (!dataLine?.startsWith('data: '))
                 continue
 
-              const data = JSON.parse(dataLine.slice(6)) as ApiResponse<T>
-
-              switch (eventType) {
-                case 'info':
-                  handlers.onInfo?.(data.message || 'Unknown info')
-                  isConnected.value = true
-                  reconnectAttempts.value = 0
-                  break
-                case 'init':
-                  handlers.onInit?.(data)
-                  break
-                case 'update':
-                case 'partial':
-                  handlers.onUpdate?.(data)
-                  break
-                case 'error':
-                  handlers.onError?.(new Error(data.message || 'Unknown error') as ApiError)
-                  isConnected.value = false
-                  break
-                case 'complete':
-                  handlers.onComplete?.(data)
-                  isConnected.value = false
-                  break
+              const handler = eventHandlers[eventType]
+              if (handler && dataLine?.startsWith('data: ')) {
+                const data = JSON.parse(dataLine.slice(6)) as ApiResponse<T>
+                handler(data)
               }
             }
           }
         }
       }
       finally {
-        eventSource.cancel()
+        reader.cancel()
       }
     }
     catch (e) {
-      if (e instanceof Error && e.name === 'AbortError')
-        throw e
+      if (e instanceof Error) {
+        if (e.name === 'AbortError') {
+          isConnected.value = false
+          return
+        }
+        recordAttempt()
+      }
 
       const message = e instanceof Error ? e.message : 'Unknown error'
       error.value = message

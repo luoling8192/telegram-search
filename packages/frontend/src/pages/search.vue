@@ -129,7 +129,7 @@ function formatDate(date: string | Date): string {
       </div>
 
       <!-- Progress logs -->
-      <div class="rounded-lg bg-gray-50 p-4 space-y-2 dark:bg-gray-800">
+      <!-- <div class="rounded-lg bg-gray-50 p-4 space-y-2 dark:bg-gray-800">
         <div
           v-for="(log, index) in searchProgress"
           :key="index"
@@ -137,7 +137,7 @@ function formatDate(date: string | Date): string {
         >
           {{ log }}
         </div>
-      </div>
+      </div> -->
     </div>
 
     <!-- Error message -->

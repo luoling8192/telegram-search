@@ -98,17 +98,14 @@ export function useSearch() {
           toast.loading(info, { id: toastId })
         },
         onUpdate: (response: ApiResponse<LocalSearchEventData>) => {
-          if (!response.success || !response.data || !('items' in response.data))
+          if (!response.success || !response.data)
             return
 
-          const { items, total: newTotal } = response.data
-          results.value = items
-          total.value = newTotal
-
-          // Update loading toast
-          toast.loading(`找到 ${newTotal} 条结果，继续搜索中...`, {
-            id: toastId,
-          })
+          if (isSearchResponse(response.data)) {
+            results.value = response.data.items
+            total.value = response.data.total
+            toast.loading(`找到 ${total.value} 条结果，继续搜索中...`, { id: toastId })
+          }
         },
         onComplete: (response: ApiResponse<LocalSearchEventData>) => {
           isStreaming.value = false
@@ -130,7 +127,7 @@ export function useSearch() {
 
           // Try to reconnect if not exceeded max attempts
           if (reconnectAttempts.value < maxReconnectAttempts) {
-            const delay = reconnectDelay * reconnectAttempts.value
+            const delay = reconnectDelay() * reconnectAttempts.value
             toast.error(`搜索服务连接失败，${delay / 1000} 秒后重试...`)
             setTimeout(() => {
               if (lastSearchParams.value) {
@@ -190,6 +187,11 @@ export function useSearch() {
       streamController.value.abort()
       streamController.value = null
     }
+  }
+
+  // 添加类型保护
+  function isSearchResponse(data: LocalSearchEventData): data is SearchResponse {
+    return 'items' in data && 'total' in data
   }
 
   return {

@@ -22,10 +22,21 @@ export function createSSEResponse(
         try {
           const sseController: SSEController = {
             enqueue: data => controller.enqueue(data),
-            close: () => controller.close(),
+            close: () => {
+              controller.close()
+            },
+            complete: (data: unknown) => {
+              controller.enqueue(createSSEMessage('complete', createResponse(data)))
+              controller.close()
+            },
+            error: (err: unknown) => {
+              controller.enqueue(createSSEMessage('error', createResponse(undefined, err)))
+              controller.close()
+            },
           }
 
           await handler(sseController)
+          controller.close()
         }
         catch (err) {
           const errorData = createResponse(undefined, err)

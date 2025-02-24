@@ -113,14 +113,14 @@ export function setupSearchRoutes(app: App) {
 
         // Send complete message
         const endTime = Date.now()
-        controller.enqueue(createSSEMessage('complete', createResponse({
+        controller.complete({
           duration: endTime - startTime,
           total: allResults.size,
-        })))
+        })
       }
       catch (error) {
         logger.withError(error).error('Search failed')
-        controller.enqueue(createSSEMessage('error', createResponse(undefined, error)))
+        controller.error(error)
       }
     })
   }))

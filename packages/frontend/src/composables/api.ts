@@ -1,7 +1,7 @@
 import { ofetch } from 'ofetch'
 import { ref } from 'vue'
 
-import { API_BASE } from '../constants'
+import { API_BASE, API_CONFIG } from '../constants'
 
 // Create API client instance with default configuration
 export const apiFetch = ofetch.create({
@@ -9,10 +9,7 @@ export const apiFetch = ofetch.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  // Add timeout
-  timeout: 30000,
-  // Add retry options
-  retry: 0,
+  ...API_CONFIG,
 })
 
 /**
@@ -21,35 +18,48 @@ export const apiFetch = ofetch.create({
 export function useApi() {
   const loading = ref(false)
   const error = ref<string | null>(null)
-  const abortController = ref<AbortController | null>(null)
+
+  // 使用 Map 存储所有请求的控制器
+  const controllers = new Map<string, AbortController>()
 
   /**
    * Generic API request wrapper with state management
    */
   const request = async <T>(
     fn: () => Promise<{ success: boolean, data: T }>,
+    options?: {
+      key?: string // 唯一标识用于取消
+      timeout?: number
+    },
   ): Promise<T> => {
-    // Cancel previous request if exists
-    if (abortController.value) {
-      abortController.value.abort()
-    }
+    const controller = new AbortController()
+    const requestKey = options?.key || Date.now().toString()
 
-    // Create new abort controller
-    abortController.value = new AbortController()
+    // 存储控制器
+    controllers.set(requestKey, controller)
 
     try {
       loading.value = true
       error.value = null
 
       const response = await Promise.race([
-        fn(),
+        fn().then(r => r).catch((error) => {
+          if (error.name === 'AbortError')
+            throw error
+          return { success: false, data: null }
+        }),
         new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Request timeout')), 30000)
+          setTimeout(() => reject(new Error('Request timeout')), options?.timeout || 30000)
         }),
       ])
 
       if (!response.success) {
         throw new Error('Request failed')
+      }
+
+      // Handle null case to satisfy TypeScript type check
+      if (response.data === null) {
+        throw new Error('Response data is null')
       }
 
       return response.data
@@ -62,13 +72,20 @@ export function useApi() {
     }
     finally {
       loading.value = false
-      abortController.value = null
+      controllers.delete(requestKey)
     }
+  }
+
+  // 添加取消方法
+  const cancelRequest = (key: string) => {
+    controllers.get(key)?.abort()
+    controllers.delete(key)
   }
 
   return {
     loading,
     error,
     request,
+    cancelRequest,
   }
 }
