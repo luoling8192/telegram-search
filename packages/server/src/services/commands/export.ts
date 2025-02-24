@@ -157,6 +157,7 @@ export class ExportCommandHandler implements CommandHandler {
         },
       }
       this.options.store.update(this.currentCommand.id, finalCommand)
+      this.options.onProgress?.(finalCommand)
       this.options.onComplete?.(finalCommand)
     }
     catch (error) {
@@ -182,6 +183,7 @@ export class ExportCommandHandler implements CommandHandler {
         },
       }
       this.options.store.update(this.currentCommand.id, errorCommand)
+      this.options.onProgress?.(errorCommand)
       this.options.onError?.(errorCommand, error as Error)
     }
   }

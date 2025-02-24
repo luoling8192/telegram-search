@@ -72,18 +72,8 @@ class CommandManager {
    */
   executeExportWithSSE(client: ITelegramClientAdapter, params: ExportOptions) {
     return createSSEResponse(async (controller) => {
-      try {
-        const handler = new ExportCommandHandler(this.createHandlerOptions(controller))
-        await handler.execute(client, params as unknown as Record<string, unknown>)
-        controller.enqueue(createSSEMessage('update', createResponse(null)))
-      }
-      catch (error) {
-        const errorData = createResponse(undefined, error)
-        controller.enqueue(createSSEMessage('error', errorData))
-      }
-      finally {
-        controller.close()
-      }
+      const handler = new ExportCommandHandler(this.createHandlerOptions(controller))
+      await handler.execute(client, params as unknown as Record<string, unknown>)
     })
   }
 }

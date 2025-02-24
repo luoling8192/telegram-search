@@ -19,29 +19,31 @@ export function createSSEResponse(
   return new Response(
     new ReadableStream({
       async start(controller) {
-        try {
-          const sseController: SSEController = {
-            enqueue: data => controller.enqueue(data),
-            close: () => {
-              controller.close()
-            },
-            complete: (data: unknown) => {
-              controller.enqueue(createSSEMessage('complete', createResponse(data)))
-              controller.close()
-            },
-            error: (err: unknown) => {
-              controller.enqueue(createSSEMessage('error', createResponse(undefined, err)))
-              controller.close()
-            },
-          }
+        // Create SSE controller with helper methods
+        const sseController: SSEController = {
+          enqueue: data => controller.enqueue(data),
+          close: () => {
+            controller.close()
+          },
+          complete: (data: unknown) => {
+            controller.enqueue(createSSEMessage('complete', createResponse(data)))
+            controller.close()
+          },
+          error: (err: unknown) => {
+            controller.enqueue(createSSEMessage('error', createResponse(undefined, err)))
+            controller.close()
+          },
+        }
 
+        try {
+          // Execute handler without auto-closing
           await handler(sseController)
-          controller.close()
         }
         catch (err) {
-          const errorData = createResponse(undefined, err)
-          controller.enqueue(createSSEMessage('error', errorData))
-          controller.close()
+          // Only handle error if controller is still writable
+          if (controller.desiredSize !== null) {
+            sseController.error(err)
+          }
         }
       },
     }),
