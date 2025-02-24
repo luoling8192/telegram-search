@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import ThemeToggle from '../components/ThemeToggle.vue'
 import { isDark } from '../composables/dark'
 
 const router = useRouter()

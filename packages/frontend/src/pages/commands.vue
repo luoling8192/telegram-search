@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { Toaster } from 'vue-sonner' // Changed from default import to named import
+import { Toaster } from 'vue-sonner'
 import { useChats } from '../apis/useChats'
-import { useCommands } from '../composables/useCommands'
+import { useCommandHandler } from '../composables/useCommands'
 
 // API composables
 const { chats, error: apiError, loadChats } = useChats()
-const { commands, error: commandError, cleanup } = useCommands()
+const { commands, error: commandError, cleanup } = useCommandHandler()
 
 // Active command type
 const activeCommandType = ref<'export' | 'import' | 'sync' | 'watch'>('export')
