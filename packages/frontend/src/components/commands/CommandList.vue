@@ -21,16 +21,13 @@ defineProps<{
             class="ml-2 rounded px-2 py-1 text-sm"
             :class="{
               'bg-yellow-100 text-yellow-800': command.status === 'running',
-              'bg-green-100 text-green-800': command.status === 'success',
-              'bg-red-100 text-red-800': command.status === 'error',
-              'bg-gray-100 text-gray-800': command.status === 'idle',
+              'bg-green-100 text-green-800': command.status === 'completed',
+              'bg-red-100 text-red-800': command.status === 'failed',
+              'bg-gray-100 text-gray-800': command.status === 'pending',
             }"
           >
             {{ command.status }}
           </span>
-        </div>
-        <div class="text-sm text-gray-500">
-          {{ new Date(command.createdAt).toLocaleString() }}
         </div>
       </div>
 
@@ -40,9 +37,9 @@ defineProps<{
           class="h-full rounded transition-all duration-300"
           :class="{
             'bg-blue-500': command.status === 'running',
-            'bg-green-500': command.status === 'success',
-            'bg-red-500': command.status === 'error',
-            'bg-gray-500': command.status === 'idle',
+            'bg-green-500': command.status === 'completed',
+            'bg-red-500': command.status === 'failed',
+            'bg-gray-500': command.status === 'pending',
           }"
           :style="{ width: `${command.progress}%` }"
         />

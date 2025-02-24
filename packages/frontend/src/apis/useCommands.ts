@@ -1,5 +1,6 @@
 import type { DatabaseMessageType } from '@tg-search/db'
-import type { ApiResponse, Command, ExportMethod } from '@tg-search/server/types'
+import type { Command, ExportMethod } from '@tg-search/server/types'
+import type { SSEClientOptions } from '../composables/sse'
 
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
@@ -29,11 +30,9 @@ export function useCommands() {
     loading: isLoading,
     error: sseError,
     isConnected,
-    reconnectAttempts,
-    maxReconnectAttempts,
-    reconnectDelay,
     createConnection,
-  } = useSSE<Command>()
+    handleError,
+  } = useSSE<Command, Command>()
 
   // Use Map to store commands
   const commandsMap = ref<Map<string, Command>>(new Map())
@@ -72,59 +71,25 @@ export function useCommands() {
     // Show loading toast
     const toastId = toast.loading('正在准备导出...')
 
+    const options: SSEClientOptions<Command, Command> = {
+      onProgress: (data: Command | string) => {
+        if (typeof data === 'string') {
+          exportProgress.value.push(data)
+        }
+        else {
+          updateCommand(data)
+        }
+      },
+      onComplete: (data: Command) => {
+        updateCommand(data)
+      },
+      onError: (error: Error) => {
+        handleError(error)
+      },
+    }
+
     try {
-      await createConnection('/commands/export', params, {
-        onInfo: (info: string) => {
-          exportProgress.value.push(info)
-          toast.loading(info, { id: toastId })
-        },
-        onInit: (data: ApiResponse<Command>) => {
-          if (!data.success || !data.data)
-            return
-          const newCommand = Array.isArray(data.data) ? data.data[0] : data.data
-          if (newCommand) {
-            commands.value = [newCommand]
-          }
-        },
-        onUpdate: (data: ApiResponse<Command>) => {
-          if (!data.success || !data.data)
-            return
-          const command = data.data
-          updateCommand(command)
-
-          // Update toast based on command status
-          if (command.status === 'success') {
-            toast.success('导出完成', { id: toastId })
-          }
-          else if (command.status === 'error') {
-            toast.error(`导出失败: ${command.message}`, { id: toastId })
-          }
-          else if (command.message) {
-            toast.loading(command.message, { id: toastId })
-          }
-        },
-        onError: (err: Error) => {
-          error.value = err
-          toast.error(`导出失败: ${err.message}`, { id: toastId })
-
-          // Try to reconnect if not exceeded max attempts
-          if (reconnectAttempts.value < maxReconnectAttempts) {
-            const delay = reconnectDelay() * reconnectAttempts.value
-            toast.error(`命令服务连接失败，${delay / 1000} 秒后重试...`)
-            setTimeout(() => {
-              if (lastExportParams.value) {
-                executeExport(lastExportParams.value)
-              }
-            }, delay)
-          }
-          else {
-            toast.error('命令服务连接失败，请刷新页面重试')
-          }
-        },
-        onComplete: (_data: ApiResponse<Command>) => {
-          // Handle completion
-        },
-      })
+      await createConnection('/commands/export', params, options)
 
       return true
     }

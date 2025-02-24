@@ -23,12 +23,13 @@ export type ExportMethod = typeof exportMethods[number]
  */
 export interface Command {
   id: string
-  type: CommandType
-  status: CommandStatus
+  type: 'export' | 'import' | 'stats'
+  status: 'pending' | 'running' | 'completed' | 'failed'
   progress: number
   message: string
-  createdAt: Date
-  updatedAt: Date
+  result?: unknown
+  error?: Error
+  metadata?: Record<string, unknown>
 }
 
 /**
@@ -40,22 +41,10 @@ export interface CommandHandler {
 }
 
 /**
- * Storage interface for persisting command state
- */
-export interface CommandStore {
-  get: (id: string) => Command | undefined
-  getAll: () => Command[]
-  create: (type: CommandType) => Command
-  update: (id: string, updates: Partial<Command>) => void
-  delete: (id: string) => void
-}
-
-/**
  * Configuration options for command execution
  */
 export interface CommandOptions {
-  store: CommandStore
-  onProgress?: (command: Command) => void
-  onComplete?: (command: Command) => void
-  onError?: (command: Command, error: Error) => void
+  onProgress: (command: Command) => void
+  onComplete: (command: Command) => void
+  onError: (command: Command, error: Error) => void
 }

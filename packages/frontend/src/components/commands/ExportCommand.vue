@@ -90,9 +90,9 @@ const exportStatus = computed(() => {
   switch (currentCommand.value.status) {
     case 'running':
       return '导出中'
-    case 'success':
+    case 'completed':
       return '导出完成'
-    case 'error':
+    case 'failed':
       return '导出失败'
     default:
       return '准备导出'
@@ -265,9 +265,8 @@ function formatTime(time: string): string {
           class="rounded px-2 py-1 text-sm"
           :class="{
             'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100': currentCommand.status === 'running',
-            'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100': currentCommand.status === 'success',
-            'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100': currentCommand.status === 'error',
-            'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100': currentCommand.status === 'idle',
+            'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100': currentCommand.status === 'completed',
+            'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100': currentCommand.status === 'failed',
           }"
         >
           {{ exportStatus }}
@@ -281,8 +280,8 @@ function formatTime(time: string): string {
             class="h-full rounded transition-all duration-300"
             :class="{
               'bg-blue-500 dark:bg-blue-600': currentCommand.status === 'running',
-              'bg-green-500 dark:bg-green-600': currentCommand.status === 'success',
-              'bg-red-500 dark:bg-red-600': currentCommand.status === 'error',
+              'bg-green-500 dark:bg-green-600': currentCommand.status === 'completed',
+              'bg-red-500 dark:bg-red-600': currentCommand.status === 'failed',
             }"
             :style="{ width: `${exportProgress}%` }"
           />

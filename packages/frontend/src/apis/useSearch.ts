@@ -1,21 +1,15 @@
-import type { ApiResponse, SearchRequest, SearchResultItem } from '@tg-search/server/types'
+import type { SearchRequest, SearchResultItem } from '@tg-search/server'
+import type { SSEClientOptions } from '../composables/sse'
 
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { useSSE } from '../composables/sse'
 
-interface SearchResponse {
-  total: number
-  items: SearchResultItem[]
-}
-
 interface SearchCompleteResponse {
   duration: number
   total: number
 }
-
-type LocalSearchEventData = SearchResponse | SearchCompleteResponse
 
 /**
  * Search composable for managing search state and functionality
@@ -42,11 +36,9 @@ export function useSearch() {
     loading: isLoading,
     error: sseError,
     isConnected,
-    reconnectAttempts,
-    maxReconnectAttempts,
-    reconnectDelay,
     createConnection,
-  } = useSSE<LocalSearchEventData>()
+    handleError,
+  } = useSSE<SearchResultItem[], SearchCompleteResponse>()
 
   // Search progress state
   const isStreaming = ref(false)
@@ -91,55 +83,26 @@ export function useSearch() {
     // Show loading toast
     const toastId = toast.loading('正在搜索...')
 
+    const options: SSEClientOptions<SearchResultItem[], SearchCompleteResponse> = {
+      onProgress: (data: SearchResultItem[] | string) => {
+        if (typeof data === 'string') {
+          searchProgress.value.push(data)
+        }
+        else {
+          results.value = data
+        }
+      },
+      onComplete: (data: SearchCompleteResponse) => {
+        total.value = data.total
+        toast.loading(`找到 ${total.value} 条结果，继续搜索中...`, { id: toastId })
+      },
+      onError: (error: Error) => {
+        handleError(error)
+      },
+    }
+
     try {
-      await createConnection('/search', lastSearchParams.value, {
-        onInfo: (info: string) => {
-          searchProgress.value.push(info)
-          toast.loading(info, { id: toastId })
-        },
-        onUpdate: (response: ApiResponse<LocalSearchEventData>) => {
-          if (!response.success || !response.data)
-            return
-
-          if (isSearchResponse(response.data)) {
-            results.value = response.data.items
-            total.value = response.data.total
-            toast.loading(`找到 ${total.value} 条结果，继续搜索中...`, { id: toastId })
-          }
-        },
-        onComplete: (response: ApiResponse<LocalSearchEventData>) => {
-          isStreaming.value = false
-          if (response.success && response.data && 'duration' in response.data) {
-            toast.success(`搜索完成，共找到 ${total.value} 条结果，耗时 ${response.data.duration}ms`, {
-              id: toastId,
-            })
-          }
-          else {
-            toast.success(`搜索完成，共找到 ${total.value} 条结果`, {
-              id: toastId,
-            })
-          }
-        },
-        onError: (err: Error) => {
-          error.value = err
-          isStreaming.value = false
-          toast.error(`搜索失败: ${err.message}`, { id: toastId })
-
-          // Try to reconnect if not exceeded max attempts
-          if (reconnectAttempts.value < maxReconnectAttempts) {
-            const delay = reconnectDelay() * reconnectAttempts.value
-            toast.error(`搜索服务连接失败，${delay / 1000} 秒后重试...`)
-            setTimeout(() => {
-              if (lastSearchParams.value) {
-                search(lastSearchParams.value)
-              }
-            }, delay)
-          }
-          else {
-            toast.error('搜索服务连接失败，请刷新页面重试')
-          }
-        },
-      })
+      await createConnection('/search', lastSearchParams.value, options)
     }
     catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -187,11 +150,6 @@ export function useSearch() {
       streamController.value.abort()
       streamController.value = null
     }
-  }
-
-  // 添加类型保护
-  function isSearchResponse(data: LocalSearchEventData): data is SearchResponse {
-    return 'items' in data && 'total' in data
   }
 
   return {
