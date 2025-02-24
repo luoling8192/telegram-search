@@ -1,4 +1,4 @@
-import type { DatabaseMessageType, DatabaseNewChat } from '@tg-search/db'
+import type { DatabaseChatType, DatabaseMessageType } from '@tg-search/db'
 import type { ITelegramClientAdapter } from '../types/adapter'
 import type { TelegramMessage } from '../types/message'
 
@@ -23,7 +23,11 @@ export type ExportMethod = 'getMessage' | 'takeout'
  * Export service options
  */
 export interface ExportOptions {
-  chatMetadata: DatabaseNewChat
+  chatMetadata: {
+    id: number
+    title: string
+    type: DatabaseChatType
+  }
   chatId: number
   format?: ExportFormat
   path?: string
@@ -132,11 +136,13 @@ export class ExportService {
     // Report progress
     onProgress?.(5, `已选择会话: ${chatMetadata.title}`)
 
+    const history = await this.client.getHistory(chatId)
+
     // Export messages
     let count = 0
     let failedCount = 0
     let messages: TelegramMessage[] = []
-    const total = limit || chatMetadata.messageCount || 100
+    const total = limit || history.count || 100
 
     function isSkipMedia(type: DatabaseMessageType) {
       return !messageTypes.includes(type)

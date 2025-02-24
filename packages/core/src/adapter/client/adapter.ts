@@ -442,6 +442,19 @@ export class ClientAdapter implements ITelegramClientAdapter {
     }
   }
 
+  async getHistory(chatId: number): Promise<Api.messages.TypeMessages & { count: number }> {
+    return this.client.invoke(new Api.messages.GetHistory({
+      peer: chatId,
+      limit: 1,
+      offsetId: 0,
+      offsetDate: 0,
+      addOffset: 0,
+      maxId: 0,
+      minId: 0,
+      hash: bigInt(0),
+    })) as Promise<Api.messages.TypeMessages & { count: number }>
+  }
+
   onMessage(callback: (message: TelegramMessage) => Promise<void>) {
     this.messageCallback = callback
   }
