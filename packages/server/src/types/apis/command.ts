@@ -24,7 +24,7 @@ export type ExportMethod = typeof exportMethods[number]
 export interface Command {
   id: string
   type: 'export' | 'import' | 'stats'
-  status: 'pending' | 'running' | 'completed' | 'failed'
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'waiting'
   progress: number
   message: string
   result?: unknown

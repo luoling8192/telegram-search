@@ -43,7 +43,7 @@ export interface ExportOptions {
   limit?: number
   batchSize?: number
   method?: ExportMethod
-  onProgress?: (progress: number, message: string) => void
+  onProgress?: (progress: number, message: string, metadata?: Record<string, any>) => void
 }
 
 /**
@@ -242,7 +242,45 @@ export class ExportService {
 
           // Report progress
           const progress = Math.min(95, Math.floor((count / total) * 90) + 5)
-          onProgress?.(progress, `已处理 ${count} 条消息`)
+          onProgress?.(progress, `已处理 ${count} 条消息`, {
+            chatId,
+            format,
+            path: exportPath,
+            messageTypes,
+            startTime,
+            endTime,
+            minId,
+            maxId,
+            incremental,
+            limit,
+            batchSize,
+            method,
+            totalMessages: total,
+            processedMessages: count,
+            failedMessages: failedCount > 0 ? failedCount : undefined,
+          })
+
+          // 模拟API限制：每处理1500条消息触发一次等待
+          if (count % 1500 === 0) {
+            // 模拟10秒的等待时间
+            const waitSeconds = 10
+            const message = `模拟API限制：需要等待 ${waitSeconds} 秒才能继续`
+            logger.warn(message)
+            onProgress?.(progress, message, {
+              type: 'waiting',
+              waitSeconds,
+              resumeTime: new Date(Date.now() + waitSeconds * 1000).toISOString(),
+              remainingCount: total - count,
+              totalMessages: total,
+              processedMessages: count,
+            })
+            await new Promise(resolve => setTimeout(resolve, waitSeconds * 1000))
+            logger.log('继续导出...')
+            onProgress?.(progress, '继续导出...', {
+              totalMessages: total,
+              processedMessages: count,
+            })
+          }
         }
 
         // Check if we need to stop
@@ -291,7 +329,23 @@ export class ExportService {
       const summary = failedCount > 0
         ? `导出完成，共导出 ${count} 条消息，${failedCount} 条消息失败`
         : `导出完成，共导出 ${count} 条消息`
-      onProgress?.(100, summary)
+      onProgress?.(100, summary, {
+        chatId,
+        format,
+        path: exportPath,
+        messageTypes,
+        startTime,
+        endTime,
+        minId,
+        maxId,
+        incremental,
+        limit,
+        batchSize,
+        method,
+        totalMessages: total,
+        processedMessages: count,
+        failedMessages: failedCount > 0 ? failedCount : undefined,
+      })
 
       return { count, failedCount }
     }
@@ -303,7 +357,23 @@ export class ExportService {
           const waitHours = Math.ceil(waitSeconds / 3600)
           const message = `需要等待 ${waitHours} 小时才能使用 takeout 导出`
           logger.warn(message)
-          onProgress?.(0, message)
+          onProgress?.(0, message, {
+            chatId,
+            format,
+            path: exportPath,
+            messageTypes,
+            startTime,
+            endTime,
+            minId,
+            maxId,
+            incremental,
+            limit,
+            batchSize,
+            method,
+            totalMessages: total,
+            processedMessages: count,
+            failedMessages: failedCount > 0 ? failedCount : undefined,
+          })
           throw error
         }
       }
@@ -312,7 +382,15 @@ export class ExportService {
         if (waitSeconds) {
           const message = `需要等待 ${waitSeconds} 秒才能继续`
           logger.warn(message)
-          onProgress?.(count > 0 ? 50 : 0, message)
+          onProgress?.(count > 0 ? 50 : 0, message, {
+            type: 'waiting',
+            waitSeconds,
+            resumeTime: new Date(Date.now() + waitSeconds * 1000).toISOString(),
+            remainingCount: total - count,
+            totalMessages: total,
+            processedMessages: count,
+            failedMessages: failedCount > 0 ? failedCount : undefined,
+          })
           await new Promise(resolve => setTimeout(resolve, waitSeconds * 1000))
           logger.log('继续导出...')
           onProgress?.(count > 0 ? 55 : 5, '继续导出...')
