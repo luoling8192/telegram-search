@@ -3,9 +3,9 @@ import type { Api } from 'telegram/tl'
 import type { ClientAdapterConfig, ConnectOptions, GetTelegramMessageParams, ITelegramClientAdapter, TelegramChatsResult, TelegramFolder, TelegramMessage } from '../../types'
 
 import { getConfig, useLogger } from '@tg-search/common'
-import { TelegramClient } from 'telegram'
 
 import { MediaService } from '../../services/media'
+import { ConnectionManager } from './connection-manager'
 import { DialogManager } from './dialog-manager'
 import { FolderManager } from './folder-manager'
 import { MessageManager } from './message-manager'
@@ -17,8 +17,8 @@ import { MessageConverter } from './utils/message-converter'
  * Telegram client adapter implementation
  */
 export class ClientAdapter implements ITelegramClientAdapter {
-  private client: TelegramClient
   private sessionManager: SessionManager
+  private connectionManager: ConnectionManager
   private mediaService: MediaService
   private messageConverter: MessageConverter
   private dialogManager: DialogManager
@@ -34,23 +34,26 @@ export class ClientAdapter implements ITelegramClientAdapter {
       ...config,
     }
     const appConfig = getConfig()
-    this.sessionManager = new SessionManager(appConfig.path.session)
 
-    // Create client with session
-    this.client = new TelegramClient(
-      this.sessionManager.getSession(),
+    // Initialize session and connection managers
+    this.sessionManager = new SessionManager(appConfig.path.session)
+    this.connectionManager = new ConnectionManager(
+      this.sessionManager,
       config.apiId,
       config.apiHash,
-      { connectionRetries: 5 },
+      config.phoneNumber,
     )
 
+    // Get client instance
+    const client = this.connectionManager.getClient()
+
     // Initialize services
-    this.mediaService = new MediaService(this.client)
-    this.messageConverter = new MessageConverter(this.mediaService, this.client)
-    this.dialogManager = new DialogManager(this.client)
-    this.folderManager = new FolderManager(this.client)
-    this.takeoutManager = new TakeoutManager(this.client, this.messageConverter)
-    this.messageManager = new MessageManager(this.client, this.messageConverter, this.takeoutManager)
+    this.mediaService = new MediaService(client)
+    this.messageConverter = new MessageConverter(this.mediaService, client)
+    this.dialogManager = new DialogManager(client)
+    this.folderManager = new FolderManager(client)
+    this.takeoutManager = new TakeoutManager(client, this.messageConverter)
+    this.messageManager = new MessageManager(client, this.messageConverter, this.takeoutManager)
   }
 
   get type() {
@@ -58,60 +61,16 @@ export class ClientAdapter implements ITelegramClientAdapter {
   }
 
   async isConnected() {
-    return this.client.isUserAuthorized()
+    return this.connectionManager.isConnected()
   }
 
   async connect(options?: ConnectOptions) {
-    try {
-      await this.mediaService.init()
-      const session = await this.sessionManager.loadSession()
-
-      if (session) {
-        this.client.session = this.sessionManager.getSession()
-      }
-
-      await this.client.connect()
-
-      if (!await this.client.isUserAuthorized()) {
-        await this.client.signInUser(
-          {
-            apiId: this.client.apiId,
-            apiHash: this.client.apiHash,
-          },
-          {
-            phoneNumber: this.config.phoneNumber,
-            phoneCode: async () => {
-              if (typeof options?.code === 'function') {
-                return options.code()
-              }
-              return options?.code || ''
-            },
-            password: async () => {
-              if (typeof options?.password === 'function') {
-                return options.password()
-              }
-              return options?.password || ''
-            },
-            onError: (err: Error) => {
-              this.logger.withError(err).error('登录失败')
-              throw err
-            },
-          },
-        )
-      }
-
-      const sessionString = await this.client.session.save() as unknown as string
-      await this.sessionManager.saveSession(sessionString)
-      this.logger.log('登录成功')
-    }
-    catch (error) {
-      this.logger.withError(error).error('连接失败')
-      throw error
-    }
+    await this.mediaService.init()
+    await this.connectionManager.connect(options)
   }
 
   async disconnect() {
-    await this.client.disconnect()
+    await this.connectionManager.disconnect()
   }
 
   async getPaginationDialogs(offset = 0, limit = 10): Promise<TelegramChatsResult> {
