@@ -56,13 +56,13 @@ export async function getAllChats() {
 /**
  * Get a chat by ID
  */
-export async function getChatById(id: number) {
+export async function getChatMetadataById(id: number) {
   return useDB()
     .select()
     .from(chats)
     .where(eq(chats.id, id))
     .limit(1)
-    .then(result => result[0])
+    .then((result: DatabaseChat[]) => result[0])
 }
 
 /**
