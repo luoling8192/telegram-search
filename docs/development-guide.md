@@ -11,23 +11,27 @@
 ### 环境设置
 
 1. 克隆仓库：
+
 ```bash
 git clone https://github.com/luoling8192/telegram-search.git
 cd telegram-search
 ```
 
 2. 安装依赖：
+
 ```bash
 pnpm install
 ```
 
 3. 配置环境变量：
+
 ```bash
 cp .env.example .env
 # 编辑 .env 文件，填入配置信息
 ```
 
 4. 初始化数据库：
+
 ```bash
 pnpm -F @tg-search/cli db:migrate
 ```
@@ -35,16 +39,19 @@ pnpm -F @tg-search/cli db:migrate
 ### 开发工作流
 
 1. 启动开发服务器：
+
 ```bash
 pnpm dev
 ```
 
 2. 运行测试：
+
 ```bash
 pnpm test
 ```
 
 3. 构建项目：
+
 ```bash
 pnpm build
 ```
@@ -81,7 +88,7 @@ pnpm build
 
 ```typescript
 // 设置日志级别
-setLogLevel('debug');
+setLogLevel('debug')
 ```
 
 ### 开发工具
@@ -93,34 +100,45 @@ setLogLevel('debug');
 ### 常见问题
 
 1. 数据库连接：
+
 ```bash
 # 检查数据库状态
 pnpm run dev:cli db:status
 ```
 
 2. Telegram API：
+
 ```bash
 # 测试 API 连接
 pnpm run dev:cli test:api
 ```
 
+3. 修改monorepo后，需要重新生成stub
+
+```bash
+pnpm run dev:cli stub
+```
+
 ## 发布流程
 
 1. 版本更新：
+
 ```bash
 pnpm version <major|minor|patch>
 ```
 
 2. 生成更新日志：
+
 ```bash
 pnpm changelog
 ```
 
 3. 发布：
+
 ```bash
 pnpm publish
 ```
 
 ## 参与贡献
 
-详见 [贡献指南](./CONTRIBUTING.md) 
+详见 [贡献指南](./CONTRIBUTING.md)

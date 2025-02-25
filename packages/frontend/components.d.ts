@@ -9,14 +9,11 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     CommandList: typeof import('./src/components/commands/CommandList.vue')['default']
-    ConfigSection: typeof import('./src/components/ui/ConfigSection.vue')['default']
     ExportCommand: typeof import('./src/components/commands/ExportCommand.vue')['default']
-    FormInput: typeof import('./src/components/ui/FormInput.vue')['default']
     HighlightText: typeof import('./src/components/HighlightText.vue')['default']
     MessageBubble: typeof import('./src/components/MessageBubble.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
-    SensitiveInput: typeof import('./src/components/ui/SensitiveInput.vue')['default']
     ThemeToggle: typeof import('./src/components/ThemeToggle.vue')['default']
   }
 }
