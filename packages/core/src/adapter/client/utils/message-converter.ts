@@ -1,6 +1,6 @@
 import type { TelegramClient } from 'telegram'
-import type { MediaService } from '../../services/media'
-import type { TelegramMessage, TelegramMessageType } from '../../types'
+import type { MediaService } from '../../../services/media'
+import type { TelegramMessage, TelegramMessageType } from '../../../types'
 
 import { useLogger } from '@tg-search/common'
 import { Api } from 'telegram'

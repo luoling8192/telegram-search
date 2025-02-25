@@ -4,7 +4,7 @@ import type { TelegramChat, TelegramChatsResult } from '../../types'
 
 import { useLogger } from '@tg-search/common'
 
-import { EntityResolver } from './entity-resolver'
+import { EntityResolver } from './utils/entity-resolver'
 
 /**
  * Manages Telegram dialogs (chats) operations

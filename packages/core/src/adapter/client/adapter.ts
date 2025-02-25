@@ -9,8 +9,8 @@ import { Api } from 'telegram/tl'
 import { MediaService } from '../../services/media'
 import { DialogManager } from './dialog-manager'
 import { FolderManager } from './folder-manager'
-import { MessageConverter } from './message-converter'
 import { SessionManager } from './session-manager'
+import { MessageConverter } from './utils/message-converter'
 
 /**
  * Telegram client adapter implementation
