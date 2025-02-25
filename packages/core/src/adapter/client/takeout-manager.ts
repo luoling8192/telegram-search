@@ -202,8 +202,8 @@ export class TakeoutManager {
           offsetId,
           addOffset: 0,
           limit,
-          maxId: 0,
-          minId: 0,
+          maxId: options?.maxId || 0, // 支持到特定ID结束
+          minId: options?.minId || 0, // 支持增量导出从特定ID开始
           hash: bigInt(0),
         })
 

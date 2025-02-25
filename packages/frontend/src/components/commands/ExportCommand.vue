@@ -32,6 +32,10 @@ const selectedChatId = ref<number>()
 const selectedMessageTypes = ref<DatabaseMessageType[]>(['text'])
 // Selected export method
 const selectedMethod = ref<'getMessage' | 'takeout'>('takeout')
+// 增量导出选项
+const enableIncremental = ref<boolean>(false)
+// 自定义开始消息ID
+const customMinId = ref<number | undefined>(undefined)
 
 // Chat type options
 const chatTypeOptions = [
@@ -78,6 +82,9 @@ async function handleExport() {
     chatId: selectedChatId.value,
     messageTypes: selectedMessageTypes.value,
     method: selectedMethod.value,
+    // 添加增量导出相关参数
+    incremental: enableIncremental.value,
+    minId: customMinId.value,
   })
 
   if (!result.success) {
@@ -230,6 +237,35 @@ function formatTime(time: string): string {
             {{ option.label }}
           </option>
         </select>
+      </div>
+
+      <!-- 增量导出选项 -->
+      <div class="mb-4">
+        <div class="flex items-center mb-2">
+          <input
+            v-model="enableIncremental"
+            type="checkbox"
+            id="incrementalExport"
+            class="border-gray-300 rounded text-blue-600 dark:border-gray-600 dark:bg-gray-700"
+            :disabled="isExporting"
+          >
+          <label for="incrementalExport" class="ml-2 text-sm text-gray-700 font-medium dark:text-gray-300">
+            增量导出（仅导出上次导出后的新消息）
+          </label>
+        </div>
+        
+        <div v-if="!enableIncremental" class="mt-2">
+          <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
+            自定义起始消息ID（可选）
+          </label>
+          <input
+            v-model.number="customMinId"
+            type="number"
+            placeholder="从此ID开始导出（留空则从最新消息开始）"
+            class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            :disabled="isExporting"
+          >
+        </div>
       </div>
 
       <!-- Export button -->

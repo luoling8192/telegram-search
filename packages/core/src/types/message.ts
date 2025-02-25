@@ -42,4 +42,8 @@ export interface GetTelegramMessageParams {
   limit?: number
   messageTypes?: TelegramMessageType[]
   method?: 'getMessage' | 'takeout'
+  /** 指定获取该消息ID之后的消息 (增量导出使用) */
+  minId?: number
+  /** 指定获取该消息ID之前的消息 */
+  maxId?: number
 }

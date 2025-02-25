@@ -240,6 +240,7 @@ onMounted(async () => {
         </button>
         <h1 class="text-lg font-semibold dark:text-white">
           {{ chatTitle }}
+          <span class="ml-2 text-xs text-gray-500 font-normal">ID: {{ chatId }}</span>
         </h1>
       </div>
 

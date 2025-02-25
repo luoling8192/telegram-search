@@ -24,3 +24,42 @@ export async function checkDuplicateMessages(chatId: number, id1: number, id2: n
     expectedCount: Math.abs(id2 - id1) + 1,
   }
 }
+
+/**
+ * Get the maximum message ID for a chat
+ * Used for incremental exports to determine where to start
+ */
+export async function findMaxMessageId(chatId: number): Promise<number | null> {
+  try {
+    const contentTable = await useMessageTable(chatId)
+    const [result] = await useDB()
+      .select({ maxId: sql<number>`MAX(id)` })
+      .from(contentTable)
+      .where(sql`chat_id = ${chatId}`)
+
+    return result.maxId
+  }
+  catch {
+    // Table might not exist yet
+    return null
+  }
+}
+
+/**
+ * Get the minimum message ID for a chat
+ */
+export async function findMinMessageId(chatId: number): Promise<number | null> {
+  try {
+    const contentTable = await useMessageTable(chatId)
+    const [result] = await useDB()
+      .select({ minId: sql<number>`MIN(id)` })
+      .from(contentTable)
+      .where(sql`chat_id = ${chatId}`)
+
+    return result.minId
+  }
+  catch {
+    // Table might not exist yet
+    return null
+  }
+}

@@ -56,7 +56,8 @@ export class MessageManager {
           () => this.client.getMessages(chatId, {
             limit: limit || 100,
             offsetId,
-            minId: 0,
+            minId: options?.minId || 0,
+            maxId: options?.maxId || 0,
           }),
           {
             context: '获取普通消息',

@@ -49,15 +49,19 @@ export class MessageConverter {
     const type = this.getMessageType(message)
     let mediaInfo
 
-    if (message.media && !skipMedia) {
+    if (message.media) {
+      // 总是获取媒体基本信息，即使skipMedia=true
       const downloadedMediaInfo = this.mediaService.getMediaInfo(message)
       if (downloadedMediaInfo) {
-        const localPath = await this.mediaService.downloadMedia(
-          message,
-          downloadedMediaInfo,
-        )
-        if (localPath) {
-          downloadedMediaInfo.localPath = localPath
+        // 仅在skipMedia=false时下载媒体文件
+        if (!skipMedia) {
+          const localPath = await this.mediaService.downloadMedia(
+            message,
+            downloadedMediaInfo,
+          )
+          if (localPath) {
+            downloadedMediaInfo.localPath = localPath
+          }
         }
         mediaInfo = downloadedMediaInfo
       }

@@ -57,6 +57,7 @@ onMounted(async () => {
           >
             <h2 class="text-left text-lg font-semibold">
               {{ chat.title }}
+              <span class="ml-2 text-xs text-gray-500 font-normal">ID: {{ chat.id }}</span>
             </h2>
             <div class="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span>{{ chat.messageCount }} messages</span>
@@ -82,6 +83,7 @@ onMounted(async () => {
           >
             <h2 class="text-left text-lg font-semibold">
               {{ chat.title }}
+              <span class="ml-2 text-xs text-gray-500 font-normal">ID: {{ chat.id }}</span>
             </h2>
             <div class="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span>{{ chat.messageCount }} messages</span>
@@ -107,6 +109,7 @@ onMounted(async () => {
           >
             <h2 class="text-left text-lg font-semibold">
               {{ chat.title }}
+              <span class="ml-2 text-xs text-gray-500 font-normal">ID: {{ chat.id }}</span>
             </h2>
             <div class="mt-2 flex items-center gap-4 text-sm text-gray-500">
               <span>{{ chat.messageCount }} messages</span>

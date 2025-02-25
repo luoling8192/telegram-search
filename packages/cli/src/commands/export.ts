@@ -101,6 +101,42 @@ export class ExportCommand extends TelegramCommand {
       default: '0',
     }))
 
+    // 增量导出选项
+    const incremental = options.incremental !== undefined
+      ? options.incremental
+      : await input.confirm({
+        message: '是否开启增量导出（仅导出上次导出后的新消息）？',
+        default: false,
+      })
+
+    let minId
+    let maxId
+    if (!incremental) {
+      const useCustomIds = await input.confirm({
+        message: '是否设置自定义消息ID范围？',
+        default: false,
+      })
+
+      if (useCustomIds) {
+        minId = Number(await input.input({
+          message: '请输入起始消息ID：',
+          default: '0',
+        }))
+
+        const useMaxId = await input.confirm({
+          message: '是否设置结束消息ID？',
+          default: false,
+        })
+
+        if (useMaxId) {
+          maxId = Number(await input.input({
+            message: '请输入结束消息ID：',
+            default: '0',
+          }))
+        }
+      }
+    }
+
     return {
       chatMetadata,
       chatId,
@@ -112,6 +148,9 @@ export class ExportCommand extends TelegramCommand {
       endTime,
       limit,
       batchSize: options.batchSize || getConfig().message.export.batchSize,
+      incremental,
+      minId: minId || options.minId,
+      maxId: maxId || options.maxId,
     }
   }
 

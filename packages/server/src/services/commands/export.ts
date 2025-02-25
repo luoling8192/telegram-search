@@ -15,6 +15,9 @@ export const exportCommandSchema = z.object({
   endTime: z.string().optional(),
   limit: z.number().optional(),
   method: z.enum(['getMessage', 'takeout']).optional(),
+  minId: z.number().optional(),
+  maxId: z.number().optional(),
+  incremental: z.boolean().optional(),
 })
 
 /**
