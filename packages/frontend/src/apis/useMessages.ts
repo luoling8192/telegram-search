@@ -1,4 +1,4 @@
-import type { TelegramMessage } from '@tg-search/core'
+import type { TelegramChat, TelegramMessage } from '@tg-search/core'
 import type { PaginationParams } from '@tg-search/server/types'
 
 import { ref } from 'vue'
@@ -10,6 +10,7 @@ import { apiFetch, useApi } from '../composables/api'
  */
 export function useMessages() {
   const messages = ref<TelegramMessage[]>([])
+  const chat = ref<TelegramChat>()
   const total = ref(0)
   const { loading, error, request } = useApi()
 
@@ -20,17 +21,19 @@ export function useMessages() {
     try {
       const data = await request<{
         items: TelegramMessage[]
+        chat: TelegramChat
         total: number
         limit: number
         offset: number
       }>(() =>
-        apiFetch<{ success: boolean, data: { items: TelegramMessage[], total: number, limit: number, offset: number } }>(
+        apiFetch<{ success: boolean, data: { items: TelegramMessage[], total: number, chat: TelegramChat, limit: number, offset: number } }>(
           `/messages/${chatId}${params ? `?${new URLSearchParams(params as any)}` : ''}`,
         ),
       )
 
       messages.value = data.items
       total.value = data.total
+      chat.value = data.chat
     }
     catch (err) {
       console.error('Failed to load messages:', err)
@@ -42,6 +45,7 @@ export function useMessages() {
     loading,
     error,
     total,
+    chat,
     loadMessages,
   }
 }

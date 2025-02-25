@@ -12,14 +12,12 @@ interface LocalMessage extends TelegramMessage {
 }
 
 // Initialize API client and router
-const { loading, error, loadChats } = useChats()
-const { messages: apiMessages, loading: messagesLoading, total: messagesTotal, loadMessages: fetchMessages } = useMessages()
+const { messages: apiMessages, loading: messagesLoading, chat, total: messagesTotal, loadMessages: fetchMessages, error } = useMessages()
 const route = useRoute()
 const router = useRouter()
 const messages = ref<LocalMessage[]>([])
 const total = ref(0)
 const chatTitle = ref('')
-const chats = ref<TelegramChat[]>([])
 
 // Pagination
 const pageSize = 50
@@ -45,30 +43,16 @@ function handleSearch() {
   })
 }
 
-// Load chat info
-async function loadChatInfo() {
-  await loadChats()
-  const chat = chats.value.find((c: TelegramChat) => c.id === chatId)
-  if (chat) {
-    chatTitle.value = chat.title
-  }
-}
-
 // Load messages from chat
 async function loadMessages(page = 1, append = false) {
-  if (!append) {
-    loading.value = true
-  }
-  else {
-    loadingMore.value = true
-  }
-
+  loadingMore.value = true
   try {
     const offset = (page - 1) * pageSize
     await fetchMessages(chatId, {
       limit: pageSize,
       offset,
     })
+    chatTitle.value = chat.value?.title || ''
 
     if (apiMessages.value) {
       // Get current scroll position
@@ -103,7 +87,6 @@ async function loadMessages(page = 1, append = false) {
     }
   }
   finally {
-    loading.value = false
     loadingMore.value = false
   }
 }
@@ -142,7 +125,6 @@ async function jumpToMessage(messageId: number) {
   }
 
   // Message not in current list, load it
-  loading.value = true
   try {
     // Try to load messages until we find the target message
     let offset = 0
@@ -192,7 +174,6 @@ async function jumpToMessage(messageId: number) {
     }
   }
   finally {
-    loading.value = false
   }
 }
 
@@ -202,7 +183,6 @@ onMounted(async () => {
     router.push('/')
     return
   }
-  await loadChatInfo()
   await loadMessages()
 
   // Handle hash change for message jumping
@@ -261,15 +241,12 @@ onMounted(async () => {
       @scroll="onScroll"
     >
       <!-- Loading state -->
-      <div v-if="loading || messagesLoading" class="text-center text-gray-500 dark:text-gray-400">
+      <div v-if="messagesLoading" class="text-center text-gray-500 dark:text-gray-400">
         Loading messages...
       </div>
-
-      <!-- Error state -->
       <div v-else-if="error" class="text-center text-red-500 dark:text-red-400">
         {{ error }}
       </div>
-
       <!-- Messages -->
       <template v-else>
         <MessageBubble
