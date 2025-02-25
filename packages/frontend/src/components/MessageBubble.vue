@@ -73,10 +73,13 @@ const bubbleContentClass = computed(() => {
   return classes
 })
 
-// Format time to HH:mm
+// Format time to include date and time
 function formatTime(date: Date | string): string {
   const dateObj = date instanceof Date ? date : new Date(date)
-  return dateObj.toLocaleTimeString('default', {
+  return dateObj.toLocaleString('default', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
   })
@@ -129,8 +132,19 @@ function formatFileSize(bytes: number): string {
       </div>
 
       <!-- Text content -->
-      <div v-if="message.content" class="whitespace-pre-wrap break-words text-left leading-relaxed">
-        {{ message.content }}
+      <div class="whitespace-pre-wrap break-words text-left leading-relaxed">
+        <template v-if="message.content">
+          {{ message.content }}
+        </template>
+        <template v-else-if="message.mediaInfo">
+          <span class="text-gray-500 italic">
+            <template v-if="message.mediaInfo.type === 'photo'">[图片]</template>
+            <template v-else-if="message.mediaInfo.type === 'video'">[视频]</template>
+            <template v-else-if="message.mediaInfo.type === 'document'">[文档]</template>
+            <template v-else-if="message.mediaInfo.type === 'sticker'">[贴纸]</template>
+            <template v-else>[媒体]</template>
+          </span>
+        </template>
       </div>
 
       <!-- Media content -->
@@ -195,6 +209,10 @@ function formatFileSize(bytes: number): string {
       <!-- Message info -->
       <div class="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
         <span>{{ formatTime(message.createdAt) }}</span>
+        <span class="inline-flex items-center">
+          <Icon icon="carbon:id" class="mr-1 h-4 w-4" />
+          ID: {{ message.id }}
+        </span>
         <span v-if="message.views" class="inline-flex items-center">
           <Icon icon="carbon:view" class="mr-1 h-4 w-4" />
           {{ message.views }}

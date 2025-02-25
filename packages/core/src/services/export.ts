@@ -5,7 +5,7 @@ import type { TelegramMessage } from '../types/message'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { getConfig, useLogger } from '@tg-search/common'
-import { createMessages, updateChat } from '@tg-search/db'
+import { createMessages, findMaxMessageId, findMinMessageId, updateChat } from '@tg-search/db'
 
 const logger = useLogger()
 
@@ -34,10 +34,16 @@ export interface ExportOptions {
   messageTypes?: DatabaseMessageType[]
   startTime?: Date
   endTime?: Date
+  /** 增量导出: 指定导出该消息ID之后的消息 */
+  minId?: number
+  /** 增量导出: 指定导出该消息ID之前的消息 */
+  maxId?: number
+  /** 是否开启增量导出 (基于上次最大消息ID) */
+  incremental?: boolean
   limit?: number
   batchSize?: number
   method?: ExportMethod
-  onProgress?: (progress: number, message: string) => void
+  onProgress?: (progress: number, message: string, metadata?: Record<string, any>) => void
 }
 
 /**
@@ -131,12 +137,67 @@ export class ExportService {
       batchSize = getConfig().message.export.batchSize,
       method = 'takeout',
       onProgress,
+      minId,
+      maxId,
+      incremental = false,
     } = options
 
     // Report progress
     onProgress?.(5, `已选择会话: ${chatMetadata.title}`)
 
+    const startId: number | undefined = minId
+    let exportMaxId = maxId // 使用新变量而不是修改参数
+
+    // 增量导出: 如果启用增量导出，尝试查找数据库中最大的消息ID
+    if (incremental && !startId) {
+      onProgress?.(10, '检查增量导出起点...')
+      // 由于Telegram消息ID是递增的，最新的消息有最大的ID
+      // 对于增量导出，我们需要处理两种情况：
+      // 1. 导出比本地最小ID更早的消息（之前未导出的较旧消息）
+      // 2. 导出本地已有消息中间的"缺口"（未完成的导出）
+      const localMinId = await findMinMessageId(chatId)
+      const localMaxId = await findMaxMessageId(chatId)
+
+      logger.debug('增量导出调试信息', {
+        chatId,
+        localMinId,
+        localMaxId,
+      })
+
+      if (localMinId && localMaxId) {
+        // TODO: 未来可以实现更复杂的"缺口"检测逻辑
+        // 比如通过SQL查询确定消息ID的连续性，找出缺失的ID区间
+
+        // 目前优先导出比本地最小ID更小的消息（历史消息）
+        exportMaxId = localMinId - 1
+        logger.debug(`增量导出: 获取消息ID小于 ${exportMaxId} 的历史消息`)
+
+        // 添加更多详细的日志
+        logger.debug('增量导出详细信息', {
+          chatId,
+          localMinId,
+          localMaxId,
+          maxIdSet: exportMaxId,
+          exportMethod: method,
+          strategy: '导出更早的历史消息',
+        })
+        onProgress?.(15, `增量导出: 获取ID < ${exportMaxId} 的历史消息（当前最早消息ID: ${localMinId}）`)
+      }
+      else {
+        logger.debug('未找到之前的消息记录，执行完整导出')
+        onProgress?.(15, '未找到之前的消息记录，执行完整导出')
+      }
+    }
+
     const history = await this.client.getHistory(chatId)
+    // 添加更多历史记录信息
+    logger.debug('获取到的聊天历史信息', {
+      historyCount: history.count,
+      chatId,
+      method,
+      startId,
+      maxId: exportMaxId,
+    })
 
     // Export messages
     let count = 0
@@ -157,7 +218,19 @@ export class ExportService {
         limit,
         messageTypes,
         method,
+        minId: startId, // 使用增量导出的起始ID
+        maxId: exportMaxId, // 使用传入的最大ID限制
       })) {
+        // 在获取第一条消息时记录日志
+        if (count === 0) {
+          logger.debug('获取到第一条消息', {
+            messageId: message.id,
+            messageType: message.type,
+            createdAt: message.createdAt,
+            minIdUsed: startId,
+          })
+        }
+
         messages.push(message)
         count++
 
@@ -169,7 +242,45 @@ export class ExportService {
 
           // Report progress
           const progress = Math.min(95, Math.floor((count / total) * 90) + 5)
-          onProgress?.(progress, `已处理 ${count} 条消息`)
+          onProgress?.(progress, `已处理 ${count} 条消息`, {
+            chatId,
+            format,
+            path: exportPath,
+            messageTypes,
+            startTime,
+            endTime,
+            minId,
+            maxId,
+            incremental,
+            limit,
+            batchSize,
+            method,
+            totalMessages: total,
+            processedMessages: count,
+            failedMessages: failedCount > 0 ? failedCount : undefined,
+          })
+
+          // 模拟API限制：每处理1500条消息触发一次等待
+          if (count % 1500 === 0) {
+            // 模拟10秒的等待时间
+            const waitSeconds = 10
+            const message = `模拟API限制：需要等待 ${waitSeconds} 秒才能继续`
+            logger.warn(message)
+            onProgress?.(progress, message, {
+              type: 'waiting',
+              waitSeconds,
+              resumeTime: new Date(Date.now() + waitSeconds * 1000).toISOString(),
+              remainingCount: total - count,
+              totalMessages: total,
+              processedMessages: count,
+            })
+            await new Promise(resolve => setTimeout(resolve, waitSeconds * 1000))
+            logger.log('继续导出...')
+            onProgress?.(progress, '继续导出...', {
+              totalMessages: total,
+              processedMessages: count,
+            })
+          }
         }
 
         // Check if we need to stop
@@ -177,6 +288,15 @@ export class ExportService {
           break
         }
       }
+
+      // 在消息获取循环结束后记录日志
+      logger.debug('消息获取循环结束', {
+        totalCount: count,
+        startId,
+        maxId: exportMaxId,
+        method,
+        chatId,
+      })
 
       // Process remaining messages
       if (messages.length > 0) {
@@ -209,7 +329,23 @@ export class ExportService {
       const summary = failedCount > 0
         ? `导出完成，共导出 ${count} 条消息，${failedCount} 条消息失败`
         : `导出完成，共导出 ${count} 条消息`
-      onProgress?.(100, summary)
+      onProgress?.(100, summary, {
+        chatId,
+        format,
+        path: exportPath,
+        messageTypes,
+        startTime,
+        endTime,
+        minId,
+        maxId,
+        incremental,
+        limit,
+        batchSize,
+        method,
+        totalMessages: total,
+        processedMessages: count,
+        failedMessages: failedCount > 0 ? failedCount : undefined,
+      })
 
       return { count, failedCount }
     }
@@ -221,7 +357,23 @@ export class ExportService {
           const waitHours = Math.ceil(waitSeconds / 3600)
           const message = `需要等待 ${waitHours} 小时才能使用 takeout 导出`
           logger.warn(message)
-          onProgress?.(0, message)
+          onProgress?.(0, message, {
+            chatId,
+            format,
+            path: exportPath,
+            messageTypes,
+            startTime,
+            endTime,
+            minId,
+            maxId,
+            incremental,
+            limit,
+            batchSize,
+            method,
+            totalMessages: total,
+            processedMessages: count,
+            failedMessages: failedCount > 0 ? failedCount : undefined,
+          })
           throw error
         }
       }
@@ -230,7 +382,15 @@ export class ExportService {
         if (waitSeconds) {
           const message = `需要等待 ${waitSeconds} 秒才能继续`
           logger.warn(message)
-          onProgress?.(count > 0 ? 50 : 0, message)
+          onProgress?.(count > 0 ? 50 : 0, message, {
+            type: 'waiting',
+            waitSeconds,
+            resumeTime: new Date(Date.now() + waitSeconds * 1000).toISOString(),
+            remainingCount: total - count,
+            totalMessages: total,
+            processedMessages: count,
+            failedMessages: failedCount > 0 ? failedCount : undefined,
+          })
           await new Promise(resolve => setTimeout(resolve, waitSeconds * 1000))
           logger.log('继续导出...')
           onProgress?.(count > 0 ? 55 : 5, '继续导出...')

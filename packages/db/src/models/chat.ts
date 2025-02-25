@@ -54,6 +54,18 @@ export async function getAllChats() {
 }
 
 /**
+ * Get a chat by ID
+ */
+export async function getChatMetadataById(id: number) {
+  return useDB()
+    .select()
+    .from(chats)
+    .where(eq(chats.id, id))
+    .limit(1)
+    .then((result: DatabaseChat[]) => result[0])
+}
+
+/**
  * Get chats in a specific folder
  */
 export async function getChatsInFolder(folderId: number) {

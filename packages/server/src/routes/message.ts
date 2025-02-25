@@ -1,7 +1,7 @@
 import type { App, H3Event } from 'h3'
 
 import { useLogger } from '@tg-search/common'
-import { findMessagesByChatId } from '@tg-search/db'
+import { findMessagesByChatId, getChatMetadataById } from '@tg-search/db'
 import { createRouter, defineEventHandler, getQuery, getRouterParams } from 'h3'
 
 import { createResponse } from '../utils/response'
@@ -19,14 +19,14 @@ export function setupMessageRoutes(app: App) {
     try {
       const { id } = getRouterParams(event)
       const { limit = '50', offset = '0' } = getQuery(event)
-
+      const chat = await getChatMetadataById(Number(id))
       const { items, total } = await findMessagesByChatId(Number(id), {
         limit: Number(limit),
         offset: Number(offset),
       })
-
       return createResponse({
         items,
+        chat,
         total,
       }, undefined, {
         total,

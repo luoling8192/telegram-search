@@ -15,6 +15,9 @@ export const exportCommandSchema = z.object({
   endTime: z.string().optional(),
   limit: z.number().optional(),
   method: z.enum(['getMessage', 'takeout']).optional(),
+  minId: z.number().optional(),
+  maxId: z.number().optional(),
+  incremental: z.boolean().optional(),
 })
 
 /**
@@ -35,12 +38,27 @@ export class ExportCommandHandler {
     }
   }
 
-  private updateProgress(progress: number, message: string) {
+  private updateProgress(progress: number, message: string, metadata?: Record<string, any>) {
     this.command = {
       ...this.command,
       status: 'running',
       progress,
       message,
+      metadata,
+    }
+    this.options?.onProgress(this.command)
+  }
+
+  private updateWaiting(progress: number, message: string, waitSeconds: number) {
+    this.command = {
+      ...this.command,
+      status: 'waiting',
+      progress,
+      message,
+      metadata: {
+        waitSeconds,
+        resumeTime: new Date(Date.now() + waitSeconds * 1000).toISOString(),
+      },
     }
     this.options?.onProgress(this.command)
   }
@@ -51,8 +69,13 @@ export class ExportCommandHandler {
 
       const result = await exportService.exportMessages({
         ...params,
-        onProgress: (progress, message) => {
-          this.updateProgress(progress, message)
+        onProgress: (progress, message, metadata) => {
+          if (metadata?.type === 'waiting') {
+            this.updateWaiting(progress, message, metadata.waitSeconds)
+          }
+          else {
+            this.updateProgress(progress, message, metadata)
+          }
         },
       })
 

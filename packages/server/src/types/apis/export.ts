@@ -32,5 +32,11 @@ export interface ExportParams {
   chatId: number
   messageTypes: DatabaseMessageType[]
   method: ExportMethod
+  /** 增量导出: 指定导出该消息ID之后的消息 */
+  minId?: number
+  /** 增量导出: 指定导出该消息ID之前的消息 */
+  maxId?: number
+  /** 是否开启增量导出 (基于上次最大消息ID) */
+  incremental?: boolean
   [key: string]: unknown
 }

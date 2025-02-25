@@ -3,7 +3,7 @@
 import type { TelegramChat } from '@tg-search/core'
 import type { DatabaseMessageType } from '@tg-search/db'
 import type { ExportDetails } from '@tg-search/server'
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import { useExport } from '../../apis/commands/useExport'
 
@@ -31,7 +31,11 @@ const selectedChatId = ref<number>()
 // Selected message types
 const selectedMessageTypes = ref<DatabaseMessageType[]>(['text'])
 // Selected export method
-const selectedMethod = ref<'getMessage' | 'takeout'>('takeout')
+const selectedMethod = ref<'getMessage' | 'takeout'>('getMessage')
+// 增量导出选项
+const enableIncremental = ref<boolean>(false)
+// 自定义开始消息ID
+const customMinId = ref<number | undefined>(undefined)
 
 // Chat type options
 const chatTypeOptions = [
@@ -78,6 +82,9 @@ async function handleExport() {
     chatId: selectedChatId.value,
     messageTypes: selectedMessageTypes.value,
     method: selectedMethod.value,
+    // 添加增量导出相关参数
+    incremental: enableIncremental.value,
+    minId: customMinId.value,
   })
 
   if (!result.success) {
@@ -90,12 +97,62 @@ async function handleExport() {
 
 // Computed properties for progress display
 const isExporting = computed(() => currentCommand.value?.status === 'running')
+const isWaiting = computed(() => currentCommand.value?.status === 'waiting')
+const waitingTimeLeft = ref(0)
+let countdownTimer: number | undefined
+
+// 获取从metadata中的总消息数和已处理消息数
+const totalMessages = computed(() => currentCommand.value?.metadata?.totalMessages as number | undefined)
+const processedMessages = computed(() => currentCommand.value?.metadata?.processedMessages as number | undefined)
+
+// 每秒更新剩余等待时间
+function startCountdown() {
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+  }
+
+  const waitSeconds = currentCommand.value?.metadata?.waitSeconds
+  if (!waitSeconds || typeof waitSeconds !== 'number') {
+    return
+  }
+
+  waitingTimeLeft.value = waitSeconds
+
+  countdownTimer = window.setInterval(() => {
+    if (waitingTimeLeft.value <= 0) {
+      clearInterval(countdownTimer)
+      return
+    }
+    waitingTimeLeft.value -= 1
+  }, 1000)
+}
+
+// 当命令状态更新时检查是否需要启动倒计时
+watch(() => currentCommand.value?.status, (newStatus) => {
+  if (newStatus === 'waiting') {
+    startCountdown()
+  }
+  else if (countdownTimer) {
+    clearInterval(countdownTimer)
+  }
+})
+
+// 组件卸载时清理倒计时
+onUnmounted(() => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+  }
+  cleanup()
+})
+
 const exportStatus = computed(() => {
   if (!currentCommand.value)
     return ''
   switch (currentCommand.value.status) {
     case 'running':
       return '导出中'
+    case 'waiting':
+      return `API限制中，等待恢复 (${waitingTimeLeft.value}秒)`
     case 'completed':
       return '导出完成'
     case 'failed':
@@ -106,9 +163,16 @@ const exportStatus = computed(() => {
 })
 
 const exportDetails = computed(() => {
-  if (!currentCommand.value || !('details' in currentCommand.value))
+  if (!currentCommand.value || !currentCommand.value.metadata)
     return null
-  return currentCommand.value.details as ExportDetails
+
+  // 从 metadata 获取需要的字段组成 ExportDetails
+  return {
+    totalMessages: currentCommand.value.metadata.totalMessages as number | undefined,
+    processedMessages: currentCommand.value.metadata.processedMessages as number | undefined,
+    failedMessages: currentCommand.value.metadata.failedMessages as number | undefined,
+    // 其他字段可能没有，暂时不处理
+  } as ExportDetails
 })
 
 // Format speed for display
@@ -232,6 +296,35 @@ function formatTime(time: string): string {
         </select>
       </div>
 
+      <!-- 增量导出选项 -->
+      <div class="mb-4">
+        <div class="mb-2 flex items-center">
+          <input
+            id="incrementalExport"
+            v-model="enableIncremental"
+            type="checkbox"
+            class="border-gray-300 rounded text-blue-600 dark:border-gray-600 dark:bg-gray-700"
+            :disabled="isExporting"
+          >
+          <label for="incrementalExport" class="ml-2 text-sm text-gray-700 font-medium dark:text-gray-300">
+            增量导出（仅导出上次导出后的新消息）
+          </label>
+        </div>
+
+        <div v-if="!enableIncremental" class="mt-2">
+          <label class="mb-1 block text-sm text-gray-700 font-medium dark:text-gray-300">
+            自定义起始消息ID（可选）
+          </label>
+          <input
+            v-model.number="customMinId"
+            type="number"
+            placeholder="从此ID开始导出（留空则从最新消息开始）"
+            class="w-full border border-gray-300 rounded bg-white p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+            :disabled="isExporting"
+          >
+        </div>
+      </div>
+
       <!-- Export button -->
       <button
         class="w-full rounded bg-blue-500 px-4 py-2 text-white dark:bg-blue-600 hover:bg-blue-600 disabled:opacity-50 dark:hover:bg-blue-700"
@@ -265,13 +358,13 @@ function formatTime(time: string): string {
 
       <!-- Progress bar -->
       <div class="mb-4">
-        <div class="h-2 w-full rounded bg-gray-200 dark:bg-gray-700">
+        <div class="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
           <div
-            class="h-full rounded transition-all duration-300"
+            class="h-2 rounded-full"
             :class="{
-              'bg-blue-500 dark:bg-blue-600': currentCommand.status === 'running',
-              'bg-green-500 dark:bg-green-600': currentCommand.status === 'completed',
-              'bg-red-500 dark:bg-red-600': currentCommand.status === 'failed',
+              'bg-blue-600': !isWaiting && currentCommand?.status !== 'failed',
+              'bg-yellow-500': isWaiting,
+              'bg-red-500': currentCommand?.status === 'failed',
             }"
             :style="{ width: `${exportProgress}%` }"
           />
@@ -281,9 +374,25 @@ function formatTime(time: string): string {
         </div>
       </div>
 
+      <!-- 等待提示 -->
+      <div v-if="isWaiting" class="mt-2 rounded bg-yellow-100 p-2 text-yellow-800 dark:bg-yellow-800/20 dark:text-yellow-200">
+        <p class="flex items-center">
+          <span class="i-tabler-hourglass-high mr-2 animate-pulse" />
+          Telegram API 限制中...将在 {{ waitingTimeLeft }} 秒后恢复。
+        </p>
+      </div>
+
       <!-- Status message -->
       <div class="mb-4 text-sm">
         {{ currentCommand.message }}
+        <template v-if="currentCommand.message?.includes('已处理')">
+          <span v-if="totalMessages && processedMessages">
+            ({{ processedMessages.toLocaleString() }} / {{ totalMessages.toLocaleString() }} 条)
+          </span>
+          <span v-else-if="exportDetails?.totalMessages">
+            (共 {{ exportDetails.totalMessages.toLocaleString() }} 条)
+          </span>
+        </template>
       </div>
 
       <!-- Export details -->
@@ -294,7 +403,12 @@ function formatTime(time: string): string {
         </div>
         <div v-if="exportDetails.processedMessages" class="flex justify-between">
           <span>已处理消息：</span>
-          <span>{{ exportDetails.processedMessages.toLocaleString() }}</span>
+          <span>
+            {{ exportDetails.processedMessages.toLocaleString() }}
+            <template v-if="exportDetails.totalMessages">
+              / {{ exportDetails.totalMessages.toLocaleString() }}
+            </template>
+          </span>
         </div>
         <div v-if="exportDetails.failedMessages" class="flex justify-between text-red-600">
           <span>失败消息：</span>

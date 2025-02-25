@@ -6,6 +6,7 @@ import {
   deleteAllChats,
   getAllChats,
   getChatCount,
+  getChatMetadataById,
   getChatsInFolder,
   updateChat,
 } from './chat'
@@ -44,7 +45,12 @@ describe('chat Model', () => {
   beforeAll(async () => {
     setupTest()
   })
-
+  describe('getChatById', () => {
+    it('should get a chat by id', async () => {
+      const result = await getChatMetadataById(1)
+      expect(result).toHaveLength(1)
+    })
+  })
   describe('updateChat', () => {
     it('should update or create a chat', async () => {
       const chat = {
