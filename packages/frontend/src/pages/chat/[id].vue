@@ -1,9 +1,8 @@
 <!-- Chat messages page -->
 <script setup lang="ts">
-import type { TelegramChat, TelegramMessage } from '@tg-search/core'
+import type { TelegramMessage } from '@tg-search/core'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useChats } from '../../apis/useChats'
 import { useMessages } from '../../apis/useMessages'
 
 // Local message type with highlight support
@@ -173,7 +172,8 @@ async function jumpToMessage(messageId: number) {
       console.warn(`Message ${messageId} not found`)
     }
   }
-  finally {
+  catch (error) {
+    console.error(error)
   }
 }
 
