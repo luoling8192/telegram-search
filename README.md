@@ -30,6 +30,7 @@
   - [x] 支持多种消息类型的检索
 
 - 📊 **全面的消息支持**
+
   - [x] 文本、图片、视频、文件、贴纸等多种类型
   - [x] 完整的消息元数据（回复、转发、查看次数等）
   - [x] 支持媒体文件本地存储
@@ -75,13 +76,19 @@ pnpm run stub
 cp config/config.example.yaml config/config.yaml
 ```
 
-4. 初始化数据库：
+4. 启动数据库容器:
+
+```bash
+docker compose up -d
+```
+
+5. 初始化数据库：
 
 ```bash
 pnpm run db:migrate
 ```
 
-5. 启动服务：
+6. 启动服务：
 
 ```bash
 # 启动后端服务

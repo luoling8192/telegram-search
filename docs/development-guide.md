@@ -113,10 +113,10 @@ pnpm run dev:cli db:status
 pnpm run dev:cli test:api
 ```
 
-3. 修改monorepo后，需要重新生成stub
+3. 修改导出(export)之后，重新运行 stub
 
 ```bash
-pnpm run dev:cli stub
+pnpm run stub
 ```
 
 ## 发布流程
