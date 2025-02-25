@@ -29,13 +29,11 @@ export function createSSEResponse(
           complete: (data) => {
             if (!isStreamClosed(controller)) {
               controller.enqueue(createSSEMessage('complete', createResponse(data)))
-              controller.close()
             }
           },
           error: (err) => {
             if (!isStreamClosed(controller)) {
               controller.enqueue(createSSEMessage('error', createResponse(undefined, err)))
-              controller.close()
             }
           },
           progress: (data) => {
@@ -48,7 +46,7 @@ export function createSSEResponse(
         try {
           await handler(sseController)
           // 确保处理完成后关闭
-          sseController.complete(null)
+          controller.close()
         }
         catch (err) {
           sseController.error(err)
