@@ -2,7 +2,7 @@
  * Sync params
  */
 export interface SyncParams {
-
+  [key: string]: unknown
 }
 
 /**

@@ -1,15 +1,10 @@
 <script setup lang="ts">
+import type { SyncDetails } from '../../../../server/src/types/apis/sync'
 import { computed, onUnmounted } from 'vue'
 import { toast } from 'vue-sonner'
 import { useSync } from '../../apis/commands/useSync'
-import { SyncDetails } from '../../../../server/src/types/apis/sync'
 
-const {
-  executeSync,
-  currentCommand,
-  syncProgress,
-  cleanup,
-} = useSync()
+const { executeSync, currentCommand, syncProgress, cleanup } = useSync()
 
 // Cleanup when component is unmounted
 onUnmounted(() => {
@@ -17,22 +12,24 @@ onUnmounted(() => {
 })
 
 const syncDetails = computed(() => {
-    if(!currentCommand.value || !currentCommand.value.metadata)
-    {
-        return null
-    }
-    
-    const metadata = currentCommand.value.metadata
-    return {totalChats:metadata.totalChats as number | undefined, totalFolders:metadata.totalFolders as number | undefined,processedChats:metadata.processedChats as number | undefined,processedFolders:metadata.processedFolders as number | undefined} as SyncDetails
+  if (!currentCommand.value || !currentCommand.value.metadata) {
+    return null
+  }
+
+  const metadata = currentCommand.value.metadata
+  return {
+    totalChats: metadata.totalChats as number | undefined,
+    totalFolders: metadata.totalFolders as number | undefined,
+    processedChats: metadata.processedChats as number | undefined,
+    processedFolders: metadata.processedFolders as number | undefined,
+  } as SyncDetails
 })
 
-
-const syncStatus = computed(()=>{
-    if(!currentCommand.value)
-    {
-        return ''
-    }
-    switch (currentCommand.value.status) {
+const syncStatus = computed(() => {
+  if (!currentCommand.value) {
+    return ''
+  }
+  switch (currentCommand.value.status) {
     case 'running':
       return '同步中'
     case 'waiting':
@@ -44,12 +41,10 @@ const syncStatus = computed(()=>{
     default:
       return '准备同步'
   }
-
 })
 
 // Start sync command
 async function handleSync() {
-  console.log('sync')
   const toastId = toast.loading('正在导出...')
   const result = await executeSync({})
   if (!result.success) {
@@ -76,16 +71,19 @@ async function handleSync() {
       v-if="currentCommand"
       class="rounded bg-white p-4 shadow dark:bg-gray-800 dark:text-gray-100"
     >
-    <div class="mb-2 flex items-center justify-between">
+      <div class="mb-2 flex items-center justify-between">
         <h2 class="text-lg font-semibold">
           同步进度
         </h2>
         <span
           class="rounded px-2 py-1 text-sm"
           :class="{
-            'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100': currentCommand.status === 'running',
-            'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100': currentCommand.status === 'completed',
-            'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100': currentCommand.status === 'failed',
+            'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100':
+              currentCommand.status === 'running',
+            'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100':
+              currentCommand.status === 'completed',
+            'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100':
+              currentCommand.status === 'failed',
           }"
         >
           {{ syncStatus }}
@@ -97,7 +95,7 @@ async function handleSync() {
           <div
             class="h-2 rounded-full"
             :class="{
-              'bg-blue-600':currentCommand?.status !== 'failed',
+              'bg-blue-600': currentCommand?.status !== 'failed',
               'bg-red-500': currentCommand?.status === 'failed',
             }"
             :style="{ width: `${syncProgress}%` }"
@@ -108,17 +106,25 @@ async function handleSync() {
         </div>
       </div>
       <div v-if="syncDetails" class="text-sm space-y-2">
-        <div v-if="!!syncDetails.totalChats && !!syncDetails.processedChats" class="flex justify-between">
+        <div
+          v-if="!!syncDetails.totalChats && !!syncDetails.processedChats"
+          class="flex justify-between"
+        >
           <span>会话同步数量：</span>
-          <span>{{syncDetails.processedChats.toLocaleString()}}/{{ syncDetails.totalChats.toLocaleString() }}</span>
+          <span>{{ syncDetails.processedChats.toLocaleString() }}/{{
+            syncDetails.totalChats.toLocaleString()
+          }}</span>
         </div>
-        <div v-if="!!syncDetails.totalFolders && !!syncDetails.processedFolders" class="flex justify-between">
+        <div
+          v-if="!!syncDetails.totalFolders && !!syncDetails.processedFolders"
+          class="flex justify-between"
+        >
           <span>文件同步数量：</span>
-          <span>{{syncDetails.processedFolders.toLocaleString()}}/{{ syncDetails.totalFolders.toLocaleString() }}</span>
+          <span>{{ syncDetails.processedFolders.toLocaleString() }}/{{
+            syncDetails.totalFolders.toLocaleString()
+          }}</span>
         </div>
-        </div>
+      </div>
     </div>
-    
   </div>
- 
 </template>
