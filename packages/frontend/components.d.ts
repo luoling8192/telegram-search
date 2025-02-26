@@ -14,6 +14,7 @@ declare module 'vue' {
     MessageBubble: typeof import('./src/components/MessageBubble.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SyncCommand: typeof import('./src/components/commands/SyncCommand.vue')['default']
     ThemeToggle: typeof import('./src/components/ThemeToggle.vue')['default']
   }
 }

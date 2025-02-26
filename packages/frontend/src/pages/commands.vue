@@ -15,7 +15,7 @@ const activeCommandType = ref<'export' | 'import' | 'sync' | 'watch'>('export')
 const commandTypeOptions = [
   { label: '导出', value: 'export' as const },
   { label: '导入', value: 'import' as const, disabled: true },
-  { label: '同步', value: 'sync' as const, disabled: true },
+  { label: '同步', value: 'sync' as const },
   { label: '监控', value: 'watch' as const, disabled: true },
 ]
 
@@ -60,6 +60,7 @@ onUnmounted(() => {
         v-if="activeCommandType === 'export'"
         :chats="chats"
       />
+      <SyncCommand v-else-if="activeCommandType === 'sync'" />
     </div>
 
     <!-- Error message -->

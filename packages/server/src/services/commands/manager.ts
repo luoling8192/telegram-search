@@ -4,6 +4,7 @@ import type { SSEController } from '../../types/sse'
 
 import { SSEHandler } from '../sse-handler'
 import { ExportCommandHandler } from './export'
+import { SyncCommandHandler } from './sync'
 
 export class CommandManager {
   // 直接定义所有命令处理器
@@ -12,6 +13,7 @@ export class CommandManager {
     // 直接添加新的处理器
     // import: new ImportCommandHandler(),
     // stats: new StatsCommandHandler(),
+    sync: new SyncCommandHandler(),
   } as const
 
   /**

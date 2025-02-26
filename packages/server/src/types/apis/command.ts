@@ -23,7 +23,7 @@ export type ExportMethod = typeof exportMethods[number]
  */
 export interface Command {
   id: string
-  type: 'export' | 'import' | 'stats'
+  type: 'export' | 'import' | 'stats' | 'sync'
   status: 'pending' | 'running' | 'completed' | 'failed' | 'waiting'
   progress: number
   message: string

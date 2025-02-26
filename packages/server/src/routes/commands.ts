@@ -5,6 +5,7 @@ import { createRouter, defineEventHandler, readBody } from 'h3'
 
 import { exportCommandSchema } from '../services/commands/export'
 import { CommandManager } from '../services/commands/manager'
+import { syncCommandSchema } from '../services/commands/sync'
 import { useTelegramClient } from '../services/telegram'
 import { createSSEResponse } from '../utils/sse'
 
@@ -16,7 +17,21 @@ const logger = useLogger()
 export function setupCommandRoutes(app: App) {
   const router = createRouter()
   const commandManager = new CommandManager()
+  router.post('/sync', defineEventHandler(async (event: H3Event) => {
+    const body = await readBody(event)
+    const vaildatedBody = syncCommandSchema.parse(body)
+    logger.withFields(vaildatedBody).debug('Sync request received')
+    // connect to Telegram server
+    const client = await useTelegramClient()
+    if (!await client.isConnected()) {
+      await client.connect()
+    }
 
+    const params = { ...vaildatedBody }
+    return createSSEResponse(async (controller) => {
+      await commandManager.executeCommand('sync', client, params, controller)
+    })
+  }))
   router.post('/export', defineEventHandler(async (event: H3Event) => {
     const body = await readBody(event)
     const validatedBody = exportCommandSchema.parse(body)
