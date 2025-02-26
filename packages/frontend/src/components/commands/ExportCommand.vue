@@ -386,7 +386,7 @@ function formatTime(time: string): string {
       <div class="mb-4 text-sm">
         {{ currentCommand.message }}
         <template v-if="currentCommand.message?.includes('已处理')">
-          <span v-if="totalMessages && processedMessages">
+          <span v-if="!!totalMessages && !!processedMessages">
             ({{ processedMessages.toLocaleString() }} / {{ totalMessages.toLocaleString() }} 条)
           </span>
           <span v-else-if="exportDetails?.totalMessages">
@@ -397,36 +397,36 @@ function formatTime(time: string): string {
 
       <!-- Export details -->
       <div v-if="exportDetails" class="text-sm space-y-2">
-        <div v-if="exportDetails.totalMessages" class="flex justify-between">
+        <div v-if="!!exportDetails.totalMessages" class="flex justify-between">
           <span>总消息数：</span>
           <span>{{ exportDetails.totalMessages.toLocaleString() }}</span>
         </div>
-        <div v-if="exportDetails.processedMessages" class="flex justify-between">
+        <div v-if="!!exportDetails.processedMessages" class="flex justify-between">
           <span>已处理消息：</span>
           <span>
             {{ exportDetails.processedMessages.toLocaleString() }}
-            <template v-if="exportDetails.totalMessages">
+            <template v-if="!!exportDetails.totalMessages">
               / {{ exportDetails.totalMessages.toLocaleString() }}
             </template>
           </span>
         </div>
-        <div v-if="exportDetails.failedMessages" class="flex justify-between text-red-600">
+        <div v-if="!!exportDetails.failedMessages" class="flex justify-between text-red-600">
           <span>失败消息：</span>
           <span>{{ exportDetails.failedMessages.toLocaleString() }}</span>
         </div>
-        <div v-if="exportDetails.currentBatch && exportDetails.totalBatches" class="flex justify-between">
+        <div v-if="!!exportDetails.currentBatch && !!exportDetails.totalBatches" class="flex justify-between">
           <span>当前批次：</span>
           <span>{{ exportDetails.currentBatch }} / {{ exportDetails.totalBatches }}</span>
         </div>
-        <div v-if="exportDetails.currentSpeed" class="flex justify-between">
+        <div v-if="!!exportDetails.currentSpeed" class="flex justify-between">
           <span>当前速度：</span>
           <span>{{ formatSpeed(exportDetails.currentSpeed) }}</span>
         </div>
-        <div v-if="exportDetails.estimatedTimeRemaining" class="flex justify-between">
+        <div v-if="!!exportDetails.estimatedTimeRemaining" class="flex justify-between">
           <span>预计剩余时间：</span>
           <span>{{ formatTime(exportDetails.estimatedTimeRemaining) }}</span>
         </div>
-        <div v-if="exportDetails.totalDuration" class="flex justify-between">
+        <div v-if="!!exportDetails.totalDuration" class="flex justify-between">
           <span>总耗时：</span>
           <span>{{ formatTime(exportDetails.totalDuration) }}</span>
         </div>
