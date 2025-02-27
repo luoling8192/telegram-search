@@ -30,8 +30,10 @@ export interface ApiConfig {
     apiHash: string
     phoneNumber: string
   }
-  openai: {
-    apiKey: string
+  embedding: {
+    provider: 'ollama' | 'openai'
+    model: string
+    apiKey?: string
     apiBase?: string
   }
 }

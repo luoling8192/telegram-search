@@ -37,11 +37,13 @@ api:
   # Telegram API settings
   telegram:
     # Get these values from https://my.telegram.org/apps
-    apiId: "your_api_id"
-    apiHash: "your_api_hash"
-    phoneNumber: "+1234567890"
-  # OpenAI API settings
-  openai:
-    apiKey: "your_openai_api_key"
+    apiId: your_api_id
+    apiHash: your_api_hash
+    phoneNumber: '+1234567890'
+  # Embedding settings
+  embedding:
+    provider: ollama
+    model: nomic-embed-text
+    apiKey: your_openai_api_key
     # Optional, for custom API providers
-    apiBase: "https://api.openai.com/v1" 
+    apiBase: 'https://api.openai.com/v1'
