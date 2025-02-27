@@ -39,8 +39,10 @@ const configSchema = z.object({
       apiHash: z.string(),
       phoneNumber: z.string(),
     }),
-    openai: z.object({
-      apiKey: z.string(),
+    embedding: z.object({
+      provider: z.enum(['openai', 'ollama']),
+      model: z.string(),
+      apiKey: z.string().optional(),
       apiBase: z.string().optional(),
     }),
   }),

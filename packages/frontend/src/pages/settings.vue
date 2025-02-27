@@ -28,8 +28,8 @@ function validateNumberField(value: number, fieldName: string, min = 1, max = 10
 }
 
 const embeddingProviderOptions = [
-  {label: "OpenAI", value:"openai"},
-  {label: "Ollama", value:"ollama"},
+  { label: 'OpenAI', value: 'openai' },
+  { label: 'Ollama', value: 'ollama' },
 ]
 
 // 验证所有数字字段
