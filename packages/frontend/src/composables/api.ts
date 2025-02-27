@@ -1,3 +1,5 @@
+import type { ErrorResponse, SuccessResponse } from '@tg-search/server'
+
 import { ofetch } from 'ofetch'
 import { ref } from 'vue'
 
@@ -19,23 +21,23 @@ export function useApi() {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  // 使用 Map 存储所有请求的控制器
+  // Store controllers for all requests in a Map
   const controllers = new Map<string, AbortController>()
 
   /**
    * Generic API request wrapper with state management
    */
   const request = async <T>(
-    fn: () => Promise<{ success: boolean, data: T }>,
+    fn: () => Promise<SuccessResponse<T> | ErrorResponse>,
     options?: {
-      key?: string // 唯一标识用于取消
+      key?: string // Unique key for cancellation
       timeout?: number
     },
   ): Promise<T> => {
     const controller = new AbortController()
     const requestKey = options?.key || Date.now().toString()
 
-    // 存储控制器
+    // Store controller
     controllers.set(requestKey, controller)
 
     try {
@@ -46,7 +48,7 @@ export function useApi() {
         fn().then(r => r).catch((error) => {
           if (error.name === 'AbortError')
             throw error
-          return { success: false, data: null }
+          return { success: false, error: error.message, code: 'UNKNOWN_ERROR' } as ErrorResponse
         }),
         new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('Request timeout')), options?.timeout || 30000)
@@ -54,11 +56,11 @@ export function useApi() {
       ])
 
       if (!response.success) {
-        throw new Error('Request failed')
+        throw new Error((response as ErrorResponse).error)
       }
 
       // Handle null case to satisfy TypeScript type check
-      if (response.data === null) {
+      if ('data' in response && response.data === null) {
         throw new Error('Response data is null')
       }
 
@@ -76,7 +78,7 @@ export function useApi() {
     }
   }
 
-  // 添加取消方法
+  // Add cancellation method
   const cancelRequest = (key: string) => {
     controllers.get(key)?.abort()
     controllers.delete(key)

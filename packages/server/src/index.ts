@@ -20,7 +20,7 @@ import { setupCommandRoutes } from './routes/commands'
 import { setupConfigRoutes } from './routes/config'
 import { setupMessageRoutes } from './routes/message'
 import { setupSearchRoutes } from './routes/search'
-import { createResponse } from './utils/response'
+import { createErrorResponse } from './utils/response'
 
 export * from './types'
 
@@ -115,7 +115,7 @@ function configureServer(logger: ReturnType<typeof useLogger>) {
         userAgent,
       }).error('Request failed')
 
-      return createResponse(undefined, error)
+      return createErrorResponse(error)
     }
   }))
 

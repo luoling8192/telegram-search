@@ -100,6 +100,21 @@ export class ClientAdapter implements ITelegramClientAdapter {
     }
   }
 
+  /**
+   * Send verification code to the user's phone
+   * This is the first step of the authentication process
+   */
+  public async sendCode(): Promise<boolean> {
+    return this.connectionManager.sendCode()
+  }
+
+  /**
+   * Logout from Telegram and clear session
+   */
+  public async logout(): Promise<void> {
+    return this.connectionManager.logout()
+  }
+
   async getPaginationDialogs(offset = 0, limit = 10): Promise<TelegramChatsResult> {
     try {
       return await this.dialogManager.getPaginationDialogs(offset, limit)

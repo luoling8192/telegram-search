@@ -1,14 +1,28 @@
 <script setup lang="ts">
-import type { SyncDetails } from '../../../../server/src/types/apis/sync'
-import { computed, onUnmounted } from 'vue'
+import type { SyncDetails } from '@tg-search/server'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { useSync } from '../../apis/commands/useSync'
+import { useSession } from '../../composables/useSession'
 
 // State management
 const { executeSync, currentCommand, syncProgress, cleanup } = useSync()
+const { checkConnection, isConnected } = useSession()
 const isSyncing = computed(() => currentCommand.value?.status === 'running')
-const canStartSync = computed(() => !currentCommand.value
-  || ['completed', 'failed'].includes(currentCommand.value.status))
+// const canStartSync = computed(() => (!currentCommand.value
+//   || ['completed', 'failed'].includes(currentCommand.value.status)) && isConnected.value)
+const router = useRouter()
+const showConnectButton = ref(false)
+
+// 检查连接状态
+onMounted(async () => {
+  const connected = await checkConnection(false) // 不自动跳转到登录页
+  if (!connected) {
+    // 如果未连接，显示连接按钮，而不是自动跳转
+    showConnectButton.value = true
+  }
+})
 
 // Cleanup when component is unmounted
 onUnmounted(() => {
@@ -22,6 +36,7 @@ const syncDetails = computed((): SyncDetails | null => {
   }
 
   const metadata = currentCommand.value.metadata
+  // TODO: interface
   return {
     totalChats: metadata.totalChats as number | undefined,
     totalFolders: metadata.totalFolders as number | undefined,
@@ -72,20 +87,32 @@ function formatNumber(num: number | undefined): string {
 
 // Start sync command
 async function handleSync(): Promise<void> {
+  // 检查是否已连接到Telegram
+  if (!isConnected.value) {
+    toast.error('请先连接Telegram以使用同步功能')
+    return
+  }
+
   const toastId = toast.loading('正在准备同步...')
 
   try {
     const result = await executeSync({})
-    if (result.success) {
-      toast.success('同步启动成功', { id: toastId })
+    if (!result.success) {
+      toast.error(result.error || '同步失败', { id: toastId })
     }
     else {
-      toast.error(result.error || '同步失败', { id: toastId })
+      toast.success('同步启动成功', { id: toastId })
     }
   }
   catch (error) {
     toast.error(`同步错误: ${error instanceof Error ? error.message : '未知错误'}`, { id: toastId })
   }
+}
+
+// 跳转到登录页
+function goToLogin() {
+  const currentPath = router.currentRoute.value.fullPath
+  router.push(`/login?redirect=${encodeURIComponent(currentPath)}`)
 }
 </script>
 
@@ -100,24 +127,45 @@ async function handleSync(): Promise<void> {
         <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
           将您的会话数据与云端同步，确保数据安全和跨设备访问。
         </p>
-        <button
-          class="group relative w-full overflow-hidden rounded-md bg-blue-500 px-4 py-3 text-white font-medium shadow-sm transition-all duration-300 dark:bg-blue-600 hover:bg-blue-600 disabled:opacity-70 hover:shadow-md dark:hover:bg-blue-700"
-          :disabled="!canStartSync"
-          @click="handleSync"
-        >
-          <span v-if="isSyncing" class="flex items-center justify-center">
-            <span class="mr-2 inline-block animate-spin">⟳</span>
-            <span>同步进行中...</span>
-          </span>
-          <span v-else class="flex items-center justify-center">
-            <span class="mr-2">↻</span>
-            <span>开始同步</span>
-          </span>
-          <span
-            class="absolute bottom-0 left-0 h-1 bg-blue-400 transition-all duration-500"
-            :class="{ 'w-full': isSyncing, 'w-0': !isSyncing }"
-          />
-        </button>
+
+        <!-- 未连接Telegram时的提示 -->
+        <div v-if="!isConnected && showConnectButton" class="mb-4 rounded-md bg-blue-50 p-4 dark:bg-blue-900/30">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <div class="i-carbon-information h-5 w-5 text-blue-400" aria-hidden="true" />
+            </div>
+            <div class="ml-3 flex-1 md:flex md:justify-between">
+              <p class="text-sm text-blue-700 dark:text-blue-300">
+                需要连接到 Telegram 以执行同步操作
+              </p>
+              <p class="mt-3 text-sm md:ml-6 md:mt-0">
+                <button
+                  class="whitespace-nowrap text-blue-700 font-medium dark:text-blue-300 hover:text-blue-600 dark:hover:text-blue-200"
+                  @click="goToLogin"
+                >
+                  连接 Telegram
+                  <span aria-hidden="true"> &rarr;</span>
+                </button>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sync button -->
+        <div class="mb-5">
+          <button
+            type="button"
+            class="w-full flex items-center justify-center rounded-md bg-blue-600 px-4 py-3 text-sm text-white font-medium shadow-sm transition-colors disabled:cursor-not-allowed dark:bg-blue-700 hover:bg-blue-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:hover:bg-blue-600"
+            :disabled="isSyncing || !isConnected"
+            @click="handleSync"
+          >
+            <span v-if="isSyncing" class="mr-2 inline-block animate-spin text-lg">{{ statusIcon }}</span>
+            <span>{{ isSyncing ? syncStatus : '开始同步' }}</span>
+          </button>
+          <p v-if="isConnected" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            开始同步将从Telegram获取最新的会话和文件夹信息
+          </p>
+        </div>
       </div>
     </div>
 

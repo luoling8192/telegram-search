@@ -71,6 +71,16 @@ export interface ITelegramClientAdapter extends BaseTelegramAdapter {
   isConnected: () => Promise<boolean>
 
   /**
+   * Send verification code
+   */
+  sendCode: () => Promise<boolean>
+
+  /**
+   * Logout
+   */
+  logout: () => Promise<void>
+
+  /**
    * Get messages from chat
    */
   getMessages: (chatId: number, limit?: number, options?: GetTelegramMessageParams) => AsyncGenerator<TelegramMessage>

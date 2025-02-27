@@ -118,4 +118,39 @@ export class SessionManager {
       throw error
     }
   }
+
+  /**
+   * Clear session by removing session file
+   */
+  async clearSession(): Promise<void> {
+    try {
+      await this.errorHandler.withRetry(
+        async () => {
+          try {
+            // 检查文件是否存在
+            await fs.access(this.sessionFile)
+            // 文件存在，则删除它
+            await fs.unlink(this.sessionFile)
+            this.logger.debug('会话文件已清除')
+          }
+          catch {
+            // 文件不存在，不需要处理
+            this.logger.debug('无会话文件可清除')
+          }
+        },
+        {
+          context: '清除会话文件',
+          maxRetries: 3,
+          initialDelay: 1000,
+        },
+      )
+
+      // 重置内存中的会话
+      this.session = new StringSession('')
+    }
+    catch (error) {
+      this.errorHandler.handleError(this.toError(error), '清除会话', '无法清除会话信息')
+      throw error
+    }
+  }
 }

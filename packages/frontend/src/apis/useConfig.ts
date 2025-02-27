@@ -16,7 +16,7 @@ export function useConfig() {
    */
   async function getConfig(): Promise<Config> {
     const data = await request<Config>(() =>
-      apiFetch<{ success: boolean, data: Config }>('/config'),
+      apiFetch('/config'),
     )
     config.value = data
     return data
@@ -27,7 +27,7 @@ export function useConfig() {
    */
   async function updateConfig(newConfig: Config): Promise<void> {
     await request<void>(() =>
-      apiFetch<{ success: boolean, data: void }>('/config', {
+      apiFetch('/config', {
         method: 'PUT',
         body: newConfig,
       }),

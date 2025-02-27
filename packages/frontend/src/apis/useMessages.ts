@@ -26,7 +26,7 @@ export function useMessages() {
         limit: number
         offset: number
       }>(() =>
-        apiFetch<{ success: boolean, data: { items: TelegramMessage[], total: number, chat: TelegramChat, limit: number, offset: number } }>(
+        apiFetch(
           `/messages/${chatId}${params ? `?${new URLSearchParams(params as any)}` : ''}`,
         ),
       )
