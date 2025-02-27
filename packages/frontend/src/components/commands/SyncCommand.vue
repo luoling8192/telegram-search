@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SyncDetails } from '../../../../server/src/types/apis/sync'
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onUnmounted } from 'vue'
 import { toast } from 'vue-sonner'
 import { useSync } from '../../apis/commands/useSync'
 

@@ -8,12 +8,18 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    CheckboxGroup: typeof import('./src/components/ui/CheckboxGroup.vue')['default']
     CommandList: typeof import('./src/components/commands/CommandList.vue')['default']
     ExportCommand: typeof import('./src/components/commands/ExportCommand.vue')['default']
     HighlightText: typeof import('./src/components/HighlightText.vue')['default']
     MessageBubble: typeof import('./src/components/MessageBubble.vue')['default']
+    ProgressBar: typeof import('./src/components/ui/ProgressBar.vue')['default']
+    RadioGroup: typeof import('./src/components/ui/RadioGroup.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SearchSelect: typeof import('./src/components/ui/SearchSelect.vue')['default']
+    SelectDropdown: typeof import('./src/components/ui/SelectDropdown.vue')['default']
+    StatusBadge: typeof import('./src/components/ui/StatusBadge.vue')['default']
     SyncCommand: typeof import('./src/components/commands/SyncCommand.vue')['default']
     ThemeToggle: typeof import('./src/components/ThemeToggle.vue')['default']
   }
