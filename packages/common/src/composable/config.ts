@@ -118,7 +118,8 @@ function validateConfig(config: Config) {
     'api.telegram.apiId',
     'api.telegram.apiHash',
     'api.telegram.phoneNumber',
-    'api.openai.apiKey',
+    'api.embedding.provider',
+    'api.embedding.model',
   ] as const
 
   for (const path of required) {
