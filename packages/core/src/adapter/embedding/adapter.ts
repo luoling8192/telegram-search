@@ -2,6 +2,7 @@ import type { EmbeddingModelConfig, IEmbeddingModel } from '../../types'
 
 import { useLogger } from '@tg-search/common'
 
+import { EmbeddingModelOllama } from './ollama'
 import { EmbeddingModelOpenai } from './openai'
 
 export class EmbeddingAdapter {
@@ -13,6 +14,9 @@ export class EmbeddingAdapter {
     switch (config.provider) {
       case 'openai':
         this.embedding = new EmbeddingModelOpenai(config)
+        break
+      case 'ollama':
+        this.embedding = new EmbeddingModelOllama(config)
         break
       default:
         this.logger.error('Unknown provider')
