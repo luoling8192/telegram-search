@@ -30,7 +30,7 @@
     "@antfu/eslint-config": "^4.3.0",
     "@iconify-json/carbon": "^1.2.7",
     "@types/node": "^22.13.5",
-    "@unocss/eslint-config": "^66.1.0-beta.2",
+    "@unocss/eslint-config": "^66.1.0-beta.3",
     "@unocss/eslint-plugin": "^66.1.0-beta.2",
     "@unocss/reset": "^66.1.0-beta.2",
     "@vitejs/plugin-vue": "^5.2.1",
