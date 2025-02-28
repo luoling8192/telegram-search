@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.5",
-    "unbuild": "^3.4.2",
+    "unbuild": "^3.5.0",
     "vitest": "^3.0.7"
   }
 }
