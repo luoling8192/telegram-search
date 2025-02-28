@@ -142,8 +142,8 @@ importers:
         specifier: workspace:*
         version: link:../db
       '@xsai/embed':
-        specifier: 0.1.0-beta.6
-        version: 0.1.0-beta.6
+        specifier: 0.1.0-beta.9
+        version: 0.1.0-beta.9
       '@xsai/providers':
         specifier: 0.1.0-beta.5
         version: 0.1.0-beta.5
@@ -2344,8 +2344,8 @@ packages:
   '@vueuse/shared@12.7.0':
     resolution: {integrity: sha512-coLlUw2HHKsm7rPN6WqHJQr18WymN4wkA/3ThFaJ4v4gWGWAQQGK+MJxLuJTBs4mojQiazlVWAKNJNpUWGRkNw==}
 
-  '@xsai/embed@0.1.0-beta.6':
-    resolution: {integrity: sha512-6cBuvAPqbu2NYgGsJhRASK9AYFcFP3SM8Y+Xx2fioZ+6r0HBSamDhs1OZayWgKSMRbjmtcJVG0YGVn9+DzNi3A==}
+  '@xsai/embed@0.1.0-beta.9':
+    resolution: {integrity: sha512-4sV/4rYcHEgw8+md4KZ5uLvxZ+pgbKOmblVL6Nbv9ebZu/BzD89ZRFOgf+qJUcQ4pQS5InSSTpMqN49aArBo/g==}
 
   '@xsai/providers@0.1.0-beta.5':
     resolution: {integrity: sha512-jx630mUblMSUcDcXa+BNiFB7deQy1lp0XcJHQokfo/+QvYOpgaPrIRH6oUcjwLio0+8gJXqQmQfEY3+fl9Tjew==}
@@ -7380,7 +7380,7 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  '@xsai/embed@0.1.0-beta.6':
+  '@xsai/embed@0.1.0-beta.9':
     dependencies:
       '@xsai/shared': 0.1.0-beta.9
 
