@@ -23,7 +23,7 @@ const props = withDefaults(defineProps<Props<any>>(), {
   class: '',
   labelClass: 'mb-2 block text-sm text-gray-700 font-medium dark:text-gray-300',
   optionClass: 'hover:bg-gray-50 dark:hover:bg-gray-700/70',
-  checkboxClass: 'dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500'
+  checkboxClass: 'dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500',
 })
 
 const emit = defineEmits<{
@@ -76,8 +76,8 @@ function isChecked(value: any): boolean {
           props.optionClass,
           {
             'dark:border-blue-700 dark:bg-blue-900/20': isChecked(option.value),
-            'dark:border-gray-700': !isChecked(option.value)
-          }
+            'dark:border-gray-700': !isChecked(option.value),
+          },
         ]"
       >
         <input
@@ -89,7 +89,7 @@ function isChecked(value: any): boolean {
             borderRadius: '0.25rem',
             borderColor: 'rgb(209, 213, 219)',
             color: 'rgb(37, 99, 235)',
-            transition: 'all 0.2s'
+            transition: 'all 0.2s',
           }"
           :class="props.checkboxClass"
           :disabled="disabled"
