@@ -14,6 +14,7 @@ declare module 'vue' {
     CommandStatusPanel: typeof import('./src/components/ui/CommandStatusPanel.vue')['default']
     ExportCommand: typeof import('./src/components/commands/ExportCommand.vue')['default']
     HighlightText: typeof import('./src/components/HighlightText.vue')['default']
+    IconButton: typeof import('./src/components/ui/IconButton.vue')['default']
     LoadingButton: typeof import('./src/components/ui/LoadingButton.vue')['default']
     MessageBubble: typeof import('./src/components/MessageBubble.vue')['default']
     ProgressBar: typeof import('./src/components/ui/ProgressBar.vue')['default']

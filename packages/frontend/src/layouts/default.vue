@@ -55,28 +55,28 @@ async function handleLogin() {
         <div class="flex items-center gap-4">
           <ThemeToggle />
 
-          <button
-            class="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+          <IconButton
+            icon="i-carbon-mac-command"
+            aria-label="命令中心"
             @click="router.push('/commands')"
-          >
-            <div class="i-carbon-mac-command h-5 w-5 dark:text-white" />
-          </button>
+          />
 
-          <button
-            class="rounded-lg p-2 transition-colors duration-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+          <IconButton
+            icon="i-carbon-settings"
+            with-transition
+            aria-label="设置"
             @click="router.push('/settings')"
-          >
-            <div class="i-carbon-settings h-5 w-5 transition-colors duration-300 dark:text-white" />
-          </button>
+          />
 
           <!-- 用户头像与下拉菜单 -->
           <div ref="userMenuRef" class="relative">
-            <button
-              class="h-8 w-8 flex items-center justify-center rounded-full bg-blue-500 text-white transition-colors hover:bg-blue-600"
+            <IconButton
+              icon="i-carbon-user"
+              size="md"
+              custom-class="rounded-full"
+              aria-label="用户菜单"
               @click="showUserMenu = !showUserMenu"
-            >
-              <div class="i-carbon-user h-5 w-5" />
-            </button>
+            />
 
             <!-- 用户菜单 -->
             <div
