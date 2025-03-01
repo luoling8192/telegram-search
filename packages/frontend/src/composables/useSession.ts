@@ -16,15 +16,9 @@ export function useSession() {
 
   // 连接状态
   const isCheckingConnection = ref(false)
-  const isConnected = ref(false)
 
   const router = useRouter()
-  const { isConnected: authConnected } = useAuth()
-
-  // 创建本地检查状态函数
-  const checkStatus = async (): Promise<boolean> => {
-    return authConnected.value
-  }
+  const { checkStatus, isConnected } = useAuth()
 
   // 指数退避策略
   const calculateDelay = () =>

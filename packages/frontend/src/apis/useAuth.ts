@@ -1,3 +1,5 @@
+import type { SuccessResponse } from '@tg-search/server'
+
 import { ref } from 'vue'
 
 import { apiFetch, useApi } from '../composables/api'
@@ -8,6 +10,15 @@ import { apiFetch, useApi } from '../composables/api'
 export function useAuth() {
   const isConnected = ref(false)
   const { loading, error, request } = useApi()
+
+  async function checkStatus(): Promise<boolean> {
+    const response = await apiFetch<SuccessResponse<{ connected: boolean }>>('/auth/status', {
+      method: 'GET',
+    })
+
+    isConnected.value = response.data.connected
+    return response.data.connected
+  }
 
   /**
    * Logout from Telegram
@@ -33,5 +44,6 @@ export function useAuth() {
     loading,
     error,
     logout,
+    checkStatus,
   }
 }

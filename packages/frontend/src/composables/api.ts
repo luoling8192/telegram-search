@@ -15,6 +15,19 @@ export const apiFetch = ofetch.create({
 })
 
 /**
+ * Type-safe wrapper around apiFetch that handles API response types
+ * @template T The expected data type
+ */
+export function apiRequest<T>(
+  url: string,
+  options?: Parameters<typeof apiFetch>[1] & { responseType?: 'json' },
+): Promise<SuccessResponse<T> | ErrorResponse> {
+  return apiFetch<SuccessResponse<T> | ErrorResponse>(url, options)
+}
+
+// TODO: refactor
+// TODO: pinia
+/**
  * Vue composable for managing API state and requests
  */
 export function useApi() {

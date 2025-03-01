@@ -4,10 +4,11 @@ import type { App } from 'h3'
 import type { WsMessage } from '../utils/ws'
 
 import { useLogger } from '@tg-search/common'
-import { createRouter, defineWebSocketHandler } from 'h3'
+import { createRouter, defineEventHandler, defineWebSocketHandler } from 'h3'
 import { z } from 'zod'
 
 import { useTelegramClient } from '../services/telegram'
+import { createErrorResponse, createResponse } from '../utils/response'
 import { createErrorMessage, createSuccessMessage, parseMessage } from '../utils/ws'
 
 // 创建日志实例
@@ -73,6 +74,32 @@ interface ClientState {
 export function setupWsAuthRoutes(app: App) {
   // 创建临时路由处理器，处理之前REST API的请求
   const router = createRouter()
+
+  router.get('/status', defineEventHandler(async () => {
+    const client = await useTelegramClient()
+    if (!await client.isConnected()) {
+      try {
+        await client.connect()
+        const isConnected = await client.isConnected()
+        return createResponse({ connected: isConnected })
+      }
+      catch (connError) {
+        return createErrorResponse(connError)
+      }
+    }
+    return createResponse({ connected: true })
+  }))
+
+  router.post('/logout', defineEventHandler(async () => {
+    const client = await useTelegramClient()
+    try {
+      await client.logout()
+      return createResponse({ success: true })
+    }
+    catch (error) {
+      return createErrorResponse(error)
+    }
+  }))
 
   // 将旧的auth路由挂载到/auth路径
   app.use('/auth', router.handler)
