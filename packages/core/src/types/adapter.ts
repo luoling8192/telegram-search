@@ -110,3 +110,21 @@ export interface ITelegramClientAdapter extends BaseTelegramAdapter {
    */
   getHistory: (chatId: number) => Promise<Api.messages.TypeMessages & { count: number }>
 }
+
+export interface EmbeddingModelConfig {
+  provider: 'openai' | 'ollama'
+  model: string
+  apiKey?: string
+  apiBase?: string
+}
+
+export interface IEmbeddingModel {
+
+  getTokenCount: (text: string) => number
+  getTotalTokens: (texts: string[]) => number
+  calculateCost: (tokens: number) => number
+  getUsage: () => { tokens: number, cost: number }
+  generateEmbedding: (text: string) => Promise<number[]>
+  generateEmbeddings: (texts: string[]) => Promise<number[][]>
+  destroy: () => void
+}

@@ -70,11 +70,15 @@ const DEFAULT_CONFIG = {
       phoneNumber: '',
     },
     // OpenAI API settings
-    openai: {
+    embedding: {
+      // Embedding provider
+      provider: 'openai',
+      // Embedding model
+      model: 'text-embedding-3-small',
       // API key should be provided in config.yaml
       apiKey: '',
       // Optional API base URL
-      apiBase: 'https://api.openai.com/v1',
+      apiBase: '',
     },
   },
 } as const satisfies Config
@@ -118,7 +122,8 @@ function validateConfig(config: Config) {
     'api.telegram.apiId',
     'api.telegram.apiHash',
     'api.telegram.phoneNumber',
-    'api.openai.apiKey',
+    'api.embedding.provider',
+    'api.embedding.model',
   ] as const
 
   for (const path of required) {

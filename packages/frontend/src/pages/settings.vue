@@ -4,6 +4,7 @@ import type { Config } from '@tg-search/common'
 import { ref } from 'vue'
 import { toast, Toaster } from 'vue-sonner'
 import { useConfig } from '../apis/useConfig'
+import SelectDropdown from '../components/ui/SelectDropdown.vue'
 
 // Initialize config composable
 const { config, loading, error, getConfig, updateConfig } = useConfig()
@@ -11,6 +12,7 @@ const { config, loading, error, getConfig, updateConfig } = useConfig()
 const isEditing = ref(false)
 const validationError = ref<string | null>(null)
 
+//
 // 数字类型字段的验证函数
 function validateNumberField(value: number, fieldName: string, min = 1, max = 1000): string | null {
   if (Number.isNaN(value)) {
@@ -24,6 +26,11 @@ function validateNumberField(value: number, fieldName: string, min = 1, max = 10
   }
   return null
 }
+
+const embeddingProviderOptions = [
+  { label: 'OpenAI', value: 'openai' },
+  { label: 'Ollama', value: 'ollama' },
+]
 
 // 验证所有数字字段
 function validateConfig(config: Config): string | null {
@@ -369,13 +376,25 @@ loadConfig()
           <!-- OpenAI API -->
           <div>
             <h3 class="mb-2 text-lg font-medium dark:text-white">
-              OpenAI API
+              Embedding
             </h3>
             <div class="grid gap-4">
               <div>
+                <label class="block text-sm text-gray-700 font-medium dark:text-gray-300">Provider</label>
+                <SelectDropdown v-model="config.api.embedding.provider" :options="embeddingProviderOptions" :disabled="!isEditing" />
+              </div>
+              <div>
+                <label class="block text-sm text-gray-700 font-medium dark:text-gray-300">Model</label>
+                <input
+                  v-model="config.api.embedding.model"
+                  :disabled="!isEditing"
+                  class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                >
+              </div>
+              <div>
                 <label class="block text-sm text-gray-700 font-medium dark:text-gray-300">API Key</label>
                 <input
-                  v-model="config.api.openai.apiKey"
+                  v-model="config.api.embedding.apiKey"
                   type="password"
                   :disabled="!isEditing"
                   class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
@@ -384,7 +403,7 @@ loadConfig()
               <div>
                 <label class="block text-sm text-gray-700 font-medium dark:text-gray-300">API Base URL</label>
                 <input
-                  v-model="config.api.openai.apiBase"
+                  v-model="config.api.embedding.apiBase"
                   type="text"
                   :disabled="!isEditing"
                   class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
