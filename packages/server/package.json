@@ -31,8 +31,8 @@
     "@tg-search/common": "workspace:*",
     "@tg-search/core": "workspace:*",
     "@tg-search/db": "workspace:*",
+    "crossws": "^0.3.4",
     "h3": "^1.15.1",
-    "listhen": "^1.9.0",
     "tsx": "^4.19.3",
     "web-streams-polyfill": "^4.1.0",
     "zod": "^3.24.2"

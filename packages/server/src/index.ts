@@ -1,18 +1,16 @@
-import type {
-  App,
-  H3Event,
-} from 'h3'
+import type { NodeOptions } from 'crossws/adapters/node'
+import type { App } from 'h3'
 
+import { createServer } from 'node:http'
 import process from 'node:process'
 import { initConfig, initDB, initLogger, useLogger } from '@tg-search/common'
+import wsAdapter from 'crossws/adapters/node'
 import {
   createApp,
-  eventHandler,
   getRequestHeader,
   setResponseHeaders,
   toNodeListener,
 } from 'h3'
-import { listen } from 'listhen'
 
 import { setupChatRoutes } from './routes/chat'
 import { setupCommandRoutes } from './routes/commands'
@@ -67,40 +65,32 @@ function setupRoutes(app: App) {
 
 // Server configuration
 function configureServer(logger: ReturnType<typeof useLogger>) {
-  const app = createApp()
+  const app = createApp({
+    debug: true,
+    onRequest(event) {
+      const path = event.path
+      const method = event.method
+      const userAgent = getRequestHeader(event, 'user-agent')
 
-  // CORS middleware
-  app.use(eventHandler((event: H3Event) => {
-    setResponseHeaders(event, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cache-Control, X-Requested-With, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Extensions, Upgrade, Connection',
-      'Access-Control-Max-Age': '86400',
-    })
+      logger.withFields({
+        method,
+        path,
+        userAgent,
+      }).debug('Request started')
 
-    // if (event.method === 'OPTIONS') {
-    //   return null
-    // }
-  }))
+      setResponseHeaders(event, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Max-Age': '86400',
+      })
+    },
+    onError(error, event) {
+      const path = event.path
+      const method = event.method
+      const userAgent = getRequestHeader(event, 'user-agent')
 
-  // Request logging middleware
-  app.use(eventHandler(async (event: H3Event) => {
-    const path = event.path
-    const method = event.method
-    const userAgent = getRequestHeader(event, 'user-agent')
-
-    logger.withFields({
-      method,
-      path,
-      userAgent,
-    }).debug('Request started')
-
-    try {
-      // Pass the event to the next handler
-
-    }
-    catch (error: unknown) {
       const status = error instanceof Error && 'statusCode' in error
         ? (error as { statusCode: number }).statusCode
         : 500
@@ -114,8 +104,8 @@ function configureServer(logger: ReturnType<typeof useLogger>) {
       }).error('Request failed')
 
       return createErrorResponse(error)
-    }
-  }))
+    },
+  })
 
   // Setup routes
   setupRoutes(app)
@@ -131,11 +121,9 @@ async function bootstrap() {
   const app = configureServer(logger)
   const listener = toNodeListener(app)
 
-  await listen(listener, {
-    port: 3000,
-    showURL: true,
-    ws: true,
-  })
+  const server = createServer(listener).listen(3000)
+  const { handleUpgrade } = wsAdapter(app.websocket as NodeOptions)
+  server.on('upgrade', handleUpgrade)
 
   const shutdown = () => process.exit(0)
   process.on('SIGINT', shutdown)
