@@ -46,7 +46,9 @@ const enableIncremental = ref<boolean>(false)
 // 自定义开始消息ID
 const customMinId = ref<number | undefined>(undefined)
 
+
 const canExport = computed(() => isConnected.value && selectedChatId.value && selectedMessageTypes.value.length > 0)
+
 
 // Chat type options
 const chatTypeOptions = [
@@ -173,7 +175,9 @@ async function handleExport() {
       toast.success('导出任务已开始', { id: toastId })
     }
     else {
-      toast.error(result.error?.message || '导出失败', { id: toastId })
+
+      toast.error((result.error as Error)?.message || '导出失败', { id: toastId })
+
     }
   }
   catch (error) {
@@ -287,7 +291,35 @@ function formatSpeed(messagesPerSecond: number | string): string {
 
 <template>
   <div class="space-y-5">
-    <div class="rounded-lg bg-white shadow-md dark:bg-gray-800">
+
+    <!-- 未连接Telegram时的提示 -->
+    <div v-if="!isConnected" class="mb-4 rounded-md bg-yellow-50 p-4 dark:bg-yellow-900/30">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <div class="i-carbon-warning h-5 w-5 text-yellow-400" aria-hidden="true" />
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm text-yellow-800 font-medium dark:text-yellow-200">
+            未连接到Telegram
+          </h3>
+          <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+            <p>要使用导出功能，您需要先连接到Telegram。</p>
+          </div>
+          <div class="mt-3">
+            <router-link
+              to="/login"
+              class="rounded-md bg-yellow-50 px-2 py-1.5 text-sm text-yellow-800 font-medium dark:bg-yellow-900/50 hover:bg-yellow-100 dark:text-yellow-200 dark:hover:bg-yellow-800/50"
+            >
+              去连接
+            </router-link>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export configuration -->
+    <div class="overflow-hidden rounded-lg bg-white shadow-md dark:bg-gray-800 dark:text-gray-100">
+
       <div class="p-5">
         <h2 class="mb-4 text-lg font-semibold dark:text-white">
           导出消息

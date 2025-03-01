@@ -1,12 +1,9 @@
 import type { App, H3Event } from 'h3'
 
-import { useLogger } from '@tg-search/common'
 import { findMessagesByChatId, getChatMetadataById } from '@tg-search/db'
 import { createRouter, defineEventHandler, getQuery, getRouterParams } from 'h3'
 
-import { createResponse } from '../utils/response'
-
-const logger = useLogger()
+import { createErrorResponse, createResponse } from '../utils/response'
 
 /**
  * Setup message routes
@@ -36,8 +33,7 @@ export function setupMessageRoutes(app: App) {
       })
     }
     catch (error) {
-      logger.withError(error).error('Failed to get messages')
-      return createResponse(undefined, error)
+      return createErrorResponse(error, 'Failed to get messages')
     }
   }))
 

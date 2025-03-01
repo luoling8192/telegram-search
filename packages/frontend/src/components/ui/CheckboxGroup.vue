@@ -10,12 +10,20 @@ interface Props<T> {
   disabled?: boolean
   label?: string
   columns?: number
+  class?: string
+  labelClass?: string
+  optionClass?: string
+  checkboxClass?: string
 }
 
 const props = withDefaults(defineProps<Props<any>>(), {
   disabled: false,
   label: '',
   columns: 2,
+  class: '',
+  labelClass: 'mb-2 block text-sm text-gray-700 font-medium dark:text-gray-300',
+  optionClass: 'hover:bg-gray-50 dark:hover:bg-gray-700/70',
+  checkboxClass: 'dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500',
 })
 
 const emit = defineEmits<{
@@ -46,25 +54,48 @@ function isChecked(value: any): boolean {
 </script>
 
 <template>
-  <div>
-    <label v-if="label" class="mb-2 block text-sm text-gray-700 font-medium dark:text-gray-300">
+  <div :class="props.class">
+    <label v-if="label" :class="props.labelClass">
       {{ label }}
     </label>
-    <div :class="`grid grid-cols-${columns} gap-3`">
+    <div :style="`display: grid; grid-template-columns: repeat(${columns}, minmax(0, 1fr)); gap: 0.75rem;`">
       <label
         v-for="option in options"
         :key="option.value"
-        class="flex cursor-pointer items-center border border-gray-200 rounded-md p-3 transition-colors dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/70"
-        :class="{ 'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20': isChecked(option.value) }"
+        :style="{
+          display: 'flex',
+          cursor: 'pointer',
+          alignItems: 'center',
+          border: isChecked(option.value) ? '1px solid rgb(147, 197, 253)' : '1px solid rgb(229, 231, 235)',
+          borderRadius: '0.375rem',
+          padding: '0.75rem',
+          transition: 'all 0.2s',
+          backgroundColor: isChecked(option.value) ? 'rgb(239, 246, 255)' : 'transparent',
+        }"
+        :class="[
+          props.optionClass,
+          {
+            'dark:border-blue-700 dark:bg-blue-900/20': isChecked(option.value),
+            'dark:border-gray-700': !isChecked(option.value),
+          },
+        ]"
       >
         <input
           type="checkbox"
           :checked="isChecked(option.value)"
-          class="h-4 w-4 border-gray-300 rounded text-blue-600 transition-colors dark:border-gray-600 dark:bg-gray-700 focus:ring-blue-500"
+          :style="{
+            height: '1rem',
+            width: '1rem',
+            borderRadius: '0.25rem',
+            borderColor: 'rgb(209, 213, 219)',
+            color: 'rgb(37, 99, 235)',
+            transition: 'all 0.2s',
+          }"
+          :class="props.checkboxClass"
           :disabled="disabled"
           @change="(e: Event) => handleChange(option.value, (e.target as HTMLInputElement).checked)"
         >
-        <span class="ml-2.5 text-sm">{{ option.label }}</span>
+        <span style="margin-left: 0.625rem; font-size: 0.875rem;">{{ option.label }}</span>
       </label>
     </div>
   </div>

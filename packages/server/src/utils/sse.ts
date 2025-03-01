@@ -1,7 +1,7 @@
 import type { SSEController } from '../types/sse'
 
 import { SSE_HEADERS } from '../types/sse'
-import { createResponse } from './response'
+import { createErrorResponse, createResponse } from './response'
 
 /**
  * SSE message creator
@@ -33,7 +33,7 @@ export function createSSEResponse(
           },
           error: (err) => {
             if (!isStreamClosed(controller)) {
-              controller.enqueue(createSSEMessage('error', createResponse(undefined, err)))
+              controller.enqueue(createSSEMessage('error', createErrorResponse(err)))
             }
           },
           progress: (data) => {

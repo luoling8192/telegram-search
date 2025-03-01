@@ -19,7 +19,7 @@
     "stub": "unbuild --stub"
   },
   "peerDependencies": {
-    "drizzle-orm": "^0.29.3"
+    "drizzle-orm": "^0.40.0"
   },
   "dependencies": {
     "drizzle-orm": "^0.40.0"

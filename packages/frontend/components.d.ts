@@ -8,10 +8,14 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AlertCard: typeof import('./src/components/ui/AlertCard.vue')['default']
     CheckboxGroup: typeof import('./src/components/ui/CheckboxGroup.vue')['default']
     CommandList: typeof import('./src/components/commands/CommandList.vue')['default']
+    CommandStatusPanel: typeof import('./src/components/ui/CommandStatusPanel.vue')['default']
     ExportCommand: typeof import('./src/components/commands/ExportCommand.vue')['default']
     HighlightText: typeof import('./src/components/HighlightText.vue')['default']
+    IconButton: typeof import('./src/components/ui/IconButton.vue')['default']
+    LoadingButton: typeof import('./src/components/ui/LoadingButton.vue')['default']
     MessageBubble: typeof import('./src/components/MessageBubble.vue')['default']
     ProgressBar: typeof import('./src/components/ui/ProgressBar.vue')['default']
     RadioGroup: typeof import('./src/components/ui/RadioGroup.vue')['default']
@@ -20,6 +24,7 @@ declare module 'vue' {
     SearchSelect: typeof import('./src/components/ui/SearchSelect.vue')['default']
     SelectDropdown: typeof import('./src/components/ui/SelectDropdown.vue')['default']
     StatusBadge: typeof import('./src/components/ui/StatusBadge.vue')['default']
+    StepIndicator: typeof import('./src/components/ui/StepIndicator.vue')['default']
     SyncCommand: typeof import('./src/components/commands/SyncCommand.vue')['default']
     ThemeToggle: typeof import('./src/components/ThemeToggle.vue')['default']
   }

@@ -18,7 +18,7 @@ export function useChats() {
   async function loadChats(): Promise<void> {
     try {
       const data = await request<TelegramChat[]>(() =>
-        apiFetch<{ success: boolean, data: TelegramChat[] }>('/chats'),
+        apiFetch('/chats'),
       )
       chats.value = data
     }

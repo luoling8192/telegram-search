@@ -165,6 +165,7 @@ async function handleStatus() {
         // 连接失败但不中断流程，返回未连接状态
         logger.debug('[/auth/status] 尝试连接失败，返回未连接状态', { error: connError })
       }
+
     }
 
     const connected = await client.isConnected()
@@ -185,7 +186,15 @@ async function handleLogout() {
 
   try {
     const client = await useTelegramClient()
-    await client.logout()
+
+    if (await client.isConnected()) {
+      await client.logout()
+      logger.debug('[/auth/logout] 已成功登出并清除会话')
+    }
+    else {
+      logger.debug('[/auth/logout] 客户端未连接，无需登出')
+    }
+
     return createResponse<AuthResponse>({ success: true })
   }
   catch (error) {
