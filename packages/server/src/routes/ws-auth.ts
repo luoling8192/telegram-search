@@ -280,12 +280,12 @@ async function handleLogin(peer: Peer, message: WsMessage, state: ClientState) {
 
       // 清理2FA状态
       if (state.passwordRejector) {
-        state.passwordRejector(new Error('登录过程中断'))
+        (state.passwordRejector as (error: Error) => void)(new Error('登录过程中断'))
       }
 
       // 清理验证码状态
       if (state.codeRejector) {
-        state.codeRejector(new Error('登录过程中断'))
+        (state.codeRejector as (error: Error) => void)(new Error('登录过程中断'))
       }
 
       // 重置所有状态
@@ -351,7 +351,7 @@ async function handleVerificationCode(peer: Peer, message: WsMessage, state: Cli
 
     // 如果有验证码拒绝器，拒绝验证码promise
     if (state.codeRejector) {
-      state.codeRejector(error instanceof Error ? error : new Error(String(error)))
+      (state.codeRejector as (error: Error) => void)(error instanceof Error ? error : new Error(String(error)))
     }
 
     // 清理状态
@@ -495,7 +495,7 @@ async function handleTwoFactorAuth(peer: Peer, message: WsMessage, state: Client
 
     // 如果有密码拒绝器，拒绝密码promise
     if (state.passwordRejector) {
-      state.passwordRejector(error instanceof Error ? error : new Error(String(error)))
+      (state.passwordRejector as (error: Error) => void)(error instanceof Error ? error : new Error(String(error)))
     }
 
     // 清理状态
