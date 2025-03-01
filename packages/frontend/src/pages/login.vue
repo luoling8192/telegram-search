@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
-import { useAuth } from '../apis/useAuth'
+import { useAuthWs } from '../apis/useAuthWs' // 新版基于WebSocket的验证
 import { useConfig } from '../apis/useConfig'
+import { ConnectionStatus } from '../composables/useWebSocket'
 import { ErrorCode } from '../types/error'
 
 // 定义登录流程的各个步骤
@@ -45,30 +46,108 @@ const state = ref<LoginState>({
 })
 
 const router = useRouter()
-const { checkStatus, login, sendCode } = useAuth()
+const {
+  checkStatus,
+  login,
+  loading,
+  error: wsError,
+  isConnected,
+  needsVerificationCode,
+  needsPassword,
+  progress,
+  connectionStatus,
+  submitVerificationCode,
+  submitTwoFactorAuth,
+  resetLoginState,
+} = useAuthWs() // 新版WebSocket API
 const { config, getConfig } = useConfig()
 
 // 登录成功后的重定向路径
 const returnPath = ref('/')
 
 // 根据当前步骤判断表单是否可提交
-const canSubmit = computed(() => {
-  const { currentStep, phoneNumber, verificationCode, twoFactorPassword } = state.value
+// const canSubmit = computed(() => {
+//   const { currentStep, phoneNumber, verificationCode, twoFactorPassword } = state.value
 
-  if (currentStep === 'phone' && !phoneNumber)
-    return false
-  if (currentStep === 'code' && !verificationCode)
-    return false
-  if (currentStep === 'code_2fa' && (!verificationCode || !twoFactorPassword))
-    return false
+//   if (currentStep === 'phone' && !phoneNumber)
+//     return false
+//   if (currentStep === 'code' && !verificationCode)
+//     return false
+//   if (currentStep === 'code_2fa' && (!verificationCode || !twoFactorPassword))
+//     return false
 
-  return true
-})
+//   return !loading.value
+// })
 
 // 计算当前步骤的展示状态
 const needPhoneNumber = computed(() => state.value.currentStep === 'phone')
 const needCode = computed(() => state.value.currentStep === 'code')
 const needCode2FA = computed(() => state.value.currentStep === 'code_2fa')
+
+// 监听WebSocket连接状态
+watch(connectionStatus, (newStatus) => {
+  if (newStatus === ConnectionStatus.CLOSED || newStatus === ConnectionStatus.CLOSING) {
+    toast.error('服务器连接已断开，请刷新页面重试')
+  }
+})
+
+// 监听WebSocket错误
+watch(wsError, (newError) => {
+  if (newError) {
+    state.value.error = newError.message
+    if (newError.message === ErrorCode.NEED_TWO_FACTOR_CODE) {
+      goToNextStep('code_2fa')
+    }
+  }
+})
+
+// 监听是否需要验证码
+watch(needsVerificationCode, (newNeedsCode) => {
+  if (newNeedsCode && state.value.currentStep !== 'code') {
+    goToNextStep('code')
+    toast.info('请输入验证码')
+  }
+})
+
+// 监听进度信息
+watch(progress, (newProgress) => {
+  if (newProgress) {
+    console.warn('收到进度更新:', newProgress)
+    // 根据进度信息更新UI状态
+    switch (newProgress.step) {
+      case 'CODE_REQUIRED':
+        goToNextStep('code')
+        toast.info('请输入验证码')
+        break
+      case 'PASSWORD_REQUIRED':
+        goToNextStep('code_2fa')
+        toast.info('需要输入两步验证密码')
+        break
+    }
+  }
+})
+
+// 监听WebSocket认证状态
+watch(isConnected, (newConnected) => {
+  state.value.isConnected = newConnected
+  if (newConnected) {
+    handleSuccessfulConnection()
+  }
+})
+
+// 监听WebSocket loading状态
+watch(loading, (newLoading) => {
+  state.value.isLoading = newLoading
+})
+
+// 监听是否需要2FA密码
+watch(needsPassword, (newNeedsPassword) => {
+  console.warn('需要2FA密码状态变更:', newNeedsPassword)
+  if (newNeedsPassword && state.value.currentStep !== 'code_2fa') {
+    goToNextStep('code_2fa')
+    toast.info('需要输入两步验证密码以完成登录')
+  }
+})
 
 // 页面初始化
 onMounted(async () => {
@@ -116,9 +195,10 @@ async function checkLoginStatus() {
   state.value.error = null
 
   try {
-    state.value.isConnected = await checkStatus()
+    const connected = await checkStatus()
+    state.value.isConnected = connected
 
-    if (state.value.isConnected) {
+    if (connected) {
       handleSuccessfulConnection()
     }
   }
@@ -131,30 +211,28 @@ async function checkLoginStatus() {
 }
 
 /**
- * 发送验证码到用户手机
+ * 开始登录流程 - 统一版
  */
-async function requestVerificationCode() {
+async function startLogin() {
   const { phoneNumber, isLoading } = state.value
   if (!phoneNumber || isLoading)
     return
 
   state.value.isLoading = true
   state.value.error = null
+  resetLoginState() // 确保重置登录状态
 
   try {
-    const options = getApiOptions()
-    const result = await sendCode(phoneNumber, options)
+    const options = {
+      phoneNumber,
+      ...getApiOptions(),
+    }
 
-    if (result && result.success) {
-      goToNextStep('code')
-      toast.success('验证码已发送到您的设备')
-    }
-    else {
-      throw new Error('验证码发送失败，请重试')
-    }
+    await login(options)
+    // 接下来的步骤由WebSocket消息触发
   }
   catch (err) {
-    handleError(err, '请求验证码失败，请重试')
+    handleError(err, '开始登录失败，请重试')
   }
   finally {
     state.value.isLoading = false
@@ -162,68 +240,45 @@ async function requestVerificationCode() {
 }
 
 /**
- * 继续到2FA输入步骤
+ * 提交验证码
  */
-function continueToTwoFactorStep() {
-  const { verificationCode } = state.value
-
-  if (!verificationCode) {
-    toast.error('请先输入验证码')
-    return
-  }
-
-  // 验证码填写后，进入2FA密码输入阶段
-  goToNextStep('code_2fa')
-  toast.info('请输入您的两步验证密码')
-}
-
-/**
- * 提交登录请求
- * 根据当前步骤提交不同的信息
- */
-async function submitLogin() {
-  const { phoneNumber, verificationCode, twoFactorPassword, isLoading, currentStep } = state.value
-  if (isLoading)
+async function submitCode() {
+  const { verificationCode, isLoading } = state.value
+  if (!verificationCode || isLoading)
     return
 
   state.value.isLoading = true
   state.value.error = null
 
   try {
-    // 构建登录请求选项
-    let options
-
-    if (currentStep === 'code') {
-      // 只有验证码，不包含2FA (我们现在使用continueToTwoFactorStep来处理)
-      options = {
-        phoneNumber,
-        code: verificationCode,
-        ...getApiOptions(),
-      }
-    }
-    else if (currentStep === 'code_2fa') {
-      // 同时发送验证码和2FA密码
-      options = {
-        phoneNumber,
-        code: verificationCode,
-        password: twoFactorPassword,
-        ...getApiOptions(),
-      }
-    }
-    else {
-      // 确保options始终有值
-      return
-    }
-
-    const success = await login(options)
-
-    if (success) {
-      handleSuccessfulConnection()
-      goToNextStep('complete')
-    }
+    await submitVerificationCode(verificationCode)
+    // 结果会通过WebSocket回调处理
   }
   catch (err) {
-    handleLoginError(err)
+    handleError(err, '验证码提交失败')
+  }
+  finally {
+    state.value.isLoading = false
+  }
+}
+
+/**
+ * 提交两步验证密码
+ */
+async function submitTwoFactorPassword() {
+  const { twoFactorPassword, isLoading } = state.value
+  if (!twoFactorPassword || isLoading)
+    return
+
+  state.value.isLoading = true
+  state.value.error = null
+
+  try {
+    await submitTwoFactorAuth(twoFactorPassword)
+    // 结果会通过WebSocket回调处理
+  }
+  catch (err) {
+    handleError(err, '两步验证失败')
   }
   finally {
     state.value.isLoading = false
@@ -251,33 +306,12 @@ function handleSuccessfulConnection() {
   console.warn('登录成功，准备重定向到', returnPath.value)
   toast.success('连接成功！')
   state.value.isConnected = true
+  goToNextStep('complete')
 
   // 延迟跳转，给用户一些视觉反馈
   setTimeout(() => {
     router.push(returnPath.value)
   }, 1500)
-}
-
-/**
- * 处理登录错误
- */
-function handleLoginError(err: unknown) {
-  if (err instanceof Error) {
-    state.value.error = err.message
-
-    // 处理需要2FA的情况
-    if (err.message === ErrorCode.NEED_TWO_FACTOR_CODE) {
-      goToNextStep('code_2fa')
-      state.value.error = '需要输入两步验证密码'
-      toast.info('需要输入两步验证密码以完成登录')
-    }
-    else {
-      toast.error(`登录失败: ${err.message}`)
-    }
-  }
-  else {
-    handleError(err, '验证失败，请重试')
-  }
 }
 
 /**
@@ -302,19 +336,6 @@ function goToNextStep(step: LoginStep) {
 }
 
 /**
- * 重置登录流程
- */
-function resetLogin() {
-  Object.assign(state.value, {
-    error: null,
-    phoneNumber: '',
-    verificationCode: '',
-    twoFactorPassword: '',
-    currentStep: 'phone',
-  })
-}
-
-/**
  * 返回上一步
  */
 function goToPreviousStep() {
@@ -329,19 +350,33 @@ function goToPreviousStep() {
 }
 
 /**
+ * 重置登录流程
+ */
+function resetLogin() {
+  Object.assign(state.value, {
+    error: null,
+    phoneNumber: '',
+    verificationCode: '',
+    twoFactorPassword: '',
+    currentStep: 'phone',
+  })
+  resetLoginState()
+}
+
+/**
  * 处理登录表单提交
  */
 function handleLogin() {
   const { currentStep } = state.value
 
   if (currentStep === 'phone') {
-    requestVerificationCode()
+    startLogin()
   }
   else if (currentStep === 'code') {
-    continueToTwoFactorStep()
+    submitCode()
   }
-  else {
-    submitLogin()
+  else if (currentStep === 'code_2fa') {
+    submitTwoFactorPassword()
   }
 }
 
@@ -355,6 +390,8 @@ function toggleAdvancedSettings() {
 
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12 dark:bg-gray-900 lg:px-8 sm:px-6">
+    {{ state }}
+
     <div class="max-w-md w-full space-y-8">
       <!-- 标题 -->
       <div class="text-center">
@@ -583,7 +620,6 @@ function toggleAdvancedSettings() {
               <button
                 type="submit"
                 class="w-full flex justify-center border border-transparent rounded-md bg-blue-600 px-4 py-2 text-sm text-white font-medium shadow-sm hover:bg-blue-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                :disabled="!canSubmit || state.isLoading"
               >
                 <span v-if="state.isLoading" class="mr-2">
                   <div class="i-carbon-circle-dash inline-block h-4 w-4 animate-spin" />
