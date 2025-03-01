@@ -7,6 +7,7 @@ import { initConfig, initDB, initLogger, useLogger } from '@tg-search/common'
 import wsAdapter from 'crossws/adapters/node'
 import {
   createApp,
+  eventHandler,
   getRequestHeader,
   setResponseHeaders,
   toNodeListener,
@@ -77,14 +78,6 @@ function configureServer(logger: ReturnType<typeof useLogger>) {
         path,
         userAgent,
       }).debug('Request started')
-
-      setResponseHeaders(event, {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Max-Age': '86400',
-      })
     },
     onError(error, event) {
       const path = event.path
@@ -107,6 +100,23 @@ function configureServer(logger: ReturnType<typeof useLogger>) {
     },
   })
 
+  // CORS middleware
+  app.use(eventHandler((event) => {
+    setResponseHeaders(event, {
+      'Access-Control-Allow-Origin': 'http://localhost:3333',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cache-Control, X-Requested-With',
+    })
+
+    if (event.method === 'OPTIONS') {
+      setResponseHeaders(event, {
+        'Access-Control-Max-Age': '86400',
+      })
+      return null
+    }
+  }))
+
   // Setup routes
   setupRoutes(app)
 
@@ -121,9 +131,11 @@ async function bootstrap() {
   const app = configureServer(logger)
   const listener = toNodeListener(app)
 
-  const server = createServer(listener).listen(3000)
+  const port = process.env.PORT || 3000
+  const server = createServer(listener).listen(port)
   const { handleUpgrade } = wsAdapter(app.websocket as NodeOptions)
   server.on('upgrade', handleUpgrade)
+  logger.withFields({ port }).debug('Server started')
 
   const shutdown = () => process.exit(0)
   process.on('SIGINT', shutdown)

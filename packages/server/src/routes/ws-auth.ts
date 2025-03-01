@@ -1,12 +1,13 @@
 import type { ITelegramClientAdapter } from '@tg-search/core'
+import type { Peer } from 'crossws'
 import type { App } from 'h3'
+import type { WsMessage } from '../utils/ws'
 
-import { ErrorCode, useLogger } from '@tg-search/common'
-import { createRouter, defineEventHandler, defineWebSocketHandler } from 'h3'
+import { useLogger } from '@tg-search/common'
+import { createRouter, defineWebSocketHandler } from 'h3'
 import { z } from 'zod'
 
 import { useTelegramClient } from '../services/telegram'
-import { createResponse } from '../utils/response'
 import { createErrorMessage, createSuccessMessage, parseMessage } from '../utils/ws'
 
 // 创建日志实例
@@ -14,8 +15,9 @@ const logger = useLogger()
 
 // 消息类型
 enum MessageType {
-  SEND_CODE = 'SEND_CODE',
   LOGIN = 'LOGIN',
+  VERIFICATION_CODE = 'VERIFICATION_CODE',
+  TWO_FACTOR_AUTH = 'TWO_FACTOR_AUTH',
   LOGIN_PROGRESS = 'LOGIN_PROGRESS',
   LOGIN_SUCCESS = 'LOGIN_SUCCESS',
   LOGIN_ERROR = 'LOGIN_ERROR',
@@ -25,22 +27,18 @@ enum MessageType {
 
 // 消息验证模式
 const schemas = {
-  sendCode: z.object({
-    type: z.literal(MessageType.SEND_CODE),
+  login: z.object({
+    type: z.literal(MessageType.LOGIN),
     data: z.object({
       phoneNumber: z.string(),
       apiId: z.number().optional(),
       apiHash: z.string().optional(),
     }),
   }),
-  login: z.object({
-    type: z.literal(MessageType.LOGIN),
+  verificationCode: z.object({
+    type: z.literal(MessageType.VERIFICATION_CODE),
     data: z.object({
-      phoneNumber: z.string(),
       code: z.string(),
-      password: z.string().optional(),
-      apiId: z.number().optional(),
-      apiHash: z.string().optional(),
     }),
   }),
   status: z.object({
@@ -49,12 +47,24 @@ const schemas = {
   logout: z.object({
     type: z.literal(MessageType.LOGOUT),
   }),
+  twoFactorAuth: z.object({
+    type: z.literal(MessageType.TWO_FACTOR_AUTH),
+    data: z.object({
+      password: z.string(),
+    }),
+  }),
 }
 
 // 客户端状态管理
 interface ClientState {
   client?: ITelegramClientAdapter
   phoneNumber?: string
+  pendingVerificationCode?: boolean
+  pendingTwoFactorAuth?: boolean
+  codeResolver?: (code: string) => void
+  codeRejector?: (error: Error) => void
+  passwordResolver?: (password: string) => void
+  passwordRejector?: (error: Error) => void
 }
 
 /**
@@ -64,22 +74,6 @@ export function setupWsAuthRoutes(app: App) {
   // 创建临时路由处理器，处理之前REST API的请求
   const router = createRouter()
 
-  // 临时处理/auth/status路由
-  router.get('/status', defineEventHandler(async () => {
-    logger.debug('[/auth/status] 状态检查请求已接收 (临时处理)')
-
-    try {
-      const client = await useTelegramClient()
-      const connected = await client.isConnected()
-      logger.debug(`[/auth/status] 状态检查结果: connected=${connected}`)
-      return createResponse({ connected })
-    }
-    catch (error) {
-      logger.error('[/auth/status] 状态检查失败', { error })
-      return createResponse({ connected: false })
-    }
-  }))
-
   // 将旧的auth路由挂载到/auth路径
   app.use('/auth', router.handler)
 
@@ -88,16 +82,20 @@ export function setupWsAuthRoutes(app: App) {
 
   // WebSocket处理
   app.use('/ws/auth', defineWebSocketHandler({
-    open(peer) {
+    async open(peer) {
       logger.debug('[/ws/auth] WebSocket连接已打开', { peerId: peer.id })
 
       // 初始化连接状态
       clientStates.set(peer.id, {})
 
       try {
+        const client = await useTelegramClient()
+        const connected = await client.isConnected()
+        logger.debug(`[/ws/auth] 状态检查结果: connected=${connected}`)
+
         peer.send(JSON.stringify({
           type: 'CONNECTED',
-          data: { connected: false },
+          data: { connected },
         }))
       }
       catch (error) {
@@ -125,17 +123,20 @@ export function setupWsAuthRoutes(app: App) {
 
         // 根据消息类型分发处理
         switch (msgData.type) {
-          case MessageType.SEND_CODE:
-            await handleSendCode(peer, msgData, clientState)
-            break
           case MessageType.LOGIN:
             await handleLogin(peer, msgData, clientState)
+            break
+          case MessageType.VERIFICATION_CODE:
+            await handleVerificationCode(peer, msgData, clientState)
             break
           case MessageType.STATUS:
             await handleStatus(peer, clientState)
             break
           case MessageType.LOGOUT:
             await handleLogout(peer, clientState)
+            break
+          case MessageType.TWO_FACTOR_AUTH:
+            await handleTwoFactorAuth(peer, msgData, clientState)
             break
           default:
             logger.warn('[/ws/auth] 未知消息类型', { type: msgData.type })
@@ -170,62 +171,13 @@ export function setupWsAuthRoutes(app: App) {
 }
 
 /**
- * 处理发送验证码请求
+ * 处理登录请求 - 统一版本
  */
-async function handleSendCode(peer: { id: string, send: (data: string) => void }, message: unknown, state: ClientState) {
-  try {
-    // 验证消息格式
-    const { data } = schemas.sendCode.parse(message)
-    const { phoneNumber, apiId, apiHash } = data
-
-    // 获取客户端实例
-    const client = await useTelegramClient()
-    state.client = client
-    state.phoneNumber = phoneNumber
-
-    // 如果提供了API凭据，则更新配置 (使用现有的updateClientConfig函数)
-    if (apiId && apiHash) {
-      await updateClientConfig(phoneNumber, apiId, apiHash)
-      logger.debug('[/ws/auth] API凭据已更新')
-    }
-
-    try {
-      // 发送验证码
-      await client.sendCode()
-      logger.debug('[/ws/auth] 验证码已发送成功')
-
-      peer.send(JSON.stringify(createSuccessMessage(
-        MessageType.LOGIN_PROGRESS,
-        { step: 'CODE_SENT', success: true },
-      )))
-    }
-    catch (error) {
-      logger.error('[/ws/auth] 发送验证码失败', { error })
-      peer.send(JSON.stringify(createErrorMessage(
-        MessageType.LOGIN_ERROR,
-        error,
-        'Failed to send code',
-      )))
-    }
-  }
-  catch (error) {
-    logger.error('[/ws/auth] 处理验证码请求失败', { error })
-    peer.send(JSON.stringify(createErrorMessage(
-      MessageType.LOGIN_ERROR,
-      error,
-      'Invalid request format',
-    )))
-  }
-}
-
-/**
- * 处理登录请求
- */
-async function handleLogin(peer: { id: string, send: (data: string) => void }, message: unknown, state: ClientState) {
+async function handleLogin(peer: Peer, message: WsMessage, state: ClientState) {
   try {
     // 验证消息格式
     const { data } = schemas.login.parse(message)
-    const { code, password, phoneNumber, apiId, apiHash } = data
+    const { phoneNumber, apiId, apiHash } = data // 不再需要code参数
 
     // 检查是否已经有客户端实例
     if (!state.client) {
@@ -233,6 +185,7 @@ async function handleLogin(peer: { id: string, send: (data: string) => void }, m
     }
 
     const client = state.client
+    state.phoneNumber = phoneNumber
 
     // 如果提供了API凭据，则更新配置
     if (apiId && apiHash && phoneNumber) {
@@ -240,40 +193,81 @@ async function handleLogin(peer: { id: string, send: (data: string) => void }, m
       logger.debug('[/ws/auth] API凭据已更新')
     }
 
-    // 统一处理验证码登录，包含2FA密码处理
-    logger.debug(`[/ws/auth] 处理登录请求 ${password ? '(包含2FA密码)' : '(仅验证码)'}`)
-
     // 通知前端登录开始
     peer.send(JSON.stringify(createSuccessMessage(
       MessageType.LOGIN_PROGRESS,
       { step: 'LOGIN_STARTED' },
     )))
 
+    // 初始化状态
+    state.pendingVerificationCode = false
+    state.pendingTwoFactorAuth = false
+    state.codeResolver = undefined
+    state.codeRejector = undefined
+    state.passwordResolver = undefined
+    state.passwordRejector = undefined
+
     try {
       await client.connect({
+        // 验证码回调
         code: async () => {
+          // 标记需要验证码
+          state.pendingVerificationCode = true
+
           // 通知前端需要验证码
           peer.send(JSON.stringify(createSuccessMessage(
             MessageType.LOGIN_PROGRESS,
             { step: 'CODE_REQUIRED' },
           )))
-          return code
+
+          // 返回Promise等待验证码
+          return new Promise<string>((resolve, reject) => {
+            // 设置解析器，以便在收到验证码消息时可以解析
+            state.codeResolver = resolve
+            state.codeRejector = reject
+
+            // 设置超时（可选）
+            setTimeout(() => {
+              if (state.pendingVerificationCode) {
+                reject(new Error('验证码请求超时'))
+                state.pendingVerificationCode = false
+                state.codeResolver = undefined
+                state.codeRejector = undefined
+              }
+            }, 300000) // 5分钟超时
+          })
         },
+        // 密码回调
         password: async () => {
+          // 标记需要2FA
+          state.pendingTwoFactorAuth = true
+
           // 通知前端需要2FA密码
           peer.send(JSON.stringify(createSuccessMessage(
             MessageType.LOGIN_PROGRESS,
             { step: 'PASSWORD_REQUIRED' },
           )))
 
-          if (!password) {
-            logger.debug('[/ws/auth] 需要2FA密码但未提供')
-            throw new Error(ErrorCode.NEED_TWO_FACTOR_CODE)
-          }
-          return password
+          // 创建一个Promise等待密码
+          return new Promise<string>((resolve, reject) => {
+            // 设置解析器，以便在收到2FA消息时可以解析
+            state.passwordResolver = resolve
+            state.passwordRejector = reject
+
+            // 设置超时（可选）
+            setTimeout(() => {
+              if (state.pendingTwoFactorAuth) {
+                reject(new Error('2FA请求超时'))
+                state.pendingTwoFactorAuth = false
+                state.passwordResolver = undefined
+                state.passwordRejector = undefined
+              }
+            }, 300000) // 5分钟超时
+          })
         },
       })
 
+      // 登录成功
       logger.debug('[/ws/auth] 登录成功')
       peer.send(JSON.stringify(createSuccessMessage(
         MessageType.LOGIN_SUCCESS,
@@ -281,22 +275,32 @@ async function handleLogin(peer: { id: string, send: (data: string) => void }, m
       )))
     }
     catch (error) {
-      if (isTwoFactorError(error)) {
-        logger.debug('[/ws/auth] 检测到需要2FA密码')
-        peer.send(JSON.stringify(createErrorMessage(
-          MessageType.LOGIN_ERROR,
-          ErrorCode.NEED_TWO_FACTOR_CODE,
-          '需要两步验证密码',
-        )))
+      // 错误处理
+      logger.error('[/ws/auth] 登录失败', { error })
+
+      // 清理2FA状态
+      if (state.passwordRejector) {
+        state.passwordRejector(new Error('登录过程中断'))
       }
-      else {
-        logger.error('[/ws/auth] 登录失败', { error })
-        peer.send(JSON.stringify(createErrorMessage(
-          MessageType.LOGIN_ERROR,
-          error,
-          'Login failed',
-        )))
+
+      // 清理验证码状态
+      if (state.codeRejector) {
+        state.codeRejector(new Error('登录过程中断'))
       }
+
+      // 重置所有状态
+      state.pendingVerificationCode = false
+      state.pendingTwoFactorAuth = false
+      state.codeResolver = undefined
+      state.codeRejector = undefined
+      state.passwordResolver = undefined
+      state.passwordRejector = undefined
+
+      peer.send(JSON.stringify(createErrorMessage(
+        MessageType.LOGIN_ERROR,
+        error,
+        'Login failed',
+      )))
     }
   }
   catch (error) {
@@ -310,9 +314,63 @@ async function handleLogin(peer: { id: string, send: (data: string) => void }, m
 }
 
 /**
+ * 处理验证码输入
+ */
+async function handleVerificationCode(peer: Peer, message: WsMessage, state: ClientState) {
+  try {
+    // 验证消息格式
+    const { data } = schemas.verificationCode.parse(message)
+    const { code } = data
+
+    // 确保存在待处理的验证码请求
+    if (!state.pendingVerificationCode || !state.codeResolver) {
+      throw new Error('没有待处理的验证码请求')
+    }
+
+    logger.debug('[/ws/auth] 收到验证码')
+
+    // 通知前端验证码已接收
+    peer.send(JSON.stringify(createSuccessMessage(
+      MessageType.LOGIN_PROGRESS,
+      { step: 'CODE_RECEIVED' },
+    )))
+
+    // 解析验证码promise
+    state.codeResolver(code)
+
+    // 清理状态
+    state.pendingVerificationCode = false
+    state.codeResolver = undefined
+    state.codeRejector = undefined
+
+    // 注意：不需要在这里发送LOGIN_SUCCESS消息
+    // 因为验证码解析后，登录流程会继续，成功后会在handleLogin中发送成功消息
+  }
+  catch (error) {
+    logger.error('[/ws/auth] 处理验证码请求失败', { error })
+
+    // 如果有验证码拒绝器，拒绝验证码promise
+    if (state.codeRejector) {
+      state.codeRejector(error instanceof Error ? error : new Error(String(error)))
+    }
+
+    // 清理状态
+    state.pendingVerificationCode = false
+    state.codeResolver = undefined
+    state.codeRejector = undefined
+
+    peer.send(JSON.stringify(createErrorMessage(
+      MessageType.LOGIN_ERROR,
+      error,
+      'Invalid verification code request',
+    )))
+  }
+}
+
+/**
  * 处理状态检查请求
  */
-async function handleStatus(peer: { id: string, send: (data: string) => void }, state: ClientState) {
+async function handleStatus(peer: Peer, state: ClientState) {
   try {
     // 如果还没有客户端实例，创建一个
     if (!state.client) {
@@ -355,7 +413,7 @@ async function handleStatus(peer: { id: string, send: (data: string) => void }, 
 /**
  * 处理登出请求
  */
-async function handleLogout(peer: { id: string, send: (data: string) => void }, state: ClientState) {
+async function handleLogout(peer: Peer, state: ClientState) {
   try {
     // 如果还没有客户端实例，创建一个
     if (!state.client) {
@@ -388,13 +446,6 @@ async function handleLogout(peer: { id: string, send: (data: string) => void }, 
 }
 
 /**
- * 判断是否为两步验证错误
- */
-function isTwoFactorError(error: unknown): boolean {
-  return error instanceof Error && error.message === ErrorCode.NEED_TWO_FACTOR_CODE
-}
-
-/**
  * 更新客户端API配置
  */
 async function updateClientConfig(phoneNumber: string, apiId: number, apiHash: string): Promise<void> {
@@ -407,4 +458,55 @@ async function updateClientConfig(phoneNumber: string, apiId: number, apiHash: s
     phoneNumber,
   }
   updateConfig(config)
+}
+
+/**
+ * 处理2FA请求
+ */
+async function handleTwoFactorAuth(peer: Peer, message: WsMessage, state: ClientState) {
+  try {
+    // 验证消息格式
+    const { data } = schemas.twoFactorAuth.parse(message)
+    const { password } = data
+
+    // 确保存在待处理的2FA请求
+    if (!state.pendingTwoFactorAuth || !state.passwordResolver) {
+      throw new Error('没有待处理的2FA认证请求')
+    }
+
+    logger.debug('[/ws/auth] 收到2FA密码')
+
+    // 通知前端2FA验证已接收
+    peer.send(JSON.stringify(createSuccessMessage(
+      MessageType.LOGIN_PROGRESS,
+      { step: '2FA_RECEIVED' },
+    )))
+
+    // 解析密码promise
+    state.passwordResolver(password)
+
+    // 清理状态
+    state.pendingTwoFactorAuth = false
+    state.passwordResolver = undefined
+    state.passwordRejector = undefined
+  }
+  catch (error) {
+    logger.error('[/ws/auth] 处理2FA请求失败', { error })
+
+    // 如果有密码拒绝器，拒绝密码promise
+    if (state.passwordRejector) {
+      state.passwordRejector(error instanceof Error ? error : new Error(String(error)))
+    }
+
+    // 清理状态
+    state.pendingTwoFactorAuth = false
+    state.passwordResolver = undefined
+    state.passwordRejector = undefined
+
+    peer.send(JSON.stringify(createErrorMessage(
+      MessageType.LOGIN_ERROR,
+      error,
+      'Invalid 2FA request format',
+    )))
+  }
 }

@@ -5,8 +5,9 @@ import { ErrorCode } from '../types/error'
 
 // 消息类型
 enum MessageType {
-  SEND_CODE = 'SEND_CODE',
   LOGIN = 'LOGIN',
+  VERIFICATION_CODE = 'VERIFICATION_CODE',
+  TWO_FACTOR_AUTH = 'TWO_FACTOR_AUTH',
   LOGIN_PROGRESS = 'LOGIN_PROGRESS',
   LOGIN_SUCCESS = 'LOGIN_SUCCESS',
   LOGIN_ERROR = 'LOGIN_ERROR',
@@ -14,21 +15,14 @@ enum MessageType {
   LOGOUT = 'LOGOUT',
 }
 
-interface SendCodeOptions {
-  apiId?: number
-  apiHash?: string
-}
-
 interface LoginOptions {
-  phoneNumber?: string
-  code?: string
-  password?: string
+  phoneNumber: string
   apiId?: number
   apiHash?: string
 }
 
 interface ProgressData {
-  step: 'CODE_SENT' | 'LOGIN_STARTED' | 'CODE_REQUIRED' | 'PASSWORD_REQUIRED'
+  step: 'LOGIN_STARTED' | 'CODE_REQUIRED' | 'CODE_RECEIVED' | 'PASSWORD_REQUIRED' | '2FA_RECEIVED'
   success?: boolean
 }
 
@@ -39,6 +33,7 @@ export function useAuthWs() {
   const isConnected = ref(false)
   const loading = ref(false)
   const error = ref<Error | null>(null)
+  const needsVerificationCode = ref(false)
   const needsPassword = ref(false)
   const progress = ref<ProgressData | null>(null)
 
@@ -56,7 +51,10 @@ export function useAuthWs() {
           break
         case MessageType.LOGIN_PROGRESS:
           progress.value = data.data
-          if (data.data.step === 'PASSWORD_REQUIRED') {
+          if (data.data.step === 'CODE_REQUIRED') {
+            needsVerificationCode.value = true
+          }
+          else if (data.data.step === 'PASSWORD_REQUIRED') {
             needsPassword.value = true
           }
           break
@@ -119,44 +117,8 @@ export function useAuthWs() {
   }
 
   /**
-   * Request sending Telegram verification code
-   * @param phoneNumber Phone number with country code
-   * @param options Optional API parameters
-   */
-  async function sendCode(phoneNumber: string, options?: SendCodeOptions): Promise<boolean> {
-    if (status.value !== ConnectionStatus.OPEN) {
-      error.value = new Error('WebSocket is not connected')
-      return false
-    }
-
-    loading.value = true
-    error.value = null
-    progress.value = null
-
-    const messageSent = send({
-      type: MessageType.SEND_CODE,
-      data: {
-        phoneNumber,
-        ...(options && {
-          apiId: options.apiId,
-          apiHash: options.apiHash,
-        }),
-      },
-    })
-
-    if (!messageSent) {
-      loading.value = false
-      error.value = new Error('Failed to send code request')
-      return false
-    }
-
-    // 返回成功发送请求，实际结果会通过WebSocket回调处理
-    return true
-  }
-
-  /**
-   * Initiate Telegram login
-   * @param options Login parameters object
+   * 开始登录流程 - 统一版
+   * @param options 登录参数
    */
   async function login(options: LoginOptions): Promise<boolean> {
     if (status.value !== ConnectionStatus.OPEN) {
@@ -166,6 +128,7 @@ export function useAuthWs() {
 
     loading.value = true
     error.value = null
+    resetLoginState() // 重置登录状态
 
     const messageSent = send({
       type: MessageType.LOGIN,
@@ -179,6 +142,65 @@ export function useAuthWs() {
     }
 
     // 返回成功发送请求，实际登录结果会通过WebSocket回调处理
+    return true
+  }
+
+  /**
+   * 提交验证码
+   */
+  async function submitVerificationCode(code: string): Promise<boolean> {
+    if (status.value !== ConnectionStatus.OPEN) {
+      error.value = new Error('WebSocket is not connected')
+      return false
+    }
+
+    if (!needsVerificationCode.value) {
+      error.value = new Error('No verification code requested')
+      return false
+    }
+
+    const messageSent = send({
+      type: MessageType.VERIFICATION_CODE,
+      data: { code },
+    })
+
+    if (!messageSent) {
+      error.value = new Error('Failed to send verification code')
+      return false
+    }
+
+    needsVerificationCode.value = false
+    return true
+  }
+
+  /**
+   * 提交两步验证密码
+   */
+  async function submitTwoFactorAuth(password: string): Promise<boolean> {
+    if (status.value !== ConnectionStatus.OPEN) {
+      error.value = new Error('WebSocket is not connected')
+      return false
+    }
+
+    if (!needsPassword.value) {
+      error.value = new Error('No 2FA password requested')
+      return false
+    }
+
+    loading.value = true
+    error.value = null
+
+    const messageSent = send({
+      type: MessageType.TWO_FACTOR_AUTH,
+      data: { password },
+    })
+
+    if (!messageSent) {
+      loading.value = false
+      error.value = new Error('Failed to send 2FA request')
+      return false
+    }
+
     return true
   }
 
@@ -210,6 +232,7 @@ export function useAuthWs() {
    * Reset the login state
    */
   function resetLoginState() {
+    needsVerificationCode.value = false
     needsPassword.value = false
     progress.value = null
     error.value = null
@@ -219,11 +242,13 @@ export function useAuthWs() {
     isConnected,
     loading,
     error,
+    needsVerificationCode,
     needsPassword,
     progress,
     checkStatus,
-    sendCode,
     login,
+    submitVerificationCode,
+    submitTwoFactorAuth,
     logout,
     resetLoginState,
     connectionStatus: status,
