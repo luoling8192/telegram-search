@@ -145,9 +145,7 @@ export class ConnectionManager {
    */
   public async disconnect(): Promise<void> {
     await this.errorHandler.withRetry(
-      async () => {
-        await this.client.invoke(new Api.auth.LogOut())
-      },
+      async () => this.client.disconnect(),
       {
         context: '断开连接',
         maxRetries: 2,
@@ -162,12 +160,11 @@ export class ConnectionManager {
    */
   public async logout(): Promise<void> {
     try {
-      // 首先断开连接
       if (this.client.connected) {
         await this.disconnect()
       }
 
-      // 然后清除会话
+      await this.client.invoke(new Api.auth.LogOut())
       await this.sessionManager.clearSession()
 
       this.logger.log('已成功登出并清除会话')
