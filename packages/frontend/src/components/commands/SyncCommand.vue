@@ -10,8 +10,8 @@ import { useSession } from '../../composables/useSession'
 const { executeSync, currentCommand, syncProgress, cleanup } = useSync()
 const { checkConnection, isConnected } = useSession()
 const isSyncing = computed(() => currentCommand.value?.status === 'running')
-const canStartSync = computed(() => (!currentCommand.value
-  || ['completed', 'failed'].includes(currentCommand.value.status)) && isConnected.value)
+// const canStartSync = computed(() => (!currentCommand.value
+//   || ['completed', 'failed'].includes(currentCommand.value.status)) && isConnected.value)
 const router = useRouter()
 const showConnectButton = ref(false)
 
@@ -129,7 +129,7 @@ function goToLogin() {
         </p>
 
         <!-- 未连接Telegram时的提示 -->
-        <div v-if="!isConnected.value && showConnectButton" class="mb-4 rounded-md bg-blue-50 p-4 dark:bg-blue-900/30">
+        <div v-if="!isConnected && showConnectButton" class="mb-4 rounded-md bg-blue-50 p-4 dark:bg-blue-900/30">
           <div class="flex">
             <div class="flex-shrink-0">
               <div class="i-carbon-information h-5 w-5 text-blue-400" aria-hidden="true" />
