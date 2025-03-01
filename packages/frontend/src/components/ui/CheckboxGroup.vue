@@ -54,8 +54,8 @@ function isChecked(value: any): boolean {
 </script>
 
 <template>
-  <div :class="class">
-    <label v-if="label" :class="labelClass">
+  <div :class="props.class">
+    <label v-if="label" :class="props.labelClass">
       {{ label }}
     </label>
     <div :style="`display: grid; grid-template-columns: repeat(${columns}, minmax(0, 1fr)); gap: 0.75rem;`">
@@ -73,7 +73,7 @@ function isChecked(value: any): boolean {
           backgroundColor: isChecked(option.value) ? 'rgb(239, 246, 255)' : 'transparent',
         }"
         :class="[
-          optionClass,
+          props.optionClass,
           {
             'dark:border-blue-700 dark:bg-blue-900/20': isChecked(option.value),
             'dark:border-gray-700': !isChecked(option.value)
@@ -91,7 +91,7 @@ function isChecked(value: any): boolean {
             color: 'rgb(37, 99, 235)',
             transition: 'all 0.2s'
           }"
-          :class="checkboxClass"
+          :class="props.checkboxClass"
           :disabled="disabled"
           @change="(e: Event) => handleChange(option.value, (e.target as HTMLInputElement).checked)"
         >
