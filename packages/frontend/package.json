@@ -27,7 +27,7 @@
     "vue-sonner": "^1.3.0"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^4.3.0",
+    "@antfu/eslint-config": "^3.13.0",
     "@iconify-json/carbon": "^1.2.8",
     "@types/node": "^22.13.5",
     "@unocss/eslint-config": "^66.1.0-beta.3",
