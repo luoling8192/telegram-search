@@ -166,6 +166,7 @@ export class ConnectionManager {
       }
 
       // 然后清除会话
+      await this.client.session.delete()
       await this.sessionManager.clearSession()
 
       this.logger.log('已成功登出并清除会话')

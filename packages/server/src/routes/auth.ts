@@ -185,15 +185,7 @@ async function handleLogout() {
 
   try {
     const client = await useTelegramClient()
-
-    if (await client.isConnected()) {
-      await client.logout()
-      logger.debug('[/auth/logout] 已成功登出并清除会话')
-    }
-    else {
-      logger.debug('[/auth/logout] 客户端未连接，无需登出')
-    }
-
+    await client.logout()
     return createResponse<AuthResponse>({ success: true })
   }
   catch (error) {
