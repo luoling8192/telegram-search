@@ -38,6 +38,7 @@
     "typescript": "^5.8.2"
   },
   "resolutions": {
+    "h3": "npm:h3-nightly@latest",
     "unplugin": "^2.2.0",
     "vite": "^6.2.0"
   },

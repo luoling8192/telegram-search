@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
-import { useAuth } from '../apis/useAuth'
+import { useAuthWs } from '../apis/useAuthWs' // 新版基于WebSocket的验证
 import { useConfig } from '../apis/useConfig'
+// import { useAuth } from '../apis/useAuth' // 旧版基于REST API的验证
+import { ConnectionStatus } from '../composables/useWebSocket'
 import { ErrorCode } from '../types/error'
 
 // 定义登录流程的各个步骤
@@ -45,7 +47,18 @@ const state = ref<LoginState>({
 })
 
 const router = useRouter()
-const { checkStatus, login, sendCode } = useAuth()
+// const { checkStatus, login, sendCode } = useAuth() // 旧版API
+const {
+  checkStatus,
+  login,
+  sendCode,
+  loading,
+  error: wsError,
+  isConnected,
+  needsPassword,
+  progress,
+  connectionStatus,
+} = useAuthWs() // 新版WebSocket API
 const { config, getConfig } = useConfig()
 
 // 登录成功后的重定向路径
@@ -55,6 +68,11 @@ const returnPath = ref('/')
 const canSubmit = computed(() => {
   const { currentStep, phoneNumber, verificationCode, twoFactorPassword } = state.value
 
+  // 如果WebSocket未连接，禁用提交
+  if (connectionStatus.value !== ConnectionStatus.OPEN) {
+    return false
+  }
+
   if (currentStep === 'phone' && !phoneNumber)
     return false
   if (currentStep === 'code' && !verificationCode)
@@ -62,13 +80,70 @@ const canSubmit = computed(() => {
   if (currentStep === 'code_2fa' && (!verificationCode || !twoFactorPassword))
     return false
 
-  return true
+  return !loading.value
 })
 
 // 计算当前步骤的展示状态
 const needPhoneNumber = computed(() => state.value.currentStep === 'phone')
 const needCode = computed(() => state.value.currentStep === 'code')
 const needCode2FA = computed(() => state.value.currentStep === 'code_2fa')
+
+// 监听WebSocket连接状态
+watch(connectionStatus, (newStatus) => {
+  if (newStatus === ConnectionStatus.CLOSED || newStatus === ConnectionStatus.CLOSING) {
+    toast.error('服务器连接已断开，请刷新页面重试')
+  }
+})
+
+// 监听WebSocket错误
+watch(wsError, (newError) => {
+  if (newError) {
+    state.value.error = newError.message
+    if (newError.message === ErrorCode.NEED_TWO_FACTOR_CODE) {
+      goToNextStep('code_2fa')
+    }
+  }
+})
+
+// 监听WebSocket进度信息
+watch(progress, (newProgress) => {
+  if (newProgress) {
+    // 根据进度信息更新UI状态
+    switch (newProgress.step) {
+      case 'CODE_SENT':
+        if (newProgress.success) {
+          goToNextStep('code')
+          toast.success('验证码已发送到您的设备')
+        }
+        break
+      case 'PASSWORD_REQUIRED':
+        goToNextStep('code_2fa')
+        toast.info('需要输入两步验证密码')
+        break
+    }
+  }
+})
+
+// 监听WebSocket认证状态
+watch(isConnected, (newConnected) => {
+  state.value.isConnected = newConnected
+  if (newConnected) {
+    handleSuccessfulConnection()
+  }
+})
+
+// 监听WebSocket loading状态
+watch(loading, (newLoading) => {
+  state.value.isLoading = newLoading
+})
+
+// 监听是否需要2FA密码
+watch(needsPassword, (newNeedsPassword) => {
+  if (newNeedsPassword && state.value.currentStep !== 'code_2fa') {
+    goToNextStep('code_2fa')
+    toast.info('需要输入两步验证密码以完成登录')
+  }
+})
 
 // 页面初始化
 onMounted(async () => {
@@ -116,9 +191,10 @@ async function checkLoginStatus() {
   state.value.error = null
 
   try {
-    state.value.isConnected = await checkStatus()
+    const connected = await checkStatus()
+    state.value.isConnected = connected
 
-    if (state.value.isConnected) {
+    if (connected) {
       handleSuccessfulConnection()
     }
   }
@@ -143,15 +219,8 @@ async function requestVerificationCode() {
 
   try {
     const options = getApiOptions()
-    const result = await sendCode(phoneNumber, options)
-
-    if (result && result.success) {
-      goToNextStep('code')
-      toast.success('验证码已发送到您的设备')
-    }
-    else {
-      throw new Error('验证码发送失败，请重试')
-    }
+    await sendCode(phoneNumber, options)
+    // goToNextStep('code') - 移除，通过WebSocket回调处理步骤变更
   }
   catch (err) {
     handleError(err, '请求验证码失败，请重试')
@@ -215,18 +284,11 @@ async function submitLogin() {
       return
     }
 
-    const success = await login(options)
-
-    if (success) {
-      handleSuccessfulConnection()
-      goToNextStep('complete')
-    }
+    await login(options)
+    // WebSocket回调会处理登录成功后的状态更新
   }
   catch (err) {
     handleLoginError(err)
-  }
-  finally {
-    state.value.isLoading = false
   }
 }
 
@@ -251,6 +313,7 @@ function handleSuccessfulConnection() {
   console.warn('登录成功，准备重定向到', returnPath.value)
   toast.success('连接成功！')
   state.value.isConnected = true
+  goToNextStep('complete')
 
   // 延迟跳转，给用户一些视觉反馈
   setTimeout(() => {

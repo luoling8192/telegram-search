@@ -14,12 +14,12 @@ import {
 } from 'h3'
 import { listen } from 'listhen'
 
-import { setupAuthRoutes } from './routes/auth'
 import { setupChatRoutes } from './routes/chat'
 import { setupCommandRoutes } from './routes/commands'
 import { setupConfigRoutes } from './routes/config'
 import { setupMessageRoutes } from './routes/message'
 import { setupSearchRoutes } from './routes/search'
+import { setupWsAuthRoutes } from './routes/ws-auth'
 import { createErrorResponse } from './utils/response'
 
 export * from './types'
@@ -57,12 +57,12 @@ function setupErrorHandlers(logger: ReturnType<typeof useLogger>): void {
  * Setup all routes for the application
  */
 function setupRoutes(app: App) {
-  setupAuthRoutes(app)
   setupChatRoutes(app)
   setupCommandRoutes(app)
   setupConfigRoutes(app)
   setupMessageRoutes(app)
   setupSearchRoutes(app)
+  setupWsAuthRoutes(app)
 }
 
 // Server configuration
@@ -72,18 +72,16 @@ function configureServer(logger: ReturnType<typeof useLogger>) {
   // CORS middleware
   app.use(eventHandler((event: H3Event) => {
     setResponseHeaders(event, {
-      'Access-Control-Allow-Origin': 'http://localhost:3333',
+      'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cache-Control, X-Requested-With',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cache-Control, X-Requested-With, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Extensions, Upgrade, Connection',
+      'Access-Control-Max-Age': '86400',
     })
 
-    if (event.method === 'OPTIONS') {
-      setResponseHeaders(event, {
-        'Access-Control-Max-Age': '86400',
-      })
-      return null
-    }
+    // if (event.method === 'OPTIONS') {
+    //   return null
+    // }
   }))
 
   // Request logging middleware
@@ -136,6 +134,7 @@ async function bootstrap() {
   await listen(listener, {
     port: 3000,
     showURL: true,
+    ws: true,
   })
 
   const shutdown = () => process.exit(0)

@@ -7,6 +7,7 @@ settings:
 overrides:
   unplugin: ^2.2.0
   vite: ^6.2.0
+  h3: npm:h3-nightly@latest
 
 importers:
 
@@ -352,8 +353,8 @@ importers:
         specifier: workspace:*
         version: link:../db
       h3:
-        specifier: ^1.15.1
-        version: 1.15.1
+        specifier: npm:h3-nightly@latest
+        version: h3-nightly@1.15.1-20250222-111608-d1c00fc
       listhen:
         specifier: ^1.9.0
         version: 1.9.0
@@ -3475,8 +3476,8 @@ packages:
     resolution: {integrity: sha512-ax7ZYomf6jqPTQ4+XCpUGyXKHk5WweS+e05MBO4/y3WJ5RkmPXNKvX+bx1behVILVwr6JSQvZAku021CHPXG3Q==}
     engines: {node: '>=10'}
 
-  h3@1.15.1:
-    resolution: {integrity: sha512-+ORaOBttdUm1E2Uu/obAyCguiI7MbBvsLTndc3gyK3zU+SYLoZXlyCP9Xgy0gikkGufFLTZXCXD6+4BsufnmHA==}
+  h3-nightly@1.15.1-20250222-111608-d1c00fc:
+    resolution: {integrity: sha512-V2DeFol/CJ4QLimURS59juWk4b+XY2qhSlyhi0U3WnqN3PKLAIpLtRn340MHQf53ldMhP4oQA/SrJG9hPOcnLA==}
 
   has-ansi@2.0.0:
     resolution: {integrity: sha512-C8vBJ8DwUCx19vhm7urhTuUsr4/IyP6l4VzNQDv+ryHQObW3TTTp9yB68WpYgRe2bbaGuZ/se74IqFeVnMnLZg==}
@@ -8651,7 +8652,7 @@ snapshots:
     dependencies:
       duplexer: 0.1.2
 
-  h3@1.15.1:
+  h3-nightly@1.15.1-20250222-111608-d1c00fc:
     dependencies:
       cookie-es: 1.2.2
       crossws: 0.3.4
@@ -8964,7 +8965,7 @@ snapshots:
       crossws: 0.3.4
       defu: 6.1.4
       get-port-please: 3.1.2
-      h3: 1.15.1
+      h3: h3-nightly@1.15.1-20250222-111608-d1c00fc
       http-shutdown: 1.2.2
       jiti: 2.4.2
       mlly: 1.7.4
