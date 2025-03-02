@@ -1,6 +1,8 @@
 <!-- Theme toggle button with smooth animation -->
 <script setup lang="ts">
-import { toggleDark } from '../composables/dark'
+import { useDarkStore } from '../composables/dark'
+
+const { toggleDark } = useDarkStore()
 </script>
 
 <template>
