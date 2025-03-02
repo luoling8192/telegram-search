@@ -1,10 +1,8 @@
 import type { EmbeddingModelConfig, IEmbeddingModel } from './../../types/adapter'
 
 import { useLogger } from '@tg-search/common'
+import { embed } from '@xsai/embed'
 
-interface OllamaEmbeddingApiResponse {
-  embedding: number[]
-}
 export class EmbeddingModelOllama implements IEmbeddingModel {
   private config: EmbeddingModelConfig
   private logger = useLogger()
@@ -36,21 +34,13 @@ export class EmbeddingModelOllama implements IEmbeddingModel {
   async generateEmbedding(text: string) {
     try {
       const tokenCount = this.getTokenCount(text)
-      const data = await fetch(this.config.apiBase ? `${this.config.apiBase}/api/embeddings` : 'http://localhost:11434/api/embeddings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.config.model,
-          prompt: text,
-        }),
+      const { embedding } = await embed({
+        model: this.config.model,
+        input: text,
+        baseURL: 'http://localhost:11434/v1',
       })
-      const { embedding } = await data.json() as OllamaEmbeddingApiResponse
-      // 更新使用统计
       this.totalTokens += tokenCount
       this.totalCost += this.calculateCost(tokenCount)
-
       return embedding
     }
     catch (error) {
