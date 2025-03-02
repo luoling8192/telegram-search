@@ -51,6 +51,6 @@
     "unplugin-vue-macros": "^2.14.5",
     "unplugin-vue-router": "^0.11.2",
     "vite": "^6.2.0",
-    "vue-tsc": "^2.2.4"
+    "vue-tsc": "^2.2.8"
   }
 }
