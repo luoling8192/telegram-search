@@ -4,11 +4,12 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { useAuth } from '../apis/useAuth'
-import { isDark } from '../composables/dark'
+import { useDarkStore } from '../composables/dark'
 import { useSession } from '../composables/useSession'
 
 const router = useRouter()
 const { logout } = useAuth()
+const { isDark } = useDarkStore()
 const { checkConnection, isConnected } = useSession()
 const showUserMenu = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
